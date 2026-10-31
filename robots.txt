@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /account
+Disallow: /dealer/
+Disallow: /admin
+Disallow: /webhooks/
+
+Sitemap: https://meezanproperty.com/sitemap.xml
