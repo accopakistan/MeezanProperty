@@ -6,7 +6,6 @@ use App\Support\Format;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /** A new housing scheme or development, curated by Meezan Property staff. */
@@ -62,7 +61,7 @@ class Project extends Model
 
     public function coverUrl(): string
     {
-        return $this->cover_path ? Storage::disk('public')->url($this->cover_path) : asset('images/placeholders/commercial.svg');
+        return $this->cover_path ? asset('storage/'.$this->cover_path) : asset('images/placeholders/commercial.svg');
     }
 
     public function priceRange(): ?string

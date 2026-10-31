@@ -10,6 +10,11 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    // CSS images (Leaflet markers) and lazy JS chunks use relative URLs, so
+    // the build works under any ASSET_URL (e.g. https://example.com/public/).
+    experimental: {
+        renderBuiltUrl: () => ({ relative: true }),
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],

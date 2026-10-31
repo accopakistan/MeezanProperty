@@ -17,13 +17,13 @@ class PropertyImage extends Model
 
     public function url(): string
     {
-        return Storage::disk('public')->url($this->path);
+        return asset('storage/'.$this->path);
     }
 
     /** Card-sized version; photos uploaded before processing existed use the full image. */
     public function thumbUrl(): string
     {
-        return Storage::disk('public')->url($this->thumb_path ?? $this->path);
+        return asset('storage/'.($this->thumb_path ?? $this->path));
     }
 
     /** Remove the stored files (full image and thumbnail). */

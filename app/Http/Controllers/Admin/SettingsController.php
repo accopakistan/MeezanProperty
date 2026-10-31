@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Services\WhatsApp\WhatsAppClient;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
@@ -38,7 +37,7 @@ class SettingsController extends Controller
             'cities' => config('meezan.cities'),
             'lifetime' => config('meezan.listing.lifetime_days'),
             'webhookUrl' => route('webhooks.whatsapp'),
-            'diskUrl' => Storage::disk('public')->url(''),
+            'diskUrl' => asset('storage'),
         ]);
     }
 }
