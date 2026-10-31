@@ -1,0 +1,663 @@
+{
+    "schemes": [
+        {
+            "name": "AGOCHS, Phase-I",
+            "zone": "Zone 5",
+            "road": "IHW\/Soan Garden",
+            "area": "1114.14 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "AGOCHS, Phase-II",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "3517 Kanal",
+            "lop": "Approved",
+            "noc": "Cancelled"
+        },
+        {
+            "name": "Al-Hamra Avenue",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "1074 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Al-Hamra Hills Agro Farming Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "1423 Kanal",
+            "lop": "Approved",
+            "noc": "Cancelled"
+        },
+        {
+            "name": "Al-Makkah City",
+            "zone": "Zone 5",
+            "road": "Japan Road",
+            "area": "408.43 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Anza Zephyr Dale Agro Farms",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "4980.95 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Army Welfare Trust",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "4710 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Bahria Enclave Phase-I Housing Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "12543.11 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Bahria Enclave-II, Agro Farming Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "2489.38 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Bahria Enclave-II, Phase-II, Housing Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "1180.04 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Bahria Garden City",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "3232.4 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Bahria Town (Phase-III-E- IV)",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "2099 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Bahria Town (Phase-VII-E)",
+            "zone": "Zone 5",
+            "road": "GT Road \/ Bahria Expressway",
+            "area": "711 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Bahria Town, Phase VII",
+            "zone": "Zone 5",
+            "road": "GT Road \/ Bahria Expressway",
+            "area": "879.53 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Bahria Town, Phase-II,III,V & VI",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "2501 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Cabinet Division Employees Co-operative Housing Society",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "4405 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Capital Enclave",
+            "zone": "Zone 5",
+            "road": "Islamabad Expressway",
+            "area": "771.51 Kanal",
+            "lop": "Provisional Approval",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "CBR Town",
+            "zone": "Zone 5",
+            "road": "IHW",
+            "area": "1687.85 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Engineers Co-opertaive",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "4298 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Engineers Housing Scheme",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "1156.29 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Faisal Residencia Housing Scheme",
+            "zone": "Zone 2",
+            "road": "E.F Principal Road",
+            "area": "1220.60 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Federal Government Employees Housing Foundation (FGEHF)",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "3090 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Federation of Employees",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "443 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "FIA Park Enclave Housing Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "401.97 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Grace Valley",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "436 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Gulberg Greens Farm Housing Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "3862 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Gulberg Residencia (IBECHS Ph-III) Housing Scheme",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "19390.36 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Gulshan-e-Rabia",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "447 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Gulshan-e-Sehat",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "1748 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Icon Garden",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "146.92 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Islamabad Gardens",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "811.50 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Islamabad Model Town",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "423 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Jeddah Town",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "800 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Jinnah Garden Phase-1 Extension",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "1826.50 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Jinnah Garden, Phase-I",
+            "zone": "Zone 5",
+            "road": "Islamabad Expressway",
+            "area": "2548 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Jinnah Garden, Phase-II",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "430 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Jinnah Town",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "2549 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Kashmir Gardens Farming Scheme",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "2660.13 Kanal",
+            "lop": "Provisional Approval",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Khayaban-e-Kashmir, Phase (Extension)",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "3325 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Khayaban-e-Kashmir, Phase-I",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "3482.62 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Khayaban-e-Kashmir, Phase-II",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "1345 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Margalla View Housing Scheme",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "1912.02 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Margalla View Housing Scheme (Extension)",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "292.25 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Ministry of Interior Employees Co-operative Housing Society",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "1630 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Morgah City",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "882 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Multi Gardens, Phase-I",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "4815.75 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Multi Gardens, Phase-II",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "4480 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "National Assembly Empolyees Cooperative Housing Society (NAECHS)",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "407 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "National Cooperative Housing Society & New Islamabad Enclave",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "1037 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "National Police Foundation",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "1325 Kanal",
+            "lop": "Approved",
+            "noc": "Cancelled"
+        },
+        {
+            "name": "Naval Anchorage",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "3702.70 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "New Islamabad Garden",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "800 Kanal",
+            "lop": "Approved",
+            "noc": "Cancelled"
+        },
+        {
+            "name": "OPF Housing Scheme",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "4683.25 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Pakistan Medical Cooperative Housing Scheme",
+            "zone": "Zone 1",
+            "road": "Islamabad Expressway",
+            "area": "276 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Pakistan Navy Farms, Simly Dam Road, Islamabad",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "2343.26 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Paradise City",
+            "zone": "Zone 2",
+            "road": "Fateh Jang Road",
+            "area": "1900 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Park View City Housing Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "1067.90 Kanal",
+            "lop": "Approved",
+            "noc": "Approved"
+        },
+        {
+            "name": "Parliamentarians Enclave",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "414 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Rahman Enclave Housing Scheme",
+            "zone": "Zone 4",
+            "road": "GT Road",
+            "area": "705.68 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "River Garden",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "1079.17 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Roshan Pakistan (RP) Corporation Housing Scheme",
+            "zone": "Zone 2",
+            "road": "GT Road",
+            "area": "1619 Kanal",
+            "lop": "Cancelled",
+            "noc": "Cancelled"
+        },
+        {
+            "name": "Senate Avenue",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "680 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Services Co-operative Housing Society",
+            "zone": "Zone 5",
+            "road": "E-11",
+            "area": "255 Kanal",
+            "lop": "Cancelled",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Soan Garden Housing Scheme",
+            "zone": "Zone 5",
+            "road": "Islamabad Expressway",
+            "area": "2985 Kanal",
+            "lop": "Approved",
+            "noc": "Cancelled"
+        },
+        {
+            "name": "Supreme Court Employees Housing Scheme",
+            "zone": "Zone 2",
+            "road": "Service Road, Srinagar Highway",
+            "area": "2222.06 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "T & T Employees Cooperative Housing Society",
+            "zone": "Zone 2",
+            "road": "Fateh Jang Road",
+            "area": "1194.7 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Tele Gardens Housing Scheme, F-17, Islamabad",
+            "zone": "Zone 2",
+            "road": "Fateh Jang Road",
+            "area": "1757.65 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        },
+        {
+            "name": "Tele Town",
+            "zone": "Zone 5",
+            "road": "Dharwala Road",
+            "area": "499.5 Kanal",
+            "lop": "Approved"
+        },
+        {
+            "name": "WWF Labor Colony",
+            "zone": "Zone 5",
+            "road": "GT Road",
+            "area": "1511 Kanal",
+            "lop": "Approved",
+            "noc": "Not Issued"
+        },
+        {
+            "name": "Zaraj Housing",
+            "zone": "Zone 5",
+            "road": "HUMAK",
+            "area": "1564 Kanal",
+            "lop": "Approved",
+            "noc": "Issued"
+        }
+    ],
+    "illegal": [
+        "Abdullah Garden Kuri Road",
+        "Abdullah Gardens Kuri Road",
+        "Abu Bakar Town, Islamabad Highway",
+        "Adil Farms, Simly Dam Road",
+        "Adil Valley, Simly Dam Road",
+        "Al-Huda Town, Lehtrar Road",
+        "Al-Rayan Society",
+        "Al-Rehman City View, Lehtrar Road (near PS Nilore)",
+        "Al-Rehman Villas, Kuri Road near Attock Petroleum",
+        "Al-Syed Avenue, Park Road",
+        "Ali Model Town",
+        "Ali Town",
+        "Ameer Khan Enclave, Mallah Road near Bahria Enclave",
+        "Arcadia City",
+        "Arsalan Town, Lehtrar Road",
+        "Aryan Enclave, Main Korang Road, Bani Gala",
+        "Asian Ranches Villas, Lehtrar, Simly Dam Link Road",
+        "Babar Enclave, Mora Noor",
+        "Badar Farms, Simly Dam Road",
+        "Bani Gala Hill View, Hill View Road, Bani Gala",
+        "Bara Kahu Enclave, Islamabad",
+        "Blue Enclave\/ Star Home, Lehtrar, Simly Dam Link Road",
+        "Burma Town, Lehtrar Road",
+        "Bylee Town, Kuri Road near Attock Petroleum",
+        "Capital Gardens, Lehtrar Road",
+        "Centerbury Enclave near Park Road",
+        "City Town, Lehtrar Road",
+        "City View near Nilore",
+        "Commoners Sky Garden (Flower Valley)",
+        "Danyal Town, Hurno Thanda Pani Nilore Islamabad",
+        "Dearm Land City, Lehtrar Road, Thanda Pani",
+        "Dhanyal Town Hunro Thanda Pani",
+        "Doctors Enclave, Park Road",
+        "Faisal Town Islamabad Highway",
+        "Ghakar Town, Lehtrar Road (near Malal Bridge Nilore)",
+        "Ghakkar Town, Lehtrar Road",
+        "Ghouri Gardens, Lehtrar Road",
+        "Ghouri Town, all Phases Islamabad Expressway",
+        "Government Officers Co-operative Housing Scheme",
+        "Green Avenue-II, Kuri Road",
+        "Green Avenue, Park Road",
+        "Green Field, Simly Dam Road",
+        "Green Hills",
+        "Green Meadows (North Ridge) Housing Scheme",
+        "Green Residencia Lehtrar Road",
+        "Green Valley (1&2), Simly Dam Road",
+        "Green Valley, Karor Road near Quran Complex",
+        "Green View Villas, Off Lehtrar Road",
+        "Gulberg Town (1&2), Lehtrar Road",
+        "Gulf Residencia, Lehtrar Road",
+        "Hammad Town (Mouza Mohrian), Kuri Road",
+        "Hill View Houses, Simly Dam Road",
+        "Ideal Residencia near Park Enclave",
+        "Iqbal Town, Islamabad Expressway",
+        "Islamabad Saif Garden Kirpa Road, Off Lehtrar Road",
+        "Ittifaq Town, Old Kirpa Road, Off Lehtrar Road",
+        "J&K Farm Housing Scheme Islamabad Expressway",
+        "Japan Valley Kirpa",
+        "Karsaz Villas near D-12 Shah Allah Ditta",
+        "Katrsaz Villas near D-12 Shah Allah Ditta, Zone-III, Islamabad",
+        "Kiani Town, Kirpa Road, Off Lehtrar Road",
+        "Kohsar Enclave near Naval Farms, Simly Dam Road",
+        "Land Sub-division sponsored by Mr. Raja Farukh on the south of Korang River near Bani Gala Bridge",
+        "Land Sub-division sponsored by Mr. Shahzad, Sanjania Road, Bani Gala",
+        "Madina Enclave Phase-I, Lehtrar - Simly Dam Link Road",
+        "Madina Town, Islamabad Highway",
+        "Major Makhdoom Society",
+        "Makkah Town, Hurno Thanda Pani Nilore Islamabad",
+        "Margalla Gardens Lehtrar Road",
+        "Marwa Town Islamabad Highway",
+        "Media City-1, Kirpa Road",
+        "Mufti Mehmood Enclave, Off Lehtrar Road",
+        "Muslim Town, Simly Dam Road",
+        "Muzafarabad Town, Pid Begwal, Simly Dam Road",
+        "New University Town (near COMSATS), Park Road",
+        "OGDCOL Town near Chattar Murree Road",
+        "Olive Wood Farms, Simly Dam Road",
+        "Paradise Point HS, Lehtrar Road",
+        "Park Lane Valley, Park Road",
+        "PTV Colony, Simly Dam Road",
+        "Qurtbal Town Islamabad Highway",
+        "Rawal Enclave Kuri Road",
+        "Rawal Enclave Phase-III, Lehtrar Road",
+        "Royal City Housing Scheme Lehtrar Road",
+        "Royal Homes\/ Residencia, Lehtrar Road",
+        "Saif Gardens, Ali Pur Farash, Lehtrar Road",
+        "Sama Town",
+        "Satti Town, Lehtrar Road",
+        "Shaheen Farms, Simly Dam Road",
+        "Shaheen Town 1,2,3,4 Lehtrar Road",
+        "Simly Valley (1&2), Simly Dam Road",
+        "Spring Valley, Simly Dam Road",
+        "Star Villas Housing Scheme Simly Dam Road",
+        "The Enclave Housing Scheme, Main Bani Galla Road",
+        "Tricon Agro-Farms, Simly Dam Road",
+        "Usama Town, Hunro Thanda Pani",
+        "Usama Town, Hurno Thanda Pani (near Aziz Market Nilore Islamabad)",
+        "Yar Muhammad Society, Bani Gala"
+    ]
+}

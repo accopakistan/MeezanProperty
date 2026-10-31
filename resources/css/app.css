@@ -1,0 +1,289 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+/*
+|--------------------------------------------------------------------------
+| Meezan Property design tokens — from public/Refrence/Brand Style Guide
+|--------------------------------------------------------------------------
+| Primary purple #4B2E83 · Accent purple #6A3FB0 · Gold accent #D4AF37
+| Background #F9F7FB · Text / neutral #2E2E2E
+| Headings: serif display (Playfair Display) · UI text: Inter
+*/
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+
+    --color-brand-50: #f5f1fb;
+    --color-brand-100: #ebe3f6;
+    --color-brand-200: #d4c4ec;
+    --color-brand-300: #b59bdc;
+    --color-brand-400: #8c66c8;
+    --color-brand-500: #6a3fb0;
+    --color-brand-600: #4b2e83;
+    --color-brand-700: #3e2570;
+    --color-brand-800: #2c1858;
+    --color-brand-900: #1e0f40;
+
+    --color-gold-50: #fcf8ea;
+    --color-gold-100: #f7eecb;
+    --color-gold-200: #eedc96;
+    --color-gold-300: #e3c662;
+    --color-gold-500: #d4af37;
+    --color-gold-600: #b8952a;
+    --color-gold-700: #8a6e1f;
+
+    --color-ink: #2e2e2e;
+    --color-page: #f9f7fb;
+    --color-line: #e8e3ef;
+    --color-muted: #6e6878;
+
+    --radius-card: 0.625rem;
+    --radius-control: 0.375rem;
+
+    --shadow-card: 0 1px 2px rgb(46 26 82 / 0.05), 0 4px 14px -6px rgb(46 26 82 / 0.12);
+    --shadow-lift: 0 2px 4px rgb(46 26 82 / 0.06), 0 14px 32px -14px rgb(46 26 82 / 0.3);
+}
+
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-page text-ink antialiased;
+        font-feature-settings: 'ss01', 'cv11';
+    }
+
+    h1, h2, h3, h4 {
+        @apply text-ink;
+        text-wrap: balance;
+    }
+
+    /* Display headings use the serif face shown in every reference page. */
+    h1, .font-display {
+        font-family: var(--font-serif);
+        @apply font-bold tracking-[-0.01em];
+    }
+
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-brand-500;
+    }
+
+    [x-cloak], [hidden] {
+        display: none !important;
+    }
+}
+
+@layer components {
+    .container-page {
+        @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10;
+    }
+
+    /* Buttons --------------------------------------------------------- */
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition duration-150 select-none disabled:pointer-events-none disabled:opacity-50;
+    }
+    .btn-sm { @apply px-3 py-2 text-[13px]; }
+    .btn-lg { @apply px-6 py-3.5 text-[15px]; }
+    .btn-primary { @apply bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800; }
+    .btn-gold { @apply bg-gold-500 text-white shadow-sm hover:bg-gold-600; }
+    .btn-secondary { @apply border border-line bg-white text-ink hover:border-brand-200 hover:bg-brand-50; }
+    .btn-outline { @apply border border-brand-600 bg-white text-brand-600 hover:bg-brand-50; }
+    .btn-ghost { @apply text-brand-700 hover:bg-brand-50; }
+    .btn-danger { @apply bg-red-600 text-white hover:bg-red-700; }
+    .btn-whatsapp { @apply bg-[#16a34a] text-white hover:bg-[#15803d]; }
+    .btn-on-dark { @apply border border-white/20 bg-white/10 text-white hover:bg-white/20; }
+
+    /* Forms ----------------------------------------------------------- */
+    .label { @apply mb-1.5 block text-[13px] font-semibold text-ink; }
+    .input {
+        @apply block w-full rounded-[var(--radius-control)] border border-line bg-white px-3.5 py-2.5 text-sm text-ink shadow-[0_1px_0_rgb(33_19_58/0.02)] transition placeholder:text-muted/70 focus:border-brand-400 focus:ring-3 focus:ring-brand-100 focus:outline-none disabled:bg-page;
+    }
+    select.input {
+        @apply appearance-none bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat pr-9;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23756D81' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
+    .input-error { @apply border-red-400 focus:border-red-500 focus:ring-red-100; }
+    .field-error { @apply mt-1.5 text-[13px] font-medium text-red-600; }
+    .field-hint { @apply mt-1.5 text-[13px] text-muted; }
+    .checkbox { @apply size-4 rounded border-line text-brand-600 accent-brand-600 focus:ring-brand-200; }
+
+    /* Surfaces -------------------------------------------------------- */
+    .card { @apply rounded-[var(--radius-card)] border border-line bg-white shadow-card; }
+    .card-body { @apply p-5 sm:p-6; }
+    .divider { @apply border-t border-line; }
+
+    /* Chips and badges ------------------------------------------------ */
+    .chip {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[13px] font-medium text-ink transition hover:border-brand-300 hover:text-brand-700;
+    }
+    .chip-dark { @apply inline-flex items-center rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[13px] font-medium text-white transition hover:bg-white/20; }
+    /* Square toggle chips used by search filters (Any / 1 / 2 / 3 …). */
+    .pill { @apply inline-flex min-w-9 items-center justify-center rounded-[var(--radius-control)] border border-line bg-white px-3 py-1.5 text-[13px] font-medium text-ink transition hover:border-brand-300; }
+    .chip-active { @apply border-brand-600 bg-brand-600 text-white hover:text-white; }
+    .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap; }
+    /* Rectangular listing labels (Featured / For Sale / For Rent) from the references. */
+    .tag { @apply inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-white shadow-sm; }
+
+    /* Typography helpers ---------------------------------------------- */
+    .eyebrow { @apply text-xs font-semibold tracking-[0.14em] text-gold-600 uppercase; }
+    .section-title { font-family: var(--font-serif); @apply text-2xl font-bold text-ink sm:text-[30px] sm:leading-tight; }
+    .link { @apply font-semibold text-brand-600 underline-offset-4 hover:underline; }
+
+    /* Tables ---------------------------------------------------------- */
+    .table { @apply w-full text-left text-sm; }
+    .table th { @apply border-b border-line bg-page/60 px-4 py-3 text-xs font-semibold tracking-wide whitespace-nowrap text-muted uppercase; }
+    .table td { @apply border-b border-line px-4 py-3.5 align-middle; }
+    .table tr:last-child td { @apply border-b-0; }
+    .table-compact th, .table-compact td { @apply px-2.5 py-2.5; }
+    .table-compact th:first-child, .table-compact td:first-child { @apply pl-5; }
+
+    /* Dashboard navigation -------------------------------------------- */
+    /* Dark purple sidebar used by the dealer, buyer and admin references. */
+    .side-link {
+        @apply flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white;
+    }
+    .side-link-active { @apply bg-brand-500 font-semibold text-white shadow-sm; }
+    .side-link-gold { @apply bg-gold-500 font-semibold text-brand-900 shadow-sm hover:bg-gold-500 hover:text-brand-900; }
+
+    /* Rich text from listings ----------------------------------------- */
+    .prose-listing p { @apply mb-4 leading-7 text-ink/85; }
+}
+
+@utility scrollbar-none {
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Leaflet price markers: white label with a purple home badge, as in the map references */
+.mp-pin-wrap,
+.mp-picker-pin {
+    background: none;
+    border: 0;
+}
+/* Listing form: the dealer's draggable location pin. */
+.mp-picker-pin {
+    cursor: grab;
+    filter: drop-shadow(0 3px 4px rgb(33 19 58 / 0.35));
+}
+.mp-picker-pin:active {
+    cursor: grabbing;
+}
+/* Price pin: purple label with a pointer, anchored at the listing's point. */
+.mp-pin {
+    @apply relative flex flex-col items-center rounded-lg bg-brand-500 px-2 py-1 text-[11.5px] leading-tight font-bold whitespace-nowrap text-white shadow-lift ring-1 ring-white/70;
+    transform: translate(-50%, calc(-100% - 7px));
+    width: max-content;
+    cursor: pointer;
+    transition: background-color 0.15s, transform 0.15s;
+}
+.mp-pin::after {
+    content: '';
+    @apply absolute left-1/2 size-2.5 bg-brand-500;
+    bottom: -4px;
+    transform: translateX(-50%) rotate(45deg);
+}
+.mp-pin__label {
+    @apply flex items-center gap-1;
+}
+.mp-pin__label::before {
+    content: '';
+    @apply size-3 shrink-0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 3 3 10v11h6v-6h6v6h6V10z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.mp-pin--area .mp-pin__label::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M4 21V5l8-3 8 3v16h-6v-5h-4v5zm4-13h2V6H8zm6 0h2V6h-2zm-6 4h2v-2H8zm6 0h2v-2h-2z'/%3E%3C/svg%3E");
+}
+.mp-pin__icon {
+    @apply sr-only;
+}
+.mp-pin__from {
+    @apply flex items-center gap-1 font-bold;
+}
+.mp-pin--area {
+    @apply bg-brand-600 ring-2 ring-white;
+    border: 1.5px dashed rgb(255 255 255 / 0.85);
+}
+.mp-pin--area::after {
+    @apply bg-brand-600;
+}
+.mp-pin__new {
+    @apply -mx-1 mb-0.5 rounded bg-white/20 px-1 text-[10px] font-semibold tracking-wide uppercase;
+}
+.mp-pin img {
+    @apply hidden;
+}
+/* Hovered result card or pin: lift it and show the photo, like a preview card. */
+.mp-pin:hover,
+.mp-pin.is-active {
+    @apply bg-brand-700;
+    transform: translate(-50%, calc(-100% - 7px)) scale(1.06);
+}
+.mp-pin:hover::after,
+.mp-pin.is-active::after {
+    @apply bg-brand-700;
+}
+.mp-pin:hover img,
+.mp-pin.is-active img {
+    @apply -mx-1 mb-1 block h-14 w-24 rounded-md object-cover;
+}
+.leaflet-marker-icon:has(.mp-pin:hover) {
+    z-index: 10000 !important;
+}
+
+/* Marker popups */
+.mp-popup .leaflet-popup-content-wrapper {
+    @apply rounded-xl p-0 shadow-lift;
+}
+.mp-popup .leaflet-popup-content {
+    @apply m-0 w-auto! text-[13px] text-ink;
+}
+.mp-popup__single img {
+    @apply aspect-[16/9] w-full rounded-t-xl object-cover;
+}
+.mp-popup__single a,
+.mp-popup__item > span {
+    @apply flex min-w-0 flex-col gap-0.5 text-ink no-underline;
+}
+.mp-popup__single a {
+    @apply px-3.5 py-3;
+}
+.mp-popup__single strong,
+.mp-popup__item strong {
+    @apply text-[15px] font-bold text-brand-700;
+}
+.mp-popup__single span,
+.mp-popup__item > span > span {
+    @apply truncate font-medium;
+}
+.mp-popup small {
+    @apply text-xs text-muted;
+}
+.mp-popup__area {
+    @apply p-3;
+}
+.mp-popup__head {
+    @apply m-0! font-bold;
+}
+.mp-popup__note {
+    @apply m-0! mt-1! mb-2! text-[11.5px] leading-snug text-muted;
+}
+.mp-popup__item {
+    @apply flex items-center gap-2.5 rounded-lg p-1.5 text-ink! no-underline hover:bg-brand-50;
+}
+.mp-popup__item img,
+.mp-popup__noimg {
+    @apply h-11 w-16 shrink-0 rounded-md bg-brand-50 object-cover;
+}
+.mp-popup__all {
+    @apply mt-1.5 block rounded-md bg-brand-600 px-3 py-2 text-center text-xs font-semibold text-white! no-underline hover:bg-brand-700;
+}
+.leaflet-container {
+    font-family: inherit;
+}
