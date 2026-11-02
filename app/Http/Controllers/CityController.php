@@ -7,6 +7,7 @@ use App\Models\Area;
 use App\Models\Property;
 use App\Services\CityDirectory;
 use App\Support\Cities;
+use App\Support\Seo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -56,6 +57,7 @@ class CityController extends Controller
             'directory' => collect(self::DIRECTORY)->map(fn ($types) => $directoryAreas->whereIn('type', $types)->values())->filter->isNotEmpty(),
             'dealers' => $directory->dealers($name),
             'otherCities' => array_values(array_diff(Cities::names(), [$name])),
+            'categoryCounts' => Seo::categoryCounts($name),
         ]);
     }
 }

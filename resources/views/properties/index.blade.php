@@ -4,11 +4,19 @@
     $total = $properties->total();
     $facets = $search->facets();
     $area = $search->area();
+    // Indexing: only the defining filters make a distinct page; anything else (price, beds,
+    // sort, map bounds …) or an empty result is "noindex, follow" so filter combinations
+    // never multiply into indexed duplicates. Canonical keeps just the defining filters.
+    $defining = ['city', 'purpose', 'type', 'group', 'area'];
+    $query = request()->query();
+    $canonicalParams = array_filter(array_intersect_key($query, array_flip($defining)), fn ($v) => is_string($v) && $v !== '');
+    $extraFilters = array_diff(array_keys(array_filter($query, fn ($v) => $v !== null && $v !== '' && $v !== [])), [...array_keys($canonicalParams), 'page']);
+    $robots = ($extraFilters || $total === 0) ? 'noindex, follow' : null;
 @endphp
 {{-- Layout: public/Refrence/Meezan Property Search Results.png --}}
 <x-layouts.app :title="$headline" :description="'Browse '.number_format($total).' '.strtolower($headline).'. Reviewed listings with prices, sizes and dealer details on Meezan Property.'"
-               :canonical="route('properties.index', array_filter(['area' => $search->get('area'), 'page' => $properties->currentPage() > 1 ? $properties->currentPage() : null]))"
-               :noindex="$search->activeFilterCount() > 2">
+               :canonical="route('properties.index', $canonicalParams + array_filter(['page' => $properties->currentPage() > 1 ? $properties->currentPage() : null]))"
+               :robots="$robots">
     <section class="bg-gradient-to-r from-brand-700 via-brand-600 to-brand-700 py-3">
         <div class="mx-auto max-w-[1240px] px-4 sm:px-6">
             <x-search-bar variant="bar" :purpose="$search->get('purpose')" :area="$search->get('area')" :type="$search->get('type')" :max-price="$search->get('max_price')" :beds="$search->get('beds')" class="p-2.5" />

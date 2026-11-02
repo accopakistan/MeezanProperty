@@ -319,7 +319,7 @@ class ConversationAssistant
 
         return new AssistantReply(
             $outcome['dealers'] > 0
-                ? "Done. Your requirement was shared with {$outcome['dealers']} verified ".str('dealer')->plural($outcome['dealers'])." who cover {$state->get('city')}. They will contact you directly."
+                ? "Done. Your requirement was shared with {$outcome['dealers']} verified ".str('dealer')->plural($outcome['dealers']).($outcome['dealers'] === 1 ? ' who covers ' : ' who cover ')."{$state->get('city')}. They will contact you directly."
                 : 'Your requirement is saved. No verified dealer covers this area yet, so our team will review it and get back to you.',
             'dealers_connected',
             actions: ['new_search'],

@@ -300,6 +300,53 @@ document.addEventListener('submit', (e) => {
     if (message && !window.confirm(message)) e.preventDefault();
 }, true);
 
+document.addEventListener('click', (e) => {
+    if (e.target.closest?.('[data-print]')) window.print();
+});
+
+/* CRM board: drag a card to another column. The server checks ownership and
+   allowed moves; stages that need a reason open the lead page instead.
+   Every card also has a "Move to…" menu, so dragging is never required. */
+document.querySelectorAll('[data-crm-board]').forEach((board) => {
+    const error = document.querySelector('[data-crm-error]');
+    const say = (message) => { if (error) { error.textContent = message; error.classList.toggle('hidden', !message); } };
+    let dragged = null;
+
+    board.addEventListener('dragstart', (e) => {
+        dragged = e.target.closest('[data-crm-card]');
+        if (dragged) { e.dataTransfer.effectAllowed = 'move'; dragged.classList.add('opacity-50'); }
+    });
+    board.addEventListener('dragend', () => { dragged?.classList.remove('opacity-50'); dragged = null; });
+    board.addEventListener('dragover', (e) => { if (dragged && e.target.closest('[data-crm-column]')) e.preventDefault(); });
+    board.addEventListener('drop', async (e) => {
+        const column = e.target.closest('[data-crm-column]');
+        if (!dragged || !column) return;
+        e.preventDefault();
+        const card = dragged;
+        const stage = column.dataset.dropStage;
+        if (stage === card.dataset.stage) return;
+        if (!card.dataset.allowed.split(',').includes(stage)) {
+            say('That move is not allowed from this stage. Open the lead to see the options.');
+            return;
+        }
+        if (column.dataset.needsReason === '1') {
+            window.location.href = card.querySelector('a').href + '#stage-title';
+            return;
+        }
+        say('');
+        const response = await fetch(card.dataset.stageUrl, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ stage }),
+        }).catch(() => null);
+        if (response?.ok) {
+            window.location.reload();
+        } else {
+            say((await response?.json().catch(() => null))?.message ?? 'Could not move the lead. Please try again.');
+        }
+    });
+});
+
 document.querySelectorAll('input[type=file][data-file-list]').forEach((input) => {
     input.addEventListener('change', () => {
         const target = input.closest('label')?.querySelector('[data-file-names]');

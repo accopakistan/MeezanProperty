@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // WhatsApp webhooks are authenticated by their HMAC signature instead.
-        $middleware->validateCsrfTokens(except: ['webhooks/whatsapp']);
+        $middleware->validateCsrfTokens(except: ['webhooks/whatsapp', 'webhooks/payments/*']);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(fn () => route(auth()->user()->role->homeRoute()));

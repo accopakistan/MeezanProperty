@@ -2,15 +2,30 @@
 
 namespace App\Services\WhatsApp;
 
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use App\Services\WhatsApp\Providers\MetaCloudProvider;
+use App\Services\WhatsApp\Providers\MockProvider;
+use App\Services\WhatsApp\Providers\WhatsAppProvider;
 
 /**
- * Thin boundary around the WhatsApp Cloud API. Nothing is sent unless
- * WHATSAPP_SEND_ENABLED=true and the phone number id and token are set.
+ * Entry point to the WhatsApp channel's configuration: which provider sends
+ * (MEEZAN_WHATSAPP_DRIVER, or the mock provider while test mode is on) and
+ * whether incoming webhooks can be accepted. Sending itself goes through
+ * OutboundMessenger, which applies MessagePolicy first.
  */
 class WhatsAppClient
 {
+    public function __construct(protected WhatsAppSettings $settings) {}
+
+    public function provider(): WhatsAppProvider
+    {
+        if ($this->settings->testMode() || config('meezan.whatsapp.driver') === 'mock') {
+            return app(MockProvider::class);
+        }
+
+        return app(MetaCloudProvider::class);
+    }
+
+    /** Incoming webhooks need all four Meta values (number id, token, app secret, verify token). */
     public function isConfigured(): bool
     {
         return filled(config('services.whatsapp.phone_number_id'))
@@ -21,40 +36,13 @@ class WhatsAppClient
 
     public function canSend(): bool
     {
-        return $this->isConfigured() && config('services.whatsapp.send_enabled') === true;
+        return $this->provider()->canSend();
     }
 
-    /**
-     * @return array{sent: bool, id: ?string, error: ?string}
-     */
-    public function sendText(string $to, string $body): array
+    /** Messages reach real phones (a real provider that can send; never the mock). */
+    public function isLive(): bool
     {
-        if (! $this->canSend()) {
-            return ['sent' => false, 'id' => null, 'error' => 'WhatsApp sending is not enabled.'];
-        }
-
-        $url = sprintf(
-            'https://graph.facebook.com/%s/%s/messages',
-            config('services.whatsapp.graph_version'),
-            config('services.whatsapp.phone_number_id'),
-        );
-
-        $response = Http::withToken(config('services.whatsapp.access_token'))
-            ->timeout(10)
-            ->post($url, [
-                'messaging_product' => 'whatsapp',
-                'to' => $to,
-                'type' => 'text',
-                'text' => ['preview_url' => true, 'body' => mb_substr($body, 0, 4096)],
-            ]);
-
-        if ($response->failed()) {
-            Log::warning('WhatsApp send failed', ['status' => $response->status()]);
-
-            return ['sent' => false, 'id' => null, 'error' => 'HTTP '.$response->status()];
-        }
-
-        return ['sent' => true, 'id' => $response->json('messages.0.id'), 'error' => null];
+        return ! $this->provider()->isTest() && $this->provider()->canSend();
     }
 
     public function verifySignature(string $payload, ?string $header): bool

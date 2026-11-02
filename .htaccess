@@ -13,6 +13,17 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
+    # The project folder is the document root on this hosting, so refuse
+    # every existing file except the front controller, robots.txt and
+    # public/ (built assets, photos via the storage link, favicons).
+    # This keeps .env, composer.json, artisan, storage/logs and the
+    # app source unreachable over HTTP.
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule !^(index\.php|robots\.txt|favicon\.(ico|svg)|public/.*)$ - [F,L]
+
+    # Hidden files and folders (.env, .git, ...) anywhere, files or not.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$

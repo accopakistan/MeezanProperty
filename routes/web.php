@@ -18,13 +18,16 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\ListingReportController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\LocationListingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PricingController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\SavedPropertyController;
 use App\Http\Controllers\SellController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\Webhooks\PaymentWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -61,6 +64,9 @@ Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('pro
 
 Route::get('/areas', [AreaGuideController::class, 'index'])->name('areas.index');
 Route::get('/areas/{area:slug}', [AreaGuideController::class, 'show'])->name('areas.show');
+Route::get('/areas/{area:slug}/{category}', [LocationListingController::class, 'area'])
+    ->whereIn('category', array_keys(config('meezan.seo.categories')))
+    ->name('areas.category');
 
 Route::get('/sell', [SellController::class, 'index'])->name('sell');
 
@@ -77,7 +83,8 @@ Route::post('/contact', [PageController::class, 'sendContact'])->middleware('thr
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
 
-Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/sitemaps/{name}.xml', [SitemapController::class, 'show'])->where('name', 'pages|locations|properties-[1-9][0-9]{0,3}')->name('sitemap.show');
 
 Route::get('/locations/suggest', [LocationController::class, 'suggest'])->middleware('throttle:120,1')->name('locations.suggest');
 Route::get('/locations/options', [LocationController::class, 'options'])->middleware('throttle:120,1')->name('locations.options');
@@ -87,9 +94,16 @@ Route::get('/locations/{area}/children', [LocationController::class, 'children']
 Route::get('/{city}', CityController::class)
     ->whereIn('city', array_column(config('meezan.city_details'), 'slug'))
     ->name('cities.show');
+// City category landing pages: /lahore/houses-for-sale … (both segments fixed in config).
+Route::get('/{city}/{category}', [LocationListingController::class, 'city'])
+    ->whereIn('city', array_column(config('meezan.city_details'), 'slug'))
+    ->whereIn('category', array_keys(config('meezan.seo.categories')))
+    ->name('cities.category');
 
 Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('webhooks.whatsapp.verify');
 Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->middleware('throttle:120,1')->name('webhooks.whatsapp');
+Route::post('/webhooks/payments/{gateway}', PaymentWebhookController::class)->whereAlphaNumeric('gateway')->middleware('throttle:120,1')->name('webhooks.payments');
+Route::get('/pricing', PricingController::class)->name('pricing');
 
 /*
 |--------------------------------------------------------------------------
@@ -114,7 +128,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/forgot-password', [PasswordResetController::class, 'request'])->name('password.request');
     Route::post('/forgot-password', [PasswordResetController::class, 'email'])->middleware('throttle:6,1')->name('password.email');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'reset'])->name('password.reset');
-    Route::post('/reset-password', [PasswordResetController::class, 'update'])->name('password.update');
+    Route::post('/reset-password', [PasswordResetController::class, 'update'])->middleware('throttle:6,1')->name('password.update');
 });
 
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth')->name('logout');
@@ -158,6 +172,7 @@ Route::middleware(['auth', 'role:buyer'])->prefix('account')->name('account.')->
     Route::get('/alerts', [Account\SavedSearchController::class, 'alerts'])->name('alerts');
     Route::post('/alerts/seen', [Account\SavedSearchController::class, 'markAllSeen'])->name('alerts.seen');
     Route::put('/settings/password', [Account\ProfileController::class, 'updatePassword'])->name('password.update');
+    Route::post('/settings/whatsapp-link', [Account\ProfileController::class, 'whatsappLinkCode'])->middleware('throttle:5,1')->name('whatsapp.link');
 });
 
 /*
@@ -186,7 +201,44 @@ Route::middleware(['auth', 'role:dealer'])->prefix('dealer')->name('dealer.')->g
     Route::get('/profile', [Dealer\ProfileController::class, 'edit'])->name('profile');
     Route::put('/profile', [Dealer\ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [Dealer\ProfileController::class, 'updatePassword'])->name('password.update');
-    Route::get('/subscription', Dealer\SubscriptionController::class)->name('subscription');
+    Route::post('/properties/{property}/feature', [Dealer\PropertyController::class, 'feature'])->name('properties.feature');
+
+    // Lead CRM: every route works on the dealer's own active assignment (LeadAssignmentPolicy).
+    Route::get('/crm', [Dealer\CrmController::class, 'dashboard'])->name('crm');
+    Route::prefix('crm')->name('crm.')->group(function () {
+        Route::get('/pipeline', [Dealer\CrmController::class, 'pipeline'])->name('pipeline');
+        Route::get('/leads', [Dealer\CrmController::class, 'index'])->name('leads');
+        Route::get('/agenda', [Dealer\CrmController::class, 'agenda'])->name('agenda');
+        Route::get('/leads/{assignment}', [Dealer\CrmController::class, 'show'])->name('leads.show');
+        Route::middleware('throttle:120,1')->group(function () {
+            Route::patch('/leads/{assignment}/stage', [Dealer\CrmController::class, 'updateStage'])->name('leads.stage');
+            Route::patch('/leads/{assignment}/priority', [Dealer\CrmController::class, 'updatePriority'])->name('leads.priority');
+            Route::post('/leads/{assignment}/notes', [Dealer\CrmController::class, 'storeNote'])->name('notes.store');
+            Route::patch('/leads/{assignment}/notes/{note}', [Dealer\CrmController::class, 'updateNote'])->whereNumber('note')->name('notes.update');
+            Route::post('/leads/{assignment}/follow-ups', [Dealer\CrmController::class, 'storeFollowUp'])->name('follow-ups.store');
+            Route::patch('/leads/{assignment}/follow-ups/{followUp}', [Dealer\CrmController::class, 'finishFollowUp'])->whereNumber('followUp')->name('follow-ups.update');
+            Route::post('/leads/{assignment}/appointments', [Dealer\CrmController::class, 'storeAppointment'])->name('appointments.store');
+            Route::patch('/leads/{assignment}/appointments/{appointment}', [Dealer\CrmController::class, 'updateAppointment'])->whereNumber('appointment')->name('appointments.update');
+            Route::post('/leads/{assignment}/recommendations', [Dealer\CrmController::class, 'storeRecommendation'])->name('recommendations.store');
+            Route::patch('/leads/{assignment}/recommendations/{recommendation}', [Dealer\CrmController::class, 'updateRecommendation'])->whereNumber('recommendation')->name('recommendations.update');
+        });
+    });
+
+    Route::get('/subscription', [Dealer\SubscriptionController::class, 'index'])->name('subscription');
+    Route::prefix('billing')->name('billing.')->group(function () {
+        Route::get('/packages', [Dealer\SubscriptionController::class, 'packages'])->name('packages');
+        Route::get('/packages/{package:slug}', [Dealer\SubscriptionController::class, 'checkout'])->name('checkout');
+        Route::post('/packages/{package:slug}', [Dealer\SubscriptionController::class, 'choose'])->middleware('throttle:10,1')->name('choose');
+        Route::post('/subscription/cancel', [Dealer\SubscriptionController::class, 'cancel'])->name('cancel');
+        Route::post('/subscription/resume', [Dealer\SubscriptionController::class, 'resume'])->name('resume');
+        Route::get('/invoices/{invoice}', [Dealer\BillingController::class, 'invoice'])->whereNumber('invoice')->name('invoices.show');
+        Route::post('/invoices/{invoice}/pay', [Dealer\BillingController::class, 'pay'])->whereNumber('invoice')->middleware('throttle:10,1')->name('invoices.pay');
+        Route::get('/payments/{payment}', [Dealer\BillingController::class, 'payment'])->whereNumber('payment')->name('payments.show');
+        Route::post('/payments/{payment}/transfer', [Dealer\BillingController::class, 'transfer'])->whereNumber('payment')->middleware('throttle:10,1')->name('payments.transfer');
+        Route::get('/payments/{payment}/proof', [Dealer\BillingController::class, 'proof'])->whereNumber('payment')->name('payments.proof');
+        Route::get('/test-checkout/{payment}', [Dealer\BillingController::class, 'mock'])->whereNumber('payment')->name('mock');
+        Route::post('/test-checkout/{payment}', [Dealer\BillingController::class, 'mockComplete'])->whereNumber('payment')->middleware('throttle:20,1')->name('mock.complete');
+    });
 });
 
 /*
@@ -222,12 +274,24 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/leads/{lead}', [Admin\LeadController::class, 'show'])->name('leads.show');
     Route::post('/leads/{lead}/reassign', [Admin\LeadController::class, 'reassign'])->name('leads.reassign');
     Route::patch('/leads/{lead}/status', [Admin\LeadController::class, 'updateStatus'])->name('leads.status');
+    Route::patch('/leads/{lead}/validity', [Admin\LeadController::class, 'updateValidity'])->name('leads.validity');
+    Route::post('/leads/{lead}/assignments', [Admin\LeadController::class, 'addDealer'])->name('leads.assignments.store');
+    Route::delete('/lead-assignments/{assignment}', [Admin\LeadController::class, 'removeAssignment'])->name('leads.assignments.destroy');
+    Route::get('/crm', Admin\CrmOversightController::class)->name('crm');
 
     Route::get('/conversations', [Admin\ConversationController::class, 'index'])->name('conversations.index');
     Route::get('/conversations/{conversation}', [Admin\ConversationController::class, 'show'])->name('conversations.show');
     Route::patch('/conversations/{conversation}/mode', [Admin\ConversationController::class, 'updateMode'])->name('conversations.mode');
     Route::post('/conversations/{conversation}/resolve', [Admin\ConversationController::class, 'resolve'])->name('conversations.resolve');
     Route::post('/conversations/{conversation}/reveal', [Admin\ConversationController::class, 'revealContact'])->name('conversations.reveal');
+    Route::post('/conversations/{conversation}/reply', [Admin\ConversationController::class, 'reply'])->middleware('throttle:30,1')->name('conversations.reply');
+
+    Route::get('/whatsapp', [Admin\WhatsAppController::class, 'index'])->name('whatsapp');
+    Route::get('/whatsapp/messages', [Admin\WhatsAppController::class, 'messages'])->name('whatsapp.messages');
+    Route::patch('/whatsapp/settings', [Admin\WhatsAppController::class, 'updateSettings'])->name('whatsapp.settings');
+    Route::post('/whatsapp/connection-test', [Admin\WhatsAppController::class, 'testConnection'])->middleware('throttle:10,1')->name('whatsapp.test');
+    Route::post('/whatsapp/messages/{message}/retry', [Admin\WhatsAppController::class, 'retry'])->name('whatsapp.retry');
+    Route::post('/whatsapp/simulate', [Admin\WhatsAppController::class, 'simulate'])->middleware('throttle:60,1')->name('whatsapp.simulate');
 
     Route::get('/reports', [Admin\ListingReportController::class, 'index'])->name('reports.index');
     Route::patch('/reports/{report}', [Admin\ListingReportController::class, 'resolve'])->name('reports.resolve');
@@ -240,8 +304,19 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/areas/{area}/edit', [Admin\AreaController::class, 'edit'])->name('areas.edit');
     Route::post('/areas/{area}/merge', [Admin\AreaController::class, 'merge'])->name('areas.merge');
 
+    Route::get('/billing', [Admin\BillingController::class, 'dashboard'])->name('billing');
+    Route::resource('packages', Admin\PackageController::class)->except(['show', 'destroy']);
+    Route::patch('/packages/{package}/toggle', [Admin\PackageController::class, 'toggle'])->name('packages.toggle');
     Route::get('/subscriptions', [Admin\BillingController::class, 'subscriptions'])->name('subscriptions');
+    Route::get('/subscriptions/{subscription}', [Admin\BillingController::class, 'subscription'])->name('subscriptions.show');
+    Route::patch('/subscriptions/{subscription}', [Admin\BillingController::class, 'updateSubscription'])->name('subscriptions.update');
     Route::get('/payments', [Admin\BillingController::class, 'payments'])->name('payments');
+    Route::get('/payments/{payment}', [Admin\BillingController::class, 'payment'])->name('payments.show');
+    Route::patch('/payments/{payment}/review', [Admin\BillingController::class, 'reviewPayment'])->name('payments.review');
+    Route::get('/payments/{payment}/proof', [Admin\BillingController::class, 'proof'])->name('payments.proof');
+    Route::get('/invoices/{invoice}', [Admin\BillingController::class, 'invoice'])->name('invoices.show');
+    Route::post('/invoices/{invoice}/refunds', [Admin\BillingController::class, 'refund'])->name('invoices.refund');
+    Route::post('/dealers/{dealer}/billing-adjustments', [Admin\BillingController::class, 'adjustment'])->name('billing.adjustments');
     Route::get('/analytics', Admin\AnalyticsController::class)->name('analytics');
     Route::get('/settings', Admin\SettingsController::class)->name('settings');
     Route::get('/audit-logs', Admin\AuditLogController::class)->name('audit-logs');

@@ -18,6 +18,10 @@ return [
 
     'default_city' => 'Lahore',
 
+    // Times are stored in UTC (app.timezone). Times people type and read in
+    // the dealer CRM (follow-ups, viewings, "today") use this local zone.
+    'timezone' => env('MEEZAN_TIMEZONE', 'Asia/Karachi'),
+
     // URL slug (/{slug}) and province per city. Slugs are fixed here so the
     // landing-page route stays cacheable.
     'city_details' => [
@@ -253,6 +257,194 @@ return [
     'leads' => [
         'max_dealers_per_requirement' => 3,
         'dedupe_window_minutes' => 30,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | SEO
+    |--------------------------------------------------------------------------
+    |
+    | Category landing pages per city (/lahore/houses-for-sale) and per area
+    | (/areas/dha-phase-6/houses-for-sale). Every page works for visitors,
+    | but it is only indexed and listed in the sitemap once it has at least
+    | min_listings real (non-demo) published listings, so empty or thin
+    | pages never reach search engines.
+    |
+    */
+
+    'seo' => [
+        'min_listings' => (int) env('MEEZAN_SEO_MIN_LISTINGS', 3),
+        'categories' => [
+            'property-for-sale' => ['label' => 'Property for Sale', 'purpose' => 'sale', 'group' => null, 'types' => null],
+            'property-for-rent' => ['label' => 'Property for Rent', 'purpose' => 'rent', 'group' => null, 'types' => null],
+            'houses-for-sale' => ['label' => 'Houses for Sale', 'purpose' => 'sale', 'group' => null, 'types' => ['house']],
+            'houses-for-rent' => ['label' => 'Houses for Rent', 'purpose' => 'rent', 'group' => null, 'types' => ['house', 'upper_portion', 'lower_portion']],
+            'flats-for-sale' => ['label' => 'Flats for Sale', 'purpose' => 'sale', 'group' => null, 'types' => ['apartment', 'penthouse']],
+            'flats-for-rent' => ['label' => 'Flats for Rent', 'purpose' => 'rent', 'group' => null, 'types' => ['apartment', 'penthouse']],
+            'plots-for-sale' => ['label' => 'Plots for Sale', 'purpose' => 'sale', 'group' => 'plots', 'types' => null],
+            'commercial-for-sale' => ['label' => 'Commercial Property for Sale', 'purpose' => 'sale', 'group' => 'commercial', 'types' => null],
+            'commercial-for-rent' => ['label' => 'Commercial Property for Rent', 'purpose' => 'rent', 'group' => 'commercial', 'types' => null],
+        ],
+        // Shown when a page has no image of its own (absolute URL built with asset()).
+        'default_image' => 'images/ref/hero-home.jpg',
+        // Staging/test copies of the site: send "X-Robots-Tag: noindex, nofollow" on every
+        // response so search engines never index them. Never true on the live site.
+        'noindex_site' => (bool) env('MEEZAN_SEO_NOINDEX_SITE', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dealer CRM
+    |--------------------------------------------------------------------------
+    |
+    | Reasons, reminder timing and the "needs attention" rule for the dealer
+    | CRM (meezan:crm-reminders runs every five minutes). Leads are never
+    | closed automatically.
+    |
+    */
+
+    'crm' => [
+        'lost_reasons' => [
+            'price_mismatch' => 'Price mismatch',
+            'location_mismatch' => 'Location mismatch',
+            'changed_mind' => 'Buyer changed mind',
+            'no_response' => 'No response',
+            'bought_elsewhere' => 'Purchased or rented elsewhere',
+            'invalid_requirement' => 'Invalid requirement',
+            'other' => 'Other',
+        ],
+        'follow_up_types' => ['call' => 'Call', 'whatsapp' => 'WhatsApp', 'meeting' => 'Meeting', 'general' => 'Reminder'],
+        'appointment_types' => ['viewing' => 'Property viewing', 'office' => 'Office meeting', 'phone' => 'Phone consultation', 'other' => 'Other'],
+        'priorities' => ['low' => 'Low', 'normal' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'],
+        // A pending follow-up is reported overdue this long after its due time.
+        'overdue_after_minutes' => 60,
+        // Dealers are reminded this long before an appointment.
+        'appointment_reminder_minutes' => 60,
+        // An open lead with no dealer activity for this many days is flagged for attention (never closed).
+        'stale_after_days' => (int) env('MEEZAN_CRM_STALE_DAYS', 3),
+        // Rates are shown only once a dealer has at least this many leads.
+        'min_leads_for_rates' => 5,
+        'kanban_per_column' => 30,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | WhatsApp channel
+    |--------------------------------------------------------------------------
+    |
+    | Meta credentials live in config/services.php ("whatsapp") and .env only.
+    | driver: "meta" (WhatsApp Cloud API; sends only when WHATSAPP_SEND_ENABLED
+    | is true and credentials are set) or "mock" (records messages as tests,
+    | sends nothing; only works when APP_ENV is local or testing).
+    | Automation, auto-reply and test mode are switched in Admin → WhatsApp.
+    |
+    */
+
+    'whatsapp' => [
+        'driver' => env('MEEZAN_WHATSAPP_DRIVER', 'meta'),
+        // Queue for inbound processing and sending (run: php artisan queue:work --queue=whatsapp,default).
+        'queue' => env('MEEZAN_WHATSAPP_QUEUE', 'whatsapp'),
+        // Reply buttons (View/Change search/Talk to dealer). Off until tested with a live number.
+        'interactive_buttons' => (bool) env('MEEZAN_WHATSAPP_INTERACTIVE', false),
+        // Meta's customer-service window: free-form messages only within this many hours of the contact's last message.
+        'service_window_hours' => 24,
+        // Abuse protection. Messages above these limits are kept, not answered automatically.
+        'max_inbound_per_minute' => (int) env('MEEZAN_WHATSAPP_MAX_INBOUND_PER_MINUTE', 10),
+        'duplicate_window_seconds' => 60,
+        'max_outbound_per_recipient_per_hour' => (int) env('MEEZAN_WHATSAPP_MAX_OUTBOUND_PER_HOUR', 15),
+        // Sending attempts for temporary provider/network errors.
+        'max_send_attempts' => 3,
+        // Approved message templates, needed outside the service window (e.g. dealer lead alerts).
+        // Create and get them approved in WhatsApp Manager first; see the Phase 10 report.
+        'templates' => [
+            'dealer_lead' => [
+                'name' => env('MEEZAN_WHATSAPP_TEMPLATE_DEALER_LEAD'),
+                'language' => env('MEEZAN_WHATSAPP_TEMPLATE_LANGUAGE', 'en'),
+            ],
+        ],
+        // Promotional (marketing) messages are not sent by this version.
+        'promotional_enabled' => false,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Billing: packages, subscriptions and payments
+    |--------------------------------------------------------------------------
+    |
+    | Packages, prices and limits live in the database (Admin → Packages).
+    | This section holds only the rules around them. Payment credentials
+    | come from the environment and are never sent to the browser.
+    |
+    */
+
+    'billing' => [
+        'currency' => 'PKR',
+        'invoice_prefix' => env('MEEZAN_INVOICE_PREFIX', 'MP'),
+        'invoice_due_days' => 7,
+        // Unpaid checkouts are cancelled after this many days (the invoice is kept, marked cancelled).
+        'checkout_expiry_days' => 14,
+        // Renewal invoices are issued, and the dealer reminded, this many days before the period ends.
+        'renewal_notice_days' => 7,
+        // Days after the period ends that an unpaid renewal keeps the package (past due) before it expires.
+        'grace_days' => 3,
+
+        // Listing statuses that use up the listing allowance. Drafts and
+        // listings that were rejected, need changes, expired, were archived
+        // or suspended do not count.
+        'counted_listing_statuses' => ['published', 'pending'],
+        // Lead sources that use up the monthly lead allowance. Buyer
+        // requirements are shared by Meezan Property; enquiries on a
+        // dealer's own listing are always delivered and are not counted.
+        'counted_lead_sources' => ['requirement'],
+
+        // Limits for a dealer without a subscription when no package is set
+        // as the default plan (null = no limit). Once an admin marks a
+        // package as the default, its limits apply instead.
+        'fallback_limits' => ['listings' => null, 'leads' => null, 'featured' => 0],
+
+        // A dealer over a smaller package's limits (after a downgrade or
+        // expiry): "keep_live" leaves existing listings live and blocks new
+        // ones until back under the limit; "require_within_limit" refuses a
+        // downgrade until the dealer has archived enough listings.
+        'over_limit_policy' => env('MEEZAN_OVER_LIMIT_POLICY', 'keep_live'),
+
+        // When every suitable dealer has used their lead allowance: "queue"
+        // holds the lead for staff (never lost); "allow_over_limit" still
+        // assigns it to the best-ranked dealers.
+        'lead_overflow' => env('MEEZAN_LEAD_OVERFLOW', 'queue'),
+
+        // Feature flags a package can switch on. Enforced: priority_leads
+        // (ranking boost) and featured_listings (with the featured limit).
+        // The others are recorded on packages for future use.
+        'features' => [
+            'priority_leads' => 'Priority in lead matching',
+            'featured_listings' => 'Featured listings',
+            'advanced_analytics' => 'Advanced analytics',
+            'ai_assistant' => 'AI property assistant',
+            'api_access' => 'API access',
+            'priority_support' => 'Priority support',
+        ],
+        'priority_lead_boost' => 15,
+
+        // Payment gateways. Selection is by configuration; only available
+        // gateways are offered to dealers.
+        'gateways' => [
+            // Bank transfer reviewed by staff. Offered only when the account details are set.
+            'manual' => [
+                'enabled' => (bool) env('MEEZAN_MANUAL_PAYMENTS', false),
+                'bank_name' => env('MEEZAN_BANK_NAME'),
+                'account_title' => env('MEEZAN_BANK_ACCOUNT_TITLE'),
+                'account_number' => env('MEEZAN_BANK_ACCOUNT_NUMBER'),
+                'iban' => env('MEEZAN_BANK_IBAN'),
+                'max_proof_kb' => 5120,
+            ],
+            // Test-only gateway: no money moves. Must be switched on explicitly,
+            // and only ever works when APP_ENV is local or testing.
+            'mock' => [
+                'enabled' => (bool) env('MEEZAN_MOCK_PAYMENTS', false),
+                'webhook_secret' => env('MEEZAN_MOCK_WEBHOOK_SECRET'),
+            ],
+        ],
     ],
 
 ];

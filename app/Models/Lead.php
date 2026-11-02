@@ -27,7 +27,17 @@ class Lead extends Model
             'purpose' => Purpose::class,
             'type' => PropertyType::class,
             'consent_to_share' => 'boolean',
+            'invalidated_at' => 'datetime',
         ];
+    }
+
+    public const HOLD_REASONS = ['capacity' => 'Every suitable dealer has used their lead allowance'];
+
+    public const INVALID_REASONS = ['spam' => 'Spam', 'duplicate' => 'Duplicate', 'invalid' => 'Invalid contact details'];
+
+    public function isInvalid(): bool
+    {
+        return $this->invalidated_at !== null;
     }
 
     public function inquiry(): BelongsTo

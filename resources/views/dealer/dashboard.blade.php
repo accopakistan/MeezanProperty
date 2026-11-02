@@ -60,7 +60,7 @@
         <x-stat-card label="Deals Closed" :value="$closed" icon="badge-check" tone="info" hint="Inquiries marked closed" />
     </div>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <section class="card card-body" aria-labelledby="inq-chart">
             <h2 id="inq-chart" class="font-bold">Inquiries (Last 30 Days)</h2>
             <x-line-chart class="mt-3" :labels="$chart['labels']" :series="$chart['series']" label="Inquiries per day over the last 30 days by preferred contact method" />
@@ -71,7 +71,7 @@
         </section>
     </div>
 
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <section class="card" aria-labelledby="recent-listings">
             <div class="flex items-center justify-between border-b border-line px-5 py-4">
                 <h2 id="recent-listings" class="font-bold">Recent listings</h2>

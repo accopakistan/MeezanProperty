@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Notifications\AssistantNeedsAttention;
@@ -24,9 +25,14 @@ class WhatsAppWebhookController extends Controller
     public function verify(Request $request): Response
     {
         $token = config('services.whatsapp.verify_token');
+        $challenge = (string) $request->query('hub_challenge');
 
-        if ($token && $request->query('hub_mode') === 'subscribe' && hash_equals($token, (string) $request->query('hub_verify_token'))) {
-            return response((string) $request->query('hub_challenge'), 200)->header('Content-Type', 'text/plain');
+        if ($token && $request->query('hub_mode') === 'subscribe' && hash_equals($token, (string) $request->query('hub_verify_token'))
+            && preg_match('/^[A-Za-z0-9_\-]{1,128}$/', $challenge)) {
+            // Shown in Admin → WhatsApp as evidence that Meta reached this URL.
+            AppSetting::put('whatsapp.webhook_verified_at', now()->toIso8601String());
+
+            return response($challenge, 200)->header('Content-Type', 'text/plain');
         }
 
         return response('Forbidden', 403);

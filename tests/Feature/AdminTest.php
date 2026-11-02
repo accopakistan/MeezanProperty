@@ -113,6 +113,8 @@ it('keeps audit log entries immutable', function () {
 });
 
 it('does not invent billing data', function () {
-    $this->actingAs($this->admin)->get('/admin/payments')->assertSee('No payment provider is connected');
-    $this->actingAs($this->admin)->get('/admin/subscriptions')->assertSee('Subscription plans are not set up');
+    // Phase 9 replaced the "not set up" placeholders with real (empty) billing pages.
+    $this->actingAs($this->admin)->get('/admin/payments')->assertSee('No payments found');
+    $this->actingAs($this->admin)->get('/admin/subscriptions')->assertSee('No subscriptions found');
+    $this->actingAs($this->admin)->get('/admin/billing')->assertSeeInOrder(['Paid this month (net)', '—', 'Pending (unpaid invoices)', '—', 'Expected monthly', '—']);
 });

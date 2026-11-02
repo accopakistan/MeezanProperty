@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Account;
 
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
+use App\Services\WhatsApp\AccountLinker;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,7 +33,21 @@ class ProfileController extends Controller
 
     public function settings(Request $request): View
     {
-        return view('account.settings', ['user' => $request->user()]);
+        $user = $request->user();
+
+        return view('account.settings', [
+            'user' => $user,
+            'linkCode' => app(AccountLinker::class)->pendingCode($user),
+            'linkedChats' => Conversation::where('channel', 'whatsapp')->where('user_id', $user->id)->count(),
+        ]);
+    }
+
+    /** One-time code the buyer sends from WhatsApp ("LINK 123456") to link that chat to this account. */
+    public function whatsappLinkCode(Request $request, AccountLinker $linker): RedirectResponse
+    {
+        $linker->generate($request->user());
+
+        return back()->with('status', 'Send the code shown below from WhatsApp within '.AccountLinker::TTL_MINUTES.' minutes.');
     }
 
     public function updateNotifications(Request $request): RedirectResponse

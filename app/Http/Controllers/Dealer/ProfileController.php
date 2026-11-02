@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Dealer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\ContactConsent;
+use App\Models\User;
 use App\Services\AuditLogger;
 use App\Support\DealerCoverage;
+use App\Support\WhatsAppNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
@@ -44,6 +47,7 @@ class ProfileController extends Controller
             'whatsapp_number' => $phone,
             'accepts_leads' => ['boolean'],
             'notify_account_email' => ['boolean'],
+            'whatsapp_lead_alerts' => ['boolean'],
             ...DealerCoverage::rules($request, $profile->city),
         ], [
             'public_phone.regex' => 'Enter a valid phone number.',
@@ -71,6 +75,7 @@ class ProfileController extends Controller
         $identityChanged = $profile->isDirty(['agency_name', 'registration_number']);
         $profile->save();
         DealerCoverage::save($profile, DealerCoverage::cities($request, $profile->city), $data['areas']);
+        $this->updateWhatsAppAlerts($request->user(), $profile->whatsapp_number, $request->boolean('whatsapp_lead_alerts'));
 
         AuditLogger::record('dealer.profile_updated', $profile, $identityChanged ? ['before' => $before, 'after' => $profile->only(['agency_name', 'registration_number'])] : []);
 
@@ -87,6 +92,30 @@ class ProfileController extends Controller
         $request->user()->update(['password' => $data['password']]);
 
         return back()->with('status', 'Password changed.');
+    }
+
+    /**
+     * New-lead alerts on WhatsApp are opt-in: the choice is stored on the
+     * account and as a consent record for the number (withdrawn when the
+     * dealer switches alerts off or changes the number).
+     */
+    protected function updateWhatsAppAlerts(User $user, ?string $number, bool $on): void
+    {
+        $number = WhatsAppNumber::normalize($number);
+        $on = $on && $number !== null;
+        $wasOn = (bool) $user->notify_whatsapp;
+
+        ContactConsent::where('user_id', $user->id)->where('purpose', 'whatsapp_lead_alerts')->whereNull('revoked_at')
+            ->where(fn ($q) => $on ? $q->where('contact_hash', '!=', ContactConsent::hash($number)) : $q)
+            ->update(['revoked_at' => now()]);
+        if ($on && ! ContactConsent::granted('whatsapp_lead_alerts', 'whatsapp', $number)) {
+            ContactConsent::record('whatsapp_lead_alerts', 'whatsapp', 'dealer_profile', $user->id, $number);
+        }
+
+        $user->forceFill(['notify_whatsapp' => $on])->save();
+        if ($wasOn !== $on) {
+            AuditLogger::record($on ? 'dealer.whatsapp_alerts_on' : 'dealer.whatsapp_alerts_off', $user);
+        }
     }
 
     /**

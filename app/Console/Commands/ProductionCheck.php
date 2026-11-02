@@ -58,6 +58,8 @@ class ProductionCheck extends Command
         $this->check(app()->configurationIsCached(), 'Configuration is cached', 'php artisan config:cache (after every .env change)', warnOnly: true);
         $this->check(app()->routesAreCached(), 'Routes are cached', 'php artisan route:cache', warnOnly: true);
         $this->check((bool) config('meezan.security.csp'), 'Content-Security-Policy is on', 'MEEZAN_CSP_ENABLED', warnOnly: true);
+        $this->check(! config('meezan.seo.noindex_site'), 'Search engines may index the site', 'MEEZAN_SEO_NOINDEX_SITE=true hides the whole site; use it on staging only');
+        $this->check(! in_array('debug', [config('logging.channels.single.level'), config('logging.channels.daily.level')], true), 'Log level is not debug', 'LOG_LEVEL=warning (or error) keeps the log small', warnOnly: true);
     }
 
     protected function server(): void
@@ -73,6 +75,11 @@ class ProductionCheck extends Command
         // file_exists() also sees Windows junctions, which is_link()/is_dir() report as false.
         $this->check(file_exists(public_path('storage')), 'Public storage link exists', 'php artisan storage:link');
         $this->check(File::exists(public_path('build/manifest.json')), 'Front-end build present', 'run npm run build and upload public/build');
+
+        // Hosting that serves the project folder itself (root index.php) must refuse .env, logs and source files.
+        if (File::exists(base_path('index.php')) && File::exists(base_path('.htaccess'))) {
+            $this->check(str_contains(File::get(base_path('.htaccess')), 'RewriteRule !^(index\.php'), 'Root .htaccess blocks internal files', 'the project folder is web-served: keep the file-blocking rule in .htaccess');
+        }
     }
 
     protected function data(): void
@@ -91,6 +98,14 @@ class ProductionCheck extends Command
         $ran = DB::table('migrations')->pluck('migration')->all();
         $pending = collect(File::glob(database_path('migrations/*.php')))->map(fn ($f) => basename($f, '.php'))->diff($ran);
         $this->check($pending->isEmpty(), 'Migrations are up to date', $pending->count().' pending: php artisan migrate --force');
+
+        // MySQL/MariaDB with explicit_defaults_for_timestamp=OFF add "ON UPDATE CURRENT_TIMESTAMP"
+        // to the first NOT NULL timestamp of a table, silently overwriting it on every update.
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            $auto = collect(DB::select("select table_name as t, column_name as c from information_schema.columns where table_schema = database() and extra like '%on update%'"))
+                ->map(fn ($r) => $r->t.'.'.$r->c);
+            $this->check($auto->isEmpty(), 'No auto-updating timestamp columns', 'the database overwrites '.$auto->implode(', ').' on every update; run the latest migrations');
+        }
 
         $this->check(User::where('role', Role::Admin)->where('status', 'active')->exists(), 'An active admin account exists', 'create one before launch');
         $demo = Property::withTrashed()->where('is_demo', true)->count();

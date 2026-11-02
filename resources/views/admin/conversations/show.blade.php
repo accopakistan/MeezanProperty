@@ -32,7 +32,8 @@
                             <p @class(['mt-1 text-[11px]', 'text-white/70' => $assistant, 'text-muted' => ! $assistant])>
                                 {{ $m->created_at->format('j M, g:i a') }}
                                 @if ($m->intent) · {{ str_replace('_', ' ', $m->intent) }} @endif
-                                @if ($assistant && $conversation->channel === 'whatsapp') · {{ $m->delivery_status === 'not_sent' ? 'not sent (sending disabled)' : $m->delivery_status }} @endif
+                                @if ($assistant && $conversation->channel === 'whatsapp') · {{ $m->delivery_status === 'not_sent' ? 'not sent (blocked by policy or sending disabled)' : ($m->delivery_status ?? 'not sent') }} @endif
+                                @if (! $assistant && $m->processing_status && $m->processing_status !== 'processed') · {{ ['held' => 'held (auto-reply off)', 'rate_limited' => 'not answered (too many messages)', 'duplicate' => 'not answered (repeat)', 'skipped' => 'for staff', 'failed' => 'processing failed', 'queued' => 'waiting for queue', 'processing' => 'processing'][$m->processing_status] ?? $m->processing_status }} @endif
                             </p>
                         </div>
                     </div>
@@ -42,7 +43,16 @@
             </div>
             <p class="border-t border-line px-5 py-4 text-[13px] text-muted">
                 @if ($conversation->channel === 'whatsapp')
-                    {{ $canSend ? 'Manual replies from this screen are not built yet; reply from WhatsApp Business Manager.' : 'Sending is disabled. Configure the WhatsApp Cloud API to reply.' }}
+                    <form method="POST" action="{{ route('admin.conversations.reply', $conversation) }}" class="space-y-2">
+                        @csrf
+                        <label for="reply-body" class="label">Reply as Meezan Property</label>
+                        <textarea id="reply-body" name="body" rows="3" maxlength="1000" class="input" required placeholder="Type a reply…">{{ old('body') }}</textarea>
+                        @error('body')<span class="block text-red-600">{{ $message }}</span>@enderror
+                        <span class="flex flex-wrap items-center justify-between gap-2">
+                            <span>{{ $canSend ? 'Sent through '.app(\App\Services\WhatsApp\WhatsAppClient::class)->provider()->label().'. Only within 24 hours of the buyer’s last message; never after STOP.' : 'Sending is not enabled: the reply is saved but not sent.' }}</span>
+                            <button class="btn btn-primary btn-sm">Send reply</button>
+                        </span>
+                    </form>
                 @else
                     Website conversation. Showing the latest {{ $messages->count() }} messages.
                 @endif

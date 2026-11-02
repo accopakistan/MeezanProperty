@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\BuyerRequirement;
 use App\Models\Conversation;
 use App\Models\Lead;
+use App\Models\OutboundMessage;
 use App\Models\WebhookEvent;
 use App\Services\AuditLogger;
+use App\Services\WhatsApp\OutboundMessenger;
 use App\Services\WhatsApp\WhatsAppClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -82,6 +84,28 @@ class ConversationController extends Controller
         AuditLogger::record('conversation.escalation_resolved', $conversation);
 
         return back()->with('status', 'Escalation marked as handled.');
+    }
+
+    /**
+     * Staff reply on WhatsApp. Goes through the same messenger and policy as
+     * every message (opt-out and the 24-hour window apply; the automation
+     * switch does not, so staff can still answer while automation is off).
+     */
+    public function reply(Request $request, Conversation $conversation, OutboundMessenger $messenger): RedirectResponse
+    {
+        abort_unless($conversation->channel === 'whatsapp', 404);
+        $data = $request->validate(['body' => ['required', 'string', 'max:1000']]);
+
+        $message = $conversation->messages()->create(['direction' => 'outbound', 'role' => 'assistant', 'type' => 'text', 'intent' => 'staff_reply', 'body' => $data['body']]);
+        $outbound = $messenger->queue([
+            'to' => $conversation->external_contact, 'body' => $data['body'], 'category' => 'transactional', 'purpose' => 'staff_reply',
+            'dedupe_key' => 'staff:'.$message->id, 'conversation_id' => $conversation->id, 'conversation_message_id' => $message->id,
+        ]);
+        AuditLogger::record('conversation.staff_replied', $conversation, ['outbound_id' => $outbound->id, 'status' => $outbound->status]);
+
+        return back()->with($outbound->status === 'blocked' ? 'error' : 'status', $outbound->status === 'blocked'
+            ? 'Not sent: '.(OutboundMessage::BLOCK_REASONS[$outbound->blocked_reason] ?? $outbound->blocked_reason).'. The reply is saved in the conversation.'
+            : 'Reply queued for sending.');
     }
 
     /** Show the full WhatsApp number once, for follow-up; every reveal is audited. */

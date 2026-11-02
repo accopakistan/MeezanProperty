@@ -1,7 +1,15 @@
+# Meezan Property crawling rules. Private areas also require sign-in;
+# this file only guides well-behaved crawlers.
 User-agent: *
 Disallow: /account
 Disallow: /dealer/
 Disallow: /admin
+Disallow: /notifications
+Disallow: /compare
+Disallow: /locations/
 Disallow: /webhooks/
+Disallow: /properties/*/nearby
+Disallow: /*?*sort=
+Disallow: /map?
 
 Sitemap: https://meezanproperty.com/sitemap.xml

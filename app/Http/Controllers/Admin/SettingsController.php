@@ -20,7 +20,7 @@ class SettingsController extends Controller
             ['Public contact phone', filled(config('meezan.contact.phone')), 'MEEZAN_CONTACT_PHONE'],
             ['Company WhatsApp number', filled(config('meezan.contact.whatsapp')), 'MEEZAN_WHATSAPP_NUMBER'],
             ['WhatsApp Cloud API credentials', $whatsapp->isConfigured(), 'WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN'],
-            ['WhatsApp outbound sending', $whatsapp->canSend(), 'WHATSAPP_SEND_ENABLED=true'],
+            ['WhatsApp outbound sending', $whatsapp->isLive(), 'WHATSAPP_SEND_ENABLED=true'],
             ['Map tiles', (bool) config('meezan.map.enabled'), 'MEEZAN_MAP_ENABLED, MEEZAN_MAP_TILE_URL'],
             ['Public storage link', file_exists(public_path('storage')), 'php artisan storage:link'],
             ['Outgoing mail', config('mail.default') !== 'log', 'MAIL_MAILER (currently "'.config('mail.default').'")'],

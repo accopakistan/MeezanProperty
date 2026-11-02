@@ -103,11 +103,14 @@ class PropertyController extends Controller
             }
         }
 
+        // Related listings from real data: same city, purpose and type; same area first, then closest price, then newest.
         $similar = Property::published()->forCards()
             ->whereKeyNot($property->id)
+            ->where('city', $property->city)
             ->where('purpose', $property->purpose)
             ->where('type', $property->type)
             ->orderByRaw('case when area_id = ? then 0 else 1 end', [$property->area_id ?? 0])
+            ->orderByRaw('abs(cast(price as signed) - ?)', [(int) $property->price])
             ->latest('published_at')
             ->take(4)
             ->get();

@@ -135,7 +135,8 @@
     .link { @apply font-semibold text-brand-600 underline-offset-4 hover:underline; }
 
     /* Tables ---------------------------------------------------------- */
-    .table { @apply w-full text-left text-sm; }
+    /* relative: visually hidden (sr-only) header cells stay inside the scroll container instead of widening the page. */
+    .table { @apply relative w-full text-left text-sm; }
     .table th { @apply border-b border-line bg-page/60 px-4 py-3 text-xs font-semibold tracking-wide whitespace-nowrap text-muted uppercase; }
     .table td { @apply border-b border-line px-4 py-3.5 align-middle; }
     .table tr:last-child td { @apply border-b-0; }

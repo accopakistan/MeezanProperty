@@ -8,19 +8,30 @@
     ]));
 @endphp
 <x-layouts.app :title="$area->name.', '.$area->city.' — area guide'" :description="'Property in '.$area->name.', '.$area->city.': '.$insights['total'].' live listings, asking prices and nearby options on Meezan Property.'"
-               :noindex="$insights['total'] === 0 && ! $area->is_popular">
+               :robots="$insights['total'] === 0 && ! $area->is_popular ? 'noindex, follow' : null">
     <section class="bg-gradient-to-r from-brand-800 to-brand-600">
         <div class="container-page py-10">
             <x-breadcrumbs :items="$trail" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
             <h1 class="mt-5 text-4xl text-white">{{ $area->name }}, {{ $area->city }}</h1>
             <div class="mt-5 flex flex-wrap gap-2">
-                <a href="{{ route('properties.index', ['area' => $area->slug, 'purpose' => 'sale']) }}" class="btn btn-gold">Buy in {{ $area->name }}</a>
-                <a href="{{ route('properties.index', ['area' => $area->slug, 'purpose' => 'rent']) }}" class="btn btn-on-dark">Rent in {{ $area->name }}</a>
+                <a href="{{ route('areas.category', [$area->slug, 'property-for-sale']) }}" class="btn btn-gold">Buy in {{ $area->name }}</a>
+                <a href="{{ route('areas.category', [$area->slug, 'property-for-rent']) }}" class="btn btn-on-dark">Rent in {{ $area->name }}</a>
                 <a href="{{ route('properties.map', ['area' => $area->slug]) }}" class="btn btn-on-dark"><x-icon name="map" class="size-4" /> Map</a>
                 <a href="{{ route('dealers.index', ['area' => $area->slug]) }}" class="btn btn-on-dark"><x-icon name="briefcase" class="size-4" /> Dealers here</a>
             </div>
         </div>
     </section>
+
+    @php $withListings = collect(\App\Support\Seo::categoryCounts(null, $area))->filter(fn ($c) => $c['listings'] > 0); @endphp
+    @if ($withListings->isNotEmpty())
+        <nav class="container-page pt-6" aria-label="Property categories in {{ $area->name }}">
+            <ul class="flex flex-wrap gap-2 text-sm">
+                @foreach ($withListings as $category => $counts)
+                    <li><a href="{{ route('areas.category', [$area->slug, $category]) }}" class="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 font-semibold hover:border-brand-200 hover:text-brand-700">{{ config('meezan.seo.categories.'.$category.'.label') }} <span class="text-xs font-normal text-muted">{{ number_format($counts['listings']) }}</span></a></li>
+                @endforeach
+            </ul>
+        </nav>
+    @endif
 
     <div class="container-page mt-8">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

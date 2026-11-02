@@ -45,20 +45,39 @@
     $tag = $property->purpose === Purpose::Rent ? ['For Rent', 'bg-gold-500'] : ['For Sale', 'bg-brand-500'];
     $visit = request()->boolean('visit');
 @endphp
-<x-layouts.app :title="$property->title.' — '.$property->priceLabel()" :description="Str::limit($property->type->label().' '.strtolower($property->purpose->label()).' in '.$property->locationLabel().'. '.$property->areaLabel().', '.$property->priceLabel().'. '.$property->description, 155)"
-               :canonical="$url" :image="$property->coverUrl()" :noindex="$isPreview || $property->is_demo">
+@php
+    // Search title and description from the listing's own fields (Seo); demo listings are kept out of search.
+    $seoCategory = \App\Support\Seo::categoryFor($property);
+    $coordinates = $property->showsExactLocation() ? $property->publicCoordinates() : null;
+@endphp
+<x-layouts.app :title="\App\Support\Seo::propertyTitle($property).' — '.$property->priceLabel()" :description="\App\Support\Seo::propertyDescription($property)"
+               :canonical="$url" :image="$property->coverUrl()" :image-alt="$property->title" :noindex="$isPreview" :robots="$property->is_demo ? 'noindex, follow' : null">
     @if (! $isPreview && ! $property->is_demo)
         <x-slot:head>
             <script type="application/ld+json">
-                {!! json_encode(array_filter([
+                {!! \App\Support\Seo::json(array_filter([
                     '@context' => 'https://schema.org',
                     '@type' => 'RealEstateListing',
                     'name' => $property->title,
+                    'description' => \App\Support\Seo::propertyDescription($property),
                     'url' => $url,
                     'datePosted' => $property->published_at?->toDateString(),
+                    'dateModified' => $property->updated_at?->toDateString(),
                     'image' => $images->map->url()->all() ?: null,
-                    'offers' => ['@type' => 'Offer', 'price' => $property->price, 'priceCurrency' => 'PKR'],
-                ]), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}
+                    'offers' => [
+                        '@type' => 'Offer',
+                        'price' => $property->price,
+                        'priceCurrency' => 'PKR',
+                        'businessFunction' => $property->purpose === Purpose::Rent ? 'http://purl.org/goodrelations/v1#LeaseOut' : 'http://purl.org/goodrelations/v1#Sell',
+                    ],
+                    // Only what is public: the area and city; map coordinates only when the dealer shows the exact location.
+                    'contentLocation' => array_filter([
+                        '@type' => 'Place',
+                        'name' => $property->locationLabel(),
+                        'address' => array_filter(['@type' => 'PostalAddress', 'addressLocality' => $property->city, 'addressRegion' => \App\Support\Cities::province($property->city), 'addressCountry' => 'PK']),
+                        'geo' => $coordinates ? ['@type' => 'GeoCoordinates', 'latitude' => $coordinates[0], 'longitude' => $coordinates[1]] : null,
+                    ]),
+                ])) !!}
             </script>
         </x-slot:head>
     @endif
@@ -77,17 +96,18 @@
             <div class="mb-4 rounded-lg border border-line bg-white px-4 py-2.5 text-[13px] text-muted"><strong class="text-ink">Demo listing</strong> — sample data for development. This is not real inventory and the photos are illustrative.</div>
         @endif
 
+        {{-- Real hierarchy: city → area guide → category in that area → listing. --}}
         <x-breadcrumbs :items="array_values(array_filter([
-            [$isRent ? 'Rent' : 'Buy', route($isRent ? 'properties.rent' : 'properties.buy')],
-            [$property->type->label().'s', route('properties.index', ['type' => $property->type->value, 'purpose' => $property->purpose->value])],
-            $property->area ? [$property->area->name, route('properties.index', ['area' => $property->area->slug, 'purpose' => $property->purpose->value])] : null,
+            in_array($property->city, config('meezan.cities'), true) ? [$property->city, route('cities.show', \App\Support\Cities::slug($property->city))] : null,
+            $property->area ? [$property->area->name, route('areas.show', $property->area->slug)] : null,
+            [config('meezan.seo.categories.'.$seoCategory.'.label'), $property->area ? route('areas.category', [$property->area->slug, $seoCategory]) : (in_array($property->city, config('meezan.cities'), true) ? route('cities.category', [\App\Support\Cities::slug($property->city), $seoCategory]) : null)],
             [Str::limit($property->title, 48), null],
         ]))" />
 
         {{-- Gallery + summary --}}
         <div class="mt-4 grid gap-5 xl:grid-cols-[minmax(0,1.12fr)_minmax(0,0.42fr)_minmax(0,1.05fr)]">
             <div class="relative self-start overflow-hidden rounded-[var(--radius-card)] bg-brand-50" data-gallery>
-                <img src="{{ $images->first()?->url() ?? $property->placeholderUrl() }}" alt="{{ $property->title }}" class="aspect-[16/10] size-full object-cover" data-gallery-main fetchpriority="high">
+                <img src="{{ $images->first()?->url() ?? $property->placeholderUrl() }}" alt="{{ $property->title }}" width="{{ $images->first()?->width ?: 1600 }}" height="{{ $images->first()?->height ?: 1000 }}" class="aspect-[16/10] size-full object-cover" data-gallery-main fetchpriority="high">
                 <div class="absolute top-3 left-3 flex gap-1.5">
                     <span class="tag {{ $tag[1] }}">{{ $tag[0] }}</span>
                     @if ($property->is_featured)<span class="tag bg-gold-500">Featured</span>@endif
@@ -355,11 +375,18 @@
             </aside>
         </div>
 
+        @php
+            $launchCity = in_array($property->city, config('meezan.cities'), true);
+            $categoryLabel = config('meezan.seo.categories.'.$seoCategory.'.label');
+            $categoryUrl = $property->area ? route('areas.category', [$property->area->slug, $seoCategory]) : ($launchCity ? route('cities.category', [\App\Support\Cities::slug($property->city), $seoCategory]) : null);
+        @endphp
         @if ($similar->isNotEmpty())
             <section id="similar" class="mt-10 scroll-mt-28" aria-labelledby="similar-title">
                 <div class="flex items-end justify-between gap-3">
-                    <h2 id="similar-title" class="section-title text-2xl">Similar Properties{{ $property->area ? ' in '.$property->area->name : '' }}</h2>
-                    <a href="{{ route('properties.index', ['type' => $property->type->value, 'purpose' => $property->purpose->value]) }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600">View All <x-icon name="arrow-right" class="size-4" /></a>
+                    <h2 id="similar-title" class="section-title text-2xl">Similar Properties in {{ $property->city }}</h2>
+                    @if ($categoryUrl)
+                        <a href="{{ $categoryUrl }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600">{{ $categoryLabel }}{{ $property->area ? ' in '.$property->area->name : '' }} <x-icon name="arrow-right" class="size-4" /></a>
+                    @endif
                 </div>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     @foreach ($similar as $item)
@@ -368,6 +395,19 @@
                 </div>
             </section>
         @endif
+
+        {{-- Where to go next: the location's own pages, not keyword lists. --}}
+        <nav class="mt-10 rounded-xl border border-line bg-white p-5" aria-label="Explore this location">
+            <h2 class="text-base font-bold">Explore {{ $property->area?->name ?? $property->city }}</h2>
+            <ul class="mt-3 flex flex-wrap gap-2 text-sm">
+                @if ($property->area)<li><a href="{{ route('areas.show', $property->area->slug) }}" class="btn btn-secondary btn-sm">{{ $property->area->name }} area guide</a></li>@endif
+                @if ($categoryUrl)<li><a href="{{ $categoryUrl }}" class="btn btn-secondary btn-sm">{{ $categoryLabel }}{{ $property->area ? ' in '.$property->area->name : ' in '.$property->city }}</a></li>@endif
+                @if ($launchCity)
+                    <li><a href="{{ route('cities.category', [\App\Support\Cities::slug($property->city), $seoCategory]) }}" class="btn btn-secondary btn-sm">{{ $categoryLabel }} in {{ $property->city }}</a></li>
+                    <li><a href="{{ route('cities.show', \App\Support\Cities::slug($property->city)) }}" class="btn btn-secondary btn-sm">Property in {{ $property->city }}</a></li>
+                @endif
+            </ul>
+        </nav>
     </div>
 
     @unless ($isPreview)
@@ -400,7 +440,7 @@
             </div>
             <div class="grid gap-3 p-5 sm:grid-cols-2">
                 @foreach ($images as $image)
-                    <img src="{{ $image->url() }}" alt="{{ $property->title }} — photo {{ $loop->iteration }}" loading="lazy" class="w-full rounded-lg object-cover">
+                    <img src="{{ $image->url() }}" alt="{{ $property->title }} — photo {{ $loop->iteration }}" @if ($image->width) width="{{ $image->width }}" height="{{ $image->height }}" @endif loading="lazy" decoding="async" class="h-auto w-full rounded-lg object-cover">
                 @endforeach
             </div>
         </dialog>

@@ -16,7 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
  * configured tile server, and no framing by other sites.
  * It is skipped while the Vite dev server runs (`npm run dev`), whose
  * hot-reload client lives on another port. HSTS is sent only over HTTPS in
- * production, so local HTTP keeps working.
+ * production, so local HTTP keeps working. Staging copies can add a
+ * site-wide X-Robots-Tag noindex (MEEZAN_SEO_NOINDEX_SITE).
  */
 class SecurityHeaders
 {
@@ -42,6 +43,11 @@ class SecurityHeaders
 
         if ($csp) {
             $headers['Content-Security-Policy'] = $this->policy($nonce);
+        }
+
+        // A staging or test copy of the site keeps itself out of search engines.
+        if (config('meezan.seo.noindex_site')) {
+            $headers['X-Robots-Tag'] = 'noindex, nofollow';
         }
 
         if ($request->isSecure() && app()->isProduction()) {

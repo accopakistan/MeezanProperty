@@ -9,6 +9,7 @@ use App\Models\Property;
 use App\Models\User;
 use App\Notifications\ListingSubmittedForReview;
 use App\Services\AuditLogger;
+use App\Services\Billing\Entitlements;
 use App\Services\ImageProcessor;
 use App\Services\TrustSignals;
 use Illuminate\Http\RedirectResponse;
@@ -154,10 +155,21 @@ class PropertyController extends Controller
         }
 
         $wasExpired = $property->hasLapsed();
-        $property->status = PropertyStatus::Published;
-        $property->expires_at = now()->addDays((int) config('meezan.listing.lifetime_days'));
-        $property->expiry_reminder_sent_at = null;
-        $property->save();
+        $error = DB::transaction(function () use ($property) {
+            // An expired listing coming back uses an allowance again.
+            if ($error = $this->listingLimitError($property)) {
+                return $error;
+            }
+            $property->status = PropertyStatus::Published;
+            $property->expires_at = now()->addDays((int) config('meezan.listing.lifetime_days'));
+            $property->expiry_reminder_sent_at = null;
+            $property->save();
+
+            return null;
+        });
+        if ($error) {
+            return back()->with('error', $error);
+        }
 
         AuditLogger::record('property.renewed', $property, ['was_expired' => $wasExpired, 'expires_at' => $property->expires_at->toDateString()]);
 
@@ -177,14 +189,73 @@ class PropertyController extends Controller
         return redirect()->route('dealer.properties.index')->with('status', 'Listing removed.');
     }
 
+    /**
+     * Dealer features or un-features one of their live listings, within the
+     * package's featured allowance. Staff can still feature any listing.
+     */
+    public function feature(Request $request, Property $property, Entitlements $entitlements): RedirectResponse
+    {
+        Gate::authorize('update', $property);
+        abort_unless($property->status === PropertyStatus::Published, 422, 'Only live listings can be featured.');
+
+        if (! $property->is_featured) {
+            $plan = $entitlements->plan($request->user());
+            if (! $plan->hasFeature('featured_listings') || ! $entitlements->allows($request->user(), 'featured')) {
+                return back()->with('error', $plan->hasFeature('featured_listings')
+                    ? 'You have used all '.$plan->limit('featured').' featured listings in your package. Remove one from featured or upgrade your package.'
+                    : 'Featured listings are not included in your package. Upgrade your package to feature listings.');
+            }
+        }
+
+        $property->is_featured = ! $property->is_featured;
+        $property->save();
+        AuditLogger::record($property->is_featured ? 'property.featured_by_dealer' : 'property.unfeatured_by_dealer', $property);
+
+        return back()->with('status', $property->reference.($property->is_featured ? ' is now featured.' : ' is no longer featured.'));
+    }
+
+    /**
+     * The message to show when this listing would start using a listing
+     * allowance and none is left; null when it may go ahead. Call inside a
+     * transaction: the dealer row is locked so two submissions at once
+     * cannot both take the last allowance.
+     */
+    protected function listingLimitError(Property $property): ?string
+    {
+        if (Entitlements::countsListing($property->status)) {
+            return null; // Already counted (e.g. a live listing being edited or renewed).
+        }
+
+        $dealer = User::whereKey($property->user_id)->lockForUpdate()->firstOrFail();
+        $entitlements = app(Entitlements::class);
+        $entitlements->flush($dealer);
+        if ($entitlements->allows($dealer, 'listings')) {
+            return null;
+        }
+
+        $entitlements->notifyLimitReached($dealer, 'listings');
+
+        return sprintf('You have reached your listing limit. Upgrade your package to add more listings. (%d of %d used)', $entitlements->usage($dealer)['listings'], $entitlements->plan($dealer)->limit('listings'));
+    }
+
     protected function submitForReview(Property $property): RedirectResponse
     {
-        $property->status = PropertyStatus::Pending;
-        $property->rejection_reason = null;
-        $property->submitted_at = now();
-        // Duplicate, burst and price-change checks run once here, not on every page view.
-        $flags = app(TrustSignals::class)->atSubmission($property);
-        $property->save();
+        $error = DB::transaction(function () use ($property, &$flags) {
+            if ($error = $this->listingLimitError($property)) {
+                return $error;
+            }
+            $property->status = PropertyStatus::Pending;
+            $property->rejection_reason = null;
+            $property->submitted_at = now();
+            // Duplicate, burst and price-change checks run once here, not on every page view.
+            $flags = app(TrustSignals::class)->atSubmission($property);
+            $property->save();
+
+            return null;
+        });
+        if ($error) {
+            return redirect()->route('dealer.properties.edit', $property)->with('error', $error);
+        }
 
         $duplicates = collect($flags['duplicates'] ?? []);
         AuditLogger::record('property.submitted', $property, array_filter([

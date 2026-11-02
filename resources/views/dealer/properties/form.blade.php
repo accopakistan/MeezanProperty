@@ -25,6 +25,10 @@
         </div>
     @endif
 
+    @unless ($editing && \App\Services\Billing\Entitlements::countsListing($property->status))
+        <x-listing-allowance class="mb-6" />
+    @endunless
+
     <form method="POST" action="{{ $editing ? route('dealer.properties.update', $property) : route('dealer.properties.store') }}" enctype="multipart/form-data" class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]" novalidate>
         @csrf
         @if ($editing) @method('PUT') @endif

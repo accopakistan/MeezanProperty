@@ -54,8 +54,8 @@
         <section aria-labelledby="browse-title">
             <h2 id="browse-title" class="section-title">Browse {{ $city }}</h2>
             <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <a href="{{ route('properties.index', ['city' => $city, 'purpose' => 'sale']) }}" class="card flex items-center gap-3 p-4 hover:shadow-lift"><x-icon name="home" class="size-6 text-brand-600" /><span class="font-semibold">Buy in {{ $city }}</span></a>
-                <a href="{{ route('properties.index', ['city' => $city, 'purpose' => 'rent']) }}" class="card flex items-center gap-3 p-4 hover:shadow-lift"><x-icon name="key" class="size-6 text-brand-600" /><span class="font-semibold">Rent in {{ $city }}</span></a>
+                <a href="{{ route('cities.category', [$slug, 'property-for-sale']) }}" class="card flex items-center gap-3 p-4 hover:shadow-lift"><x-icon name="home" class="size-6 text-brand-600" /><span class="font-semibold">Buy in {{ $city }}</span></a>
+                <a href="{{ route('cities.category', [$slug, 'property-for-rent']) }}" class="card flex items-center gap-3 p-4 hover:shadow-lift"><x-icon name="key" class="size-6 text-brand-600" /><span class="font-semibold">Rent in {{ $city }}</span></a>
                 @foreach ($groupLabels as $group => [$label, $icon])
                     <a href="{{ route('properties.index', ['city' => $city, 'group' => $group]) }}" class="card flex items-center justify-between gap-3 p-4 hover:shadow-lift">
                         <span class="flex items-center gap-3"><x-icon :name="$icon" class="size-6 text-brand-600" /><span class="font-semibold">{{ $label }}</span></span>
@@ -63,6 +63,14 @@
                     </a>
                 @endforeach
             </div>
+            @php $withListings = collect($categoryCounts)->filter(fn ($c) => $c['listings'] > 0); @endphp
+            @if ($withListings->isNotEmpty())
+                <ul class="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Property categories in {{ $city }}">
+                    @foreach ($withListings as $category => $counts)
+                        <li><a href="{{ route('cities.category', [$slug, $category]) }}" class="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 font-semibold hover:border-brand-200 hover:text-brand-700">{{ config('meezan.seo.categories.'.$category.'.label') }} <span class="text-xs font-normal text-muted">{{ number_format($counts['listings']) }}</span></a></li>
+                    @endforeach
+                </ul>
+            @endif
             <p class="mt-3 text-sm"><a href="{{ route('properties.map', ['city' => $city]) }}" class="link inline-flex items-center gap-1"><x-icon name="map-pin" class="size-4" /> Search {{ $city }} on the map</a></p>
         </section>
 

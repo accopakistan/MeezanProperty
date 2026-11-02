@@ -117,6 +117,21 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(LeadAssignment::class, 'dealer_id');
     }
 
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class)->latest('id');
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class)->latest('id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class)->latest('id');
+    }
+
     public function hasRole(Role|string $role): bool
     {
         $role = $role instanceof Role ? $role : Role::from($role);

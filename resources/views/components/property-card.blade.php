@@ -22,7 +22,7 @@
 @endphp
 <article {{ $attributes->merge(['class' => 'group relative flex overflow-hidden rounded-[var(--radius-card)] border border-line bg-white shadow-card transition hover:shadow-lift '.($layout === 'list' ? 'flex-row' : 'flex-col')]) }} data-result-id="{{ $property->id }}">
     <div @class(['relative shrink-0 overflow-hidden bg-brand-50', 'aspect-[16/9]' => $layout === 'grid', 'w-36 sm:w-40' => $layout === 'list'])>
-        <img src="{{ $cover ?? $property->placeholderUrl() }}" alt="{{ $cover ? $property->title : 'No photo yet — '.$property->type->label() }}" loading="lazy" decoding="async"
+        <img src="{{ $cover ?? $property->placeholderUrl() }}" alt="{{ $cover ? $property->title : 'No photo yet — '.$property->type->label() }}" width="640" height="360" loading="lazy" decoding="async"
              class="size-full object-cover transition duration-500 group-hover:scale-[1.03] {{ $layout === 'list' ? 'absolute inset-0' : '' }}">
         <div class="absolute top-2.5 left-2.5 flex flex-col items-start gap-1">
             <span class="tag {{ $tagClass }}">{{ $tagLabel }}</span>

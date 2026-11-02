@@ -1,11 +1,14 @@
 @php
     use App\Enums\PropertyStatus;
     $tabs = ['' => 'All'] + collect(PropertyStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->label()])->all();
+    $canFeature = app(\App\Services\Billing\Entitlements::class)->plan(auth()->user())->hasFeature('featured_listings');
 @endphp
 <x-layouts.dashboard title="My listings" section="dealer" heading="My listings" subheading="Create, edit and track the review status of your properties.">
     <x-slot:actions>
         <a href="{{ route('dealer.properties.create') }}" class="btn btn-primary"><x-icon name="plus" class="size-4" /> Add a listing</a>
     </x-slot:actions>
+
+    <x-listing-allowance class="mb-5" />
 
     <div class="mb-5 flex gap-1 overflow-x-auto rounded-xl border border-line bg-white p-1 scrollbar-none">
         @foreach ($tabs as $value => $label)
@@ -68,6 +71,11 @@
                                         @elseif (in_array($property->status, [PropertyStatus::Draft, PropertyStatus::Rejected], true) || $property->needsReviewToRelist())
                                             <form method="POST" action="{{ route('dealer.properties.submit', $property) }}">@csrf
                                                 <button class="btn btn-primary btn-sm">Submit</button>
+                                            </form>
+                                        @endif
+                                        @if ($property->status === PropertyStatus::Published && ($canFeature || $property->is_featured))
+                                            <form method="POST" action="{{ route('dealer.properties.feature', $property) }}">@csrf
+                                                <button @class(['btn btn-ghost btn-sm px-2', 'text-gold-600' => $property->is_featured]) title="{{ $property->is_featured ? 'Remove from featured' : 'Feature this listing' }}" aria-label="{{ $property->is_featured ? 'Remove '.$property->title.' from featured' : 'Feature '.$property->title }}" aria-pressed="{{ $property->is_featured ? 'true' : 'false' }}"><x-icon name="star" class="size-4" /></button>
                                             </form>
                                         @endif
                                         <a href="{{ route('properties.show', $property) }}" class="btn btn-ghost btn-sm px-2" title="Preview" aria-label="Preview {{ $property->title }}"><x-icon name="eye" class="size-4" /></a>

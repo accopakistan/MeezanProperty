@@ -39,6 +39,7 @@
                 'potentialAction' => ['@type' => 'SearchAction', 'target' => route('properties.index').'?location={search_term_string}', 'query-input' => 'required name=search_term_string'],
             ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}
         </script>
+        <script type="application/ld+json">{!! \App\Support\Seo::json(\App\Support\Seo::organization()) !!}</script>
     </x-slot:head>
 
     {{-- Hero ---------------------------------------------------------------}}

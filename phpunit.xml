@@ -30,6 +30,9 @@
         <env name="LOG_CHANNEL" value="null"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Tests choose these per case; a developer's local .env must not change results. -->
+        <env name="MEEZAN_WHATSAPP_DRIVER" value="meta"/>
+        <env name="MEEZAN_MOCK_PAYMENTS" value="false"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

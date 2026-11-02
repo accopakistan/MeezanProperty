@@ -16,6 +16,7 @@ class ContactConsent extends Model
         'share_with_dealers' => 'Share my requirement and contact with up to 3 matching verified dealers',
         'whatsapp_replies' => 'Receive replies about my requirement on WhatsApp',
         'listing_alerts' => 'Receive new-listing alerts',
+        'whatsapp_lead_alerts' => 'Dealer: receive new-lead alerts on WhatsApp',
     ];
 
     protected $fillable = ['user_id', 'conversation_id', 'channel', 'contact_hash', 'purpose', 'source', 'granted_at', 'revoked_at', 'ip_address'];

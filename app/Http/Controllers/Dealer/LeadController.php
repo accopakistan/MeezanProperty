@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\Dealer;
 
+use App\Enums\PipelineStage;
 use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
 use App\Models\LeadAssignment;
 use App\Services\AuditLogger;
+use App\Services\Crm\DealerCrm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use InvalidArgumentException;
 
 class LeadController extends Controller
 {
@@ -57,18 +60,23 @@ class LeadController extends Controller
         return back()->with('status', 'Inquiry updated.');
     }
 
-    public function updateAssignment(Request $request, LeadAssignment $assignment): RedirectResponse
+    /**
+     * Older quick-update form. It now moves only this dealer's own pipeline
+     * stage (the lead is shared with up to three dealers, so it never
+     * changes the lead's marketplace status).
+     */
+    public function updateAssignment(Request $request, LeadAssignment $assignment, DealerCrm $crm): RedirectResponse
     {
         abort_unless($assignment->dealer_id === $request->user()->id && $assignment->status === 'active', 403);
 
         $data = $request->validate(['status' => ['required', Rule::in(['contacted', 'qualified', 'closed', 'lost'])]]);
-        if (! $assignment->responded_at) {
-            $assignment->forceFill(['responded_at' => now()])->save();
-        }
-        $assignment->lead->status = $data['status'];
-        $assignment->lead->save();
+        $stage = ['contacted' => PipelineStage::Contacted, 'qualified' => PipelineStage::Qualified, 'closed' => PipelineStage::Won, 'lost' => PipelineStage::Lost][$data['status']];
 
-        AuditLogger::record('lead.status_changed', $assignment->lead, ['status' => $data['status'], 'by' => 'dealer']);
+        try {
+            $crm->changeStage($assignment, $stage, $request->user(), ['reason' => 'other']);
+        } catch (InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage().' Open the lead in your CRM to choose another stage.');
+        }
 
         return back()->with('status', 'Lead updated.');
     }

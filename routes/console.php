@@ -19,9 +19,9 @@ Schedule::call(fn () => DB::table('notifications')
 
 // Shared hosting (e.g. Hostinger) often cannot keep `queue:work` running.
 // With MEEZAN_QUEUE_VIA_SCHEDULER=true the cron-driven scheduler sends
-// queued emails every minute instead.
+// queued emails and WhatsApp messages every minute instead (WhatsApp first).
 if (config('meezan.queue_via_scheduler')) {
-    Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')->everyMinute()->withoutOverlapping()->runInBackground();
+    Schedule::command('queue:work --queue='.config('meezan.whatsapp.queue').',default --stop-when-empty --max-time=50 --tries=3')->everyMinute()->withoutOverlapping()->runInBackground();
 }
 
 // Expire lapsed listings and send expiry reminders.
@@ -31,3 +31,12 @@ Schedule::command('meezan:listing-lifecycle')->dailyAt('07:00')->withoutOverlapp
 Schedule::command('meezan:requirement-matches')->dailyAt('08:30')->withoutOverlapping();
 Schedule::command('meezan:prune-conversations')->dailyAt('03:30')->withoutOverlapping();
 Schedule::command('meezan:expire-verifications')->dailyAt('02:30')->withoutOverlapping();
+
+// Dealer CRM: follow-up and appointment reminders, leads without activity.
+Schedule::command('meezan:crm-reminders')->everyFiveMinutes()->withoutOverlapping();
+
+// WhatsApp: re-dispatch messages a stopped worker left queued; flag interrupted sends.
+Schedule::command('meezan:whatsapp-sweep')->everyFiveMinutes()->withoutOverlapping();
+
+// Billing: renewal invoices, overdue/expired subscriptions, scheduled changes, held leads.
+Schedule::command('meezan:billing-lifecycle')->dailyAt('01:30')->withoutOverlapping();

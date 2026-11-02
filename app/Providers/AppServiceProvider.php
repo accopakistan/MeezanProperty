@@ -5,11 +5,13 @@ namespace App\Providers;
 use App\Services\Ai\LlmRequirementParser;
 use App\Services\Ai\RequirementParser;
 use App\Services\Ai\RulesRequirementParser;
+use App\Services\Billing\Gateways\GatewayManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(RequirementParser::class, fn ($app) => config('meezan.ai.driver') === 'llm' && filled(config('services.openai.key'))
             ? $app->make(LlmRequirementParser::class)
             : $app->make(RulesRequirementParser::class));
+
+        $this->app->singleton(GatewayManager::class);
     }
 
     /**
@@ -33,6 +37,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Stored times are UTC; $time->localTime() shows them in Pakistan time (config meezan.timezone).
+        Carbon::macro('localTime', fn () => $this->copy()->setTimezone(config('meezan.timezone')));
+
         // Lazy loading throws during development and tests; in production it is
         // allowed but logged, so a missed eager load is visible without an error page.
         Model::preventLazyLoading();

@@ -79,7 +79,8 @@
                                     </td>
                                     <td>
                                         @if ($assignment->status === 'active')
-                                            <x-status-badge :tone="$assignment->lead->status->tone()" :label="$assignment->lead->status->label()" />
+                                            {{-- Your own pipeline stage; other dealers on the lead have their own. --}}
+                                            <x-status-badge :tone="$assignment->pipeline_stage->tone()" :label="$assignment->pipeline_stage->label()" />
                                         @else
                                             <x-status-badge tone="muted" label="Reassigned" />
                                         @endif
@@ -87,6 +88,7 @@
                                     <td class="whitespace-nowrap text-muted">{{ $assignment->assigned_at->format('j M Y') }}</td>
                                     <td>
                                         @if ($assignment->status === 'active')
+                                            <a href="{{ route('dealer.crm.leads.show', $assignment) }}" class="btn btn-secondary btn-sm mb-1">Open in CRM</a>
                                             <form method="POST" action="{{ route('dealer.assignments.update', $assignment) }}">
                                                 @csrf @method('PATCH')
                                                 <select name="status" class="input w-auto py-1.5 text-[13px]" data-autosubmit aria-label="Update lead status">

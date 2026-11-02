@@ -2,23 +2,30 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Jobs\ProcessInboundWhatsAppMessage;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
-use App\Services\Assistant\ConversationAssistant;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
- * WhatsApp channel adapter. Stores inbound messages idempotently (keyed by
- * the WhatsApp message id), passes text to the same ConversationAssistant
- * the website uses while the conversation is in bot mode, and sends the
- * reply through WhatsAppClient (which sends nothing unless enabled).
- * Conversations a person has taken over (mode "human") get no bot reply.
+ * WhatsApp channel adapter for incoming webhooks. It only does the quick,
+ * safe part synchronously:
+ *
+ *   normalise each message (text, button replies, other types) → store it
+ *   once (keyed by the WhatsApp message id) → decide whether the assistant
+ *   should answer → queue ProcessInboundWhatsAppMessage.
+ *
+ * Nothing is discarded: messages that are not answered automatically
+ * (a person is handling the chat, auto-reply is off, a flood or an exact
+ * repeat) are stored with a processing status staff can see. Delivery
+ * status updates are applied to the outbound log.
  */
 class WebhookProcessor
 {
     public function __construct(
-        protected WhatsAppClient $client,
-        protected ConversationAssistant $assistant,
+        protected WhatsAppSettings $settings,
+        protected OutboundMessenger $messenger,
     ) {}
 
     /**
@@ -40,10 +47,20 @@ class WebhookProcessor
     public function process(array $payload): int
     {
         $stored = 0;
+        $ownNumber = config('services.whatsapp.phone_number_id');
 
         foreach ($payload['entry'] ?? [] as $entry) {
             foreach ($entry['changes'] ?? [] as $change) {
                 $value = $change['value'] ?? [];
+
+                // Only events for our own business number are accepted.
+                $for = $value['metadata']['phone_number_id'] ?? null;
+                if ($for !== null && filled($ownNumber) && (string) $for !== (string) $ownNumber) {
+                    Log::warning('WhatsApp webhook for another phone number ignored');
+
+                    continue;
+                }
+
                 $names = collect($value['contacts'] ?? [])->mapWithKeys(fn ($c) => [$c['wa_id'] ?? '' => $c['profile']['name'] ?? null]);
 
                 foreach ($value['messages'] ?? [] as $message) {
@@ -53,12 +70,37 @@ class WebhookProcessor
                 }
 
                 foreach ($value['statuses'] ?? [] as $status) {
-                    ConversationMessage::where('external_id', $status['id'] ?? '')->update(['delivery_status' => $status['status'] ?? null]);
+                    if (! is_array($status)) {
+                        continue;
+                    }
+                    ConversationMessage::where('external_id', $status['id'] ?? '')->whereNotNull('external_id')->update(['delivery_status' => $status['status'] ?? null]);
+                    $this->messenger->applyStatus($status);
                 }
             }
         }
 
         return $stored;
+    }
+
+    /**
+     * Text the assistant should read: typed text, or the meaning of a tapped
+     * button. Null for media, locations and other types (stored, not parsed).
+     *
+     * @param  array<string, mixed>  $message
+     */
+    public static function textOf(array $message): ?string
+    {
+        $text = match ($message['type'] ?? 'text') {
+            'text' => $message['text']['body'] ?? null,
+            'interactive' => WhatsAppFormatter::buttonText(
+                (string) ($message['interactive']['button_reply']['id'] ?? $message['interactive']['list_reply']['id'] ?? ''),
+                $message['interactive']['button_reply']['title'] ?? $message['interactive']['list_reply']['title'] ?? null,
+            ),
+            'button' => $message['button']['text'] ?? null,
+            default => null,
+        };
+
+        return $text === null ? null : mb_substr((string) $text, 0, 4096);
     }
 
     /**
@@ -73,9 +115,9 @@ class WebhookProcessor
             return false;
         }
 
-        [$conversation, $inbound] = DB::transaction(function () use ($message, $externalId, $from, $name) {
+        $inbound = DB::transaction(function () use ($message, $externalId, $from, $name) {
             if (ConversationMessage::where('external_id', $externalId)->lockForUpdate()->exists()) {
-                return [null, null];
+                return null;
             }
 
             $conversation = Conversation::firstOrCreate(
@@ -90,37 +132,52 @@ class WebhookProcessor
             $conversation->last_message_at = now();
             $conversation->save();
 
+            $text = self::textOf($message);
             $inbound = $conversation->messages()->create([
                 'direction' => 'inbound',
                 'role' => 'user',
                 'external_id' => $externalId,
                 'type' => $message['type'] ?? 'text',
-                'body' => isset($message['text']['body']) ? mb_substr((string) $message['text']['body'], 0, 4096) : null,
-                // Only the message envelope is kept; no profile or device data.
+                'body' => $text,
+                // Only the message envelope is kept; no profile, media or device data.
                 'payload' => array_intersect_key($message, array_flip(['id', 'from', 'timestamp', 'type'])),
             ]);
+            $inbound->forceFill(['processing_status' => $this->decide($conversation, $inbound)])->save();
 
-            return [$conversation, $inbound];
+            return $inbound;
         });
 
-        if (! $conversation) {
+        if (! $inbound) {
             return false;
         }
 
-        if ($conversation->mode === 'bot') {
-            $text = $message['text']['body'] ?? null;
-            $reply = $text !== null
-                ? $this->assistant->respond($conversation, (string) $text, null, $inbound)->toPlainText()
-                : 'I can read text messages only for now. Please type what you are looking for, e.g. "10 marla house in DHA Lahore around 4 crore".';
-
-            $send = $this->client->sendText($conversation->external_contact, $reply);
-            $outbound = $this->assistant->lastMessage && $text !== null
-                ? $this->assistant->lastMessage
-                : $conversation->messages()->create(['direction' => 'outbound', 'role' => 'assistant', 'type' => 'text', 'body' => $reply]);
-            $outbound->forceFill(['external_id' => $send['id'], 'delivery_status' => $send['sent'] ? 'sent' : 'not_sent'])->save();
-            $this->assistant->lastMessage = null;
+        if ($inbound->processing_status === 'queued') {
+            ProcessInboundWhatsAppMessage::dispatch($inbound->id);
         }
 
         return true;
+    }
+
+    /** Should the assistant answer this message? */
+    protected function decide(Conversation $conversation, ConversationMessage $inbound): string
+    {
+        if ($conversation->mode !== 'bot') {
+            return 'skipped';
+        }
+        if (! $this->settings->autoReplyEnabled()) {
+            return 'held';
+        }
+
+        $recent = ConversationMessage::where('conversation_id', $conversation->id)->where('direction', 'inbound')
+            ->whereKeyNot($inbound->id)->where('created_at', '>=', now()->subMinute())->count();
+        if ($recent >= (int) config('meezan.whatsapp.max_inbound_per_minute')) {
+            return 'rate_limited';
+        }
+
+        $repeat = $inbound->body !== null && ConversationMessage::where('conversation_id', $conversation->id)->where('direction', 'inbound')
+            ->whereKeyNot($inbound->id)->where('body', $inbound->body)->whereIn('processing_status', ['queued', 'processing', 'processed'])
+            ->where('created_at', '>=', now()->subSeconds((int) config('meezan.whatsapp.duplicate_window_seconds')))->exists();
+
+        return $repeat ? 'duplicate' : 'queued';
     }
 }

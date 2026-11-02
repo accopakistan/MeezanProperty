@@ -30,6 +30,10 @@
                     <x-field name="public_phone" type="tel" label="Public phone" :value="$profile->public_phone" placeholder="042 1234567" />
                     <x-field name="whatsapp_number" type="tel" label="WhatsApp number" :value="$profile->whatsapp_number" placeholder="0300 1234567" />
                 </div>
+                <label class="flex items-start gap-3 text-sm">
+                    <input type="checkbox" name="whatsapp_lead_alerts" value="1" class="checkbox mt-0.5" @checked(old('whatsapp_lead_alerts', auth()->user()->notify_whatsapp))>
+                    <span><span class="block font-semibold">Send new-lead alerts to this WhatsApp number</span><span class="text-muted">A short summary of each new lead (requirement, location, budget; never the buyer’s contact details). You review the lead in your dashboard. Reply STOP on WhatsApp or untick this to stop.{{ app(\App\Services\WhatsApp\WhatsAppClient::class)->isLive() ? '' : ' WhatsApp sending is not live yet; your choice is saved for when it is.' }}</span></span>
+                </label>
             </section>
 
             <section class="card card-body space-y-4">

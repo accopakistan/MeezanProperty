@@ -17,6 +17,8 @@ class AssistantNeedsAttention extends QueuedMailNotification
         'not_understood' => 'Several messages in a row were not understood',
         'suspicious' => 'Unusually many messages in a short time',
         'webhook_failed' => 'A WhatsApp webhook delivery failed',
+        'processing_failed' => 'A WhatsApp message could not be processed',
+        'send_failed' => 'A WhatsApp message could not be sent',
     ];
 
     public function __construct(public string $reason, public ?Conversation $conversation = null, public ?string $detail = null)

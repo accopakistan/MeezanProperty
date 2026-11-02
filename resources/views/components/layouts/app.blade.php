@@ -1,8 +1,8 @@
-@props(['title' => null, 'description' => null, 'canonical' => null, 'image' => null, 'noindex' => false])
+@props(['title' => null, 'description' => null, 'canonical' => null, 'image' => null, 'imageAlt' => null, 'noindex' => false, 'robots' => null, 'type' => 'website'])
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <x-layouts.head :title="$title" :description="$description" :canonical="$canonical" :image="$image" :noindex="$noindex">
+    <x-layouts.head :title="$title" :description="$description" :canonical="$canonical" :image="$image" :image-alt="$imageAlt" :noindex="$noindex" :robots="$robots" :type="$type">
         {{ $head ?? '' }}
     </x-layouts.head>
 </head>

@@ -13,7 +13,7 @@
     $profile = $p?->dealer?->dealerProfile;
     $verified = $p?->hasVerifiedDealer();
 @endphp
-<x-layouts.app :title="'Map search — '.$search->headline()" description="Search property in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar on the map. See reviewed listings for sale and rent with prices by location." noindex>
+<x-layouts.app :title="'Map search — '.$search->headline()" description="Search property in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar on the map. See reviewed listings for sale and rent with prices by location." robots="noindex, follow">
     <section class="relative isolate overflow-hidden bg-brand-900">
         <img src="{{ asset('images/ref/hero-map.jpg') }}" alt="" class="absolute inset-y-0 right-0 -z-20 h-full w-full object-cover md:w-[58%]">
         <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-900 via-brand-900/85 to-brand-900/10"></div>
