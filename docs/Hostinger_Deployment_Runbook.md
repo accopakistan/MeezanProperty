@@ -37,7 +37,7 @@ Use version control when you are ready (deferred for now), or upload a zip. **Do
 - the **domain's document root** points to `~/meezanproperty/public` (hPanel → Websites → Advanced → change the document root, or use a symlink)
 - never put the whole project inside `public_html/`, because `.env` and `storage/` must not be web-reachable
 
-**Front-end assets:** shared hosting usually has no Node. Run `npm ci && npm run build` **locally** and upload `public/build/`.
+**Front-end assets:** shared hosting usually has no Node, so the built assets in `public/build/` are committed to Git. After any change to CSS, JavaScript or Blade classes, run `npm run build` **locally and commit `public/build/` with the change**. Otherwise a deploy from GitHub serves new pages with an old stylesheet (3 Nov 2026: the header logo showed at full size because the live CSS had no `h-[60px]` class).
 
 ---
 
@@ -130,7 +130,7 @@ Then check in a browser:
 
 ```bash
 php artisan down --refresh=15            # shows the branded 503 page
-# upload new code and public/build
+# pull or upload the new code (public/build is in Git; rebuild locally first if assets changed)
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force              # additive migrations only; back up the database first
 php artisan optimize                     # re-cache; run again after every .env change
