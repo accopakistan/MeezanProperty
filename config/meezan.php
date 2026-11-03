@@ -178,15 +178,27 @@ return [
     | Maps
     |--------------------------------------------------------------------------
     |
-    | The map uses Leaflet with a configurable tile server. The default is
-    | OpenStreetMap, whose usage policy suits development and light traffic;
-    | configure a commercial tile provider before high-traffic launch.
+    | Map search (/map) uses MapLibre GL JS with a vector style (style_url).
+    | The default is OpenFreeMap's "liberty" style: OpenStreetMap data, no
+    | API key, free to use but run on donations with no service guarantee.
+    | Leave MEEZAN_MAP_STYLE_URL empty to draw the raster tile_url instead.
+    | Smaller maps (listing page, dealer pin picker) use Leaflet with the
+    | raster tile_url. OpenStreetMap's own tile server suits development and
+    | light traffic only; configure a provider before high-traffic launch.
     |
     */
 
     'map' => [
         'enabled' => (bool) env('MEEZAN_MAP_ENABLED', true),
         'tile_url' => env('MEEZAN_MAP_TILE_URL', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        // MapLibre style JSON for map search; empty = raster tile_url. If the
+        // style fails to load, the page falls back to tile_url by itself.
+        'style_url' => env('MEEZAN_MAP_STYLE_URL', 'https://tiles.openfreemap.org/styles/liberty'),
+        // Above this many located listings in view, map search shows counted
+        // grid cells instead of individual pins (zoom in to see pins).
+        'max_points' => 500,
+        // Published society/area boundaries are drawn from this zoom level.
+        'boundary_min_zoom' => 10,
         'attribution' => env('MEEZAN_MAP_ATTRIBUTION', '&copy; OpenStreetMap contributors'),
         'center' => [31.5204, 74.3587],
         'zoom' => 11,
@@ -271,6 +283,212 @@ return [
     | pages never reach search engines.
     |
     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Investment intelligence (Phase 14)
+    |--------------------------------------------------------------------------
+    |
+    | Markets, data types, factors and the proposed initial scoring
+    | methodology. The weights and parameters here only seed methodology
+    | version 1; admins manage later versions in the Data Centre, and every
+    | ranking stores the version it was calculated with. Nothing here is
+    | market data: rankings use verified observations only.
+    |
+    */
+
+    'investment' => [
+        // Pakistan is the only active data market. Others are configured, not live.
+        'markets' => [
+            'Pakistan' => ['code' => 'PK', 'currency' => 'PKR', 'units' => ['marla', 'kanal', 'sqft', 'sqyd'], 'status' => 'active',
+                'legal_checks' => 'Development authority approval / NOC (LDA, CDA, KDA, RDA, DHA and others); registry and mutation'],
+            'United Arab Emirates' => ['code' => 'AE', 'currency' => 'AED', 'units' => ['sqft'], 'status' => 'planned', 'legal_checks' => 'RERA / DLD registration'],
+            'Saudi Arabia' => ['code' => 'SA', 'currency' => 'SAR', 'units' => ['sqm'], 'status' => 'planned', 'legal_checks' => 'REGA registration'],
+            'Qatar' => ['code' => 'QA', 'currency' => 'QAR', 'units' => ['sqm'], 'status' => 'planned', 'legal_checks' => 'Ministry of Justice registration'],
+            'United Kingdom' => ['code' => 'GB', 'currency' => 'GBP', 'units' => ['sqft', 'sqm'], 'status' => 'planned', 'legal_checks' => 'HM Land Registry'],
+        ],
+
+        'source_types' => [
+            'verified_transactions' => 'Verified transactions',
+            'public_asking_prices' => 'Public asking prices',
+            'authorized_report' => 'Authorized market report',
+            'official_record' => 'Official development / approval record',
+            'verified_rental' => 'Verified rental observations',
+            'admin_research' => 'Meezan Property research',
+        ],
+        'reliability' => ['high' => 1.0, 'medium' => 0.6, 'low' => 0.3],
+
+        'price_bases' => ['transaction' => 'Verified transaction', 'asking' => 'Asking (advertised)', 'valuation' => 'Professional valuation'],
+
+        // Indicator levels and what each level scores (0-100, higher = better for the investor).
+        'indicators' => [
+            'demand' => ['label' => 'Demand', 'levels' => ['very_high' => 100, 'high' => 80, 'medium' => 55, 'low' => 25]],
+            'supply' => ['label' => 'Supply', 'levels' => ['limited' => 90, 'balanced' => 65, 'high' => 30]],
+            'liquidity' => ['label' => 'Liquidity', 'levels' => ['high' => 90, 'medium' => 60, 'low' => 25]],
+            'infrastructure' => ['label' => 'Location & infrastructure', 'levels' => ['excellent' => 95, 'good' => 75, 'fair' => 50, 'poor' => 20]],
+            'development_progress' => ['label' => 'Development progress (%)', 'numeric' => true],
+            'legal_verification' => ['label' => 'Legal verification', 'levels' => ['verified' => 100, 'partially_verified' => 55, 'unverified' => 10, 'disputed' => 0]],
+            'developer_status' => ['label' => 'Developer / project status', 'levels' => ['completed' => 95, 'on_track' => 75, 'delayed' => 35, 'stalled' => 5]],
+            'growth_drivers' => ['label' => 'Future growth indicators', 'levels' => ['strong' => 90, 'moderate' => 60, 'weak' => 30]],
+        ],
+
+        'factors' => [
+            'price_performance' => 'Historical price performance',
+            'demand_supply' => 'Demand and supply',
+            'rental_yield' => 'Rental yield',
+            'location_infrastructure' => 'Location and infrastructure',
+            'development_progress' => 'Development progress',
+            'liquidity' => 'Market liquidity',
+            'risk' => 'Investment risk (lower risk scores higher)',
+            'growth' => 'Future growth indicators',
+        ],
+
+        'categories' => [
+            'overall' => ['label' => 'Best Overall Investment', 'requires' => []],
+            'appreciation' => ['label' => 'Best Capital Appreciation', 'requires' => ['price_performance']],
+            'rental' => ['label' => 'Best Rental Investment', 'requires' => ['rental_yield']],
+            'low_risk' => ['label' => 'Best Low-Risk Investment', 'requires' => ['risk']],
+            'emerging' => ['label' => 'Best Emerging Investment', 'requires' => ['development_progress'], 'emerging_only' => true],
+            'commercial' => ['label' => 'Best Commercial Investment', 'requires' => [], 'asset_class' => 'commercial'],
+            'residential' => ['label' => 'Best Residential Investment', 'requires' => [], 'asset_class' => 'residential'],
+        ],
+
+        // Methodology version 1: the proposed initial weights (each category sums to 100).
+        'default_weights' => [
+            'overall' => ['price_performance' => 20, 'demand_supply' => 12, 'rental_yield' => 12, 'location_infrastructure' => 12, 'development_progress' => 10, 'liquidity' => 10, 'risk' => 14, 'growth' => 10],
+            'appreciation' => ['price_performance' => 40, 'demand_supply' => 15, 'rental_yield' => 0, 'location_infrastructure' => 10, 'development_progress' => 5, 'liquidity' => 10, 'risk' => 5, 'growth' => 15],
+            'rental' => ['price_performance' => 5, 'demand_supply' => 15, 'rental_yield' => 45, 'location_infrastructure' => 10, 'development_progress' => 5, 'liquidity' => 10, 'risk' => 10, 'growth' => 0],
+            'low_risk' => ['price_performance' => 10, 'demand_supply' => 10, 'rental_yield' => 10, 'location_infrastructure' => 10, 'development_progress' => 5, 'liquidity' => 20, 'risk' => 35, 'growth' => 0],
+            'emerging' => ['price_performance' => 5, 'demand_supply' => 15, 'rental_yield' => 0, 'location_infrastructure' => 20, 'development_progress' => 25, 'liquidity' => 5, 'risk' => 10, 'growth' => 20],
+            'commercial' => ['price_performance' => 20, 'demand_supply' => 12, 'rental_yield' => 12, 'location_infrastructure' => 12, 'development_progress' => 10, 'liquidity' => 10, 'risk' => 14, 'growth' => 10],
+            'residential' => ['price_performance' => 20, 'demand_supply' => 12, 'rental_yield' => 12, 'location_infrastructure' => 12, 'development_progress' => 10, 'liquidity' => 10, 'risk' => 14, 'growth' => 10],
+        ],
+
+        'default_parameters' => [
+            // Annualised price change (%) mapped linearly onto 0-100 (clamped).
+            'price_change_range' => [-10, 25],
+            // Estimated gross rental yield (%) mapped onto 0-100 (clamped).
+            'yield_range' => [2, 10],
+            // A score needs data for at least this share of the category's weight...
+            'min_coverage' => 0.7,
+            // ...and loses up to this share of its value for the weight that is missing.
+            'coverage_penalty' => 0.15,
+            // Comparable windows for one- and two-year changes (months before the latest observation).
+            'one_year_window' => [9, 15],
+            'two_year_window' => [21, 27],
+            // Rent and sale observations must be this close in time to compute a yield.
+            'yield_max_gap_months' => 12,
+            // Growth scenarios need this much history and this many observations.
+            'scenario_min_months' => 24,
+            'scenario_min_observations' => 3,
+            'scenario_years' => 3,
+            // Confidence: component weights (sum 100) and level thresholds.
+            'confidence_weights' => ['observations' => 20, 'recency' => 20, 'source_quality' => 20, 'independence' => 15, 'consistency' => 10, 'coverage' => 15],
+            'confidence_full_observations' => 10,
+            'confidence_full_sources' => 3,
+            'confidence_levels' => ['high' => 75, 'medium' => 50, 'limited' => 25],
+            // Risk: minimum evidence and level thresholds (0-100, higher = riskier).
+            'risk_min_components' => 3,
+            'risk_levels' => ['low' => 35, 'medium' => 60],
+        ],
+
+        // "rules" (default) explains rankings from the snapshot data; "llm" rephrases that
+        // explanation with the OpenAI-compatible model in services.openai (grounding-checked).
+        'ai_driver' => env('MEEZAN_INVESTMENT_AI', 'rules'),
+
+        'disclaimer' => 'Meezan Property rankings and investment insights are informational tools and do not constitute financial, legal or investment advice. Property investments involve risk. Historical performance does not guarantee future returns.',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Central AI Brain & agents (Phase 15)
+    |--------------------------------------------------------------------------
+    |
+    | One provider layer for every agent. Agents always work from tools that
+    | read the real database; the language model (when configured) only
+    | classifies requests and words the summary. Without an API key the
+    | agents run in "rules" mode and say so. Model names are configuration,
+    | never code: each workload tier can use a different (cheaper) model.
+    |
+    */
+
+    'agents' => [
+        'provider' => env('MEEZAN_AI_PROVIDER', 'openai'),
+        'models' => [
+            'routine' => env('OPENAI_MODEL_ROUTINE'),
+            'extraction' => env('OPENAI_MODEL_EXTRACTION'),
+            'support' => env('OPENAI_MODEL_SUPPORT'),
+            'research' => env('OPENAI_MODEL_RESEARCH'),
+            'reasoning' => env('OPENAI_MODEL_REASONING'),
+        ],
+        // The same tiers for Anthropic; empty means ANTHROPIC_DEFAULT_MODEL.
+        'anthropic_models' => [
+            'routine' => env('ANTHROPIC_MODEL_ROUTINE'),
+            'extraction' => env('ANTHROPIC_MODEL_EXTRACTION'),
+            'support' => env('ANTHROPIC_MODEL_SUPPORT'),
+            'research' => env('ANTHROPIC_MODEL_RESEARCH'),
+            'reasoning' => env('ANTHROPIC_MODEL_REASONING'),
+        ],
+        // Off until an administrator turns it on: fallback sends the same data to a second company.
+        'fallback_allowed' => (bool) env('MEEZAN_AI_FALLBACK', false),
+        // Use the model to classify requests and word summaries when a key is set.
+        'use_llm' => (bool) env('MEEZAN_AGENTS_USE_LLM', true),
+        'limits' => [
+            'max_tool_calls' => (int) env('MEEZAN_AGENT_MAX_TOOL_CALLS', 25),
+            'max_depth' => (int) env('MEEZAN_AGENT_MAX_DEPTH', 2),
+            'max_subtasks' => (int) env('MEEZAN_AGENT_MAX_SUBTASKS', 8),
+            'max_attempts' => (int) env('MEEZAN_AGENT_MAX_ATTEMPTS', 2),
+            'max_seconds' => (int) env('MEEZAN_AGENT_MAX_SECONDS', 60),
+            'max_tokens_per_task' => (int) env('MEEZAN_AGENT_MAX_TOKENS_PER_TASK', 8000),
+            'daily_tokens_per_agent' => (int) env('MEEZAN_AGENT_DAILY_TOKENS', 200000),
+            'daily_tokens_total' => (int) env('MEEZAN_AGENTS_DAILY_TOKENS', 1000000),
+            // Cost budgets apply only when model pricing is configured in the Command Center.
+            'daily_cost_total_usd' => env('MEEZAN_AGENTS_DAILY_COST_USD') !== null ? (float) env('MEEZAN_AGENTS_DAILY_COST_USD') : null,
+            'approval_expiry_days' => 14,
+        ],
+        // Event-driven tasks (new listing, dealer, lead…), queued after commit.
+        'events' => (bool) env('MEEZAN_AGENT_EVENTS', true),
+        'queue' => env('MEEZAN_AGENT_QUEUE', 'agents'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Place photos (home and city page heroes)
+    |--------------------------------------------------------------------------
+    |
+    | Landmark photos from Wikimedia Commons under Creative Commons licences,
+    | resized to 1920 px (public/images/places). The licences require the
+    | credit shown on each hero; the resized copies keep the same licence.
+    | "position" is the CSS object-position that keeps the landmark in frame.
+    |
+    */
+
+    'place_photos' => [
+        'home' => ['file' => 'images/places/home.jpg', 'alt' => 'Minar-e-Pakistan in Iqbal Park, Lahore', 'position' => 'center 40%',
+            'author' => 'Guilhem Vellut', 'license' => 'CC BY-SA 2.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/2.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:Minar-e-Pakistan.jpg'],
+        'Lahore' => ['file' => 'images/places/lahore.jpg', 'alt' => 'Badshahi Mosque, Lahore', 'position' => 'center 35%',
+            'author' => 'Zapata1000', 'license' => 'CC BY-SA 4.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/4.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:Badshahi_mosque_of_Lahore,_Pakistan.jpg'],
+        'Karachi' => ['file' => 'images/places/karachi.jpg', 'alt' => 'Mazar-e-Quaid, the mausoleum of Quaid-e-Azam Muhammad Ali Jinnah, Karachi', 'position' => 'center 45%',
+            'author' => 'Jan Kranendonk', 'license' => 'CC BY-SA 4.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/4.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:Mazar-e-Quaid,_or_Jinnah_Mausoleum_in_Karachi,_Pakistan.jpg'],
+        'Islamabad' => ['file' => 'images/places/islamabad.jpg', 'alt' => 'Faisal Mosque below the Margalla Hills, Islamabad', 'position' => 'center 75%',
+            'author' => 'Ali Mujtaba', 'license' => 'CC BY-SA 4.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/4.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:ALI_MUJTABA_WLM2015_FAISAL_MOSQUE_DSC_1542_m.jpg'],
+        'Multan' => ['file' => 'images/places/multan.jpg', 'alt' => 'Tomb of Shah Rukn-e-Alam, Multan', 'position' => 'center 30%',
+            'author' => 'Rana Abdul Qudoos', 'license' => 'CC BY-SA 4.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/4.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:Tomb_Shah_Rukn-e-Alam_-_remote_view.jpg'],
+        'Faisalabad' => ['file' => 'images/places/faisalabad.jpg', 'alt' => 'Clock Tower (Ghanta Ghar) at night, Faisalabad', 'position' => 'center 40%',
+            'author' => 'Usman Nadeem', 'license' => 'CC BY-SA 4.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/4.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:Clock_Tower_Faisalabad_by_Usman_Nadeem.jpg'],
+        'Quetta' => ['file' => 'images/places/quetta.jpg', 'alt' => 'Hanna Lake and the hills near Quetta', 'position' => 'center 55%',
+            'author' => 'Maham Saadat', 'license' => 'CC BY-SA 4.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/4.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:Hanna_Lake,_Quetta.jpg'],
+        'Peshawar' => ['file' => 'images/places/peshawar.jpg', 'alt' => 'Islamia College, Peshawar', 'position' => 'center 50%',
+            'author' => 'Zafarmaini', 'license' => 'CC BY-SA 4.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/4.0',
+            'source' => 'https://commons.wikimedia.org/wiki/File:Islamia_College_Peshawar_(Public_Sector_University),_Khyber_Pakhtunkhwa,_Pakistan_cropped.jpg'],
+    ],
 
     'seo' => [
         'min_listings' => (int) env('MEEZAN_SEO_MIN_LISTINGS', 3),

@@ -13,7 +13,7 @@
         <article class="card card-body min-w-0 print:border-0 print:shadow-none" aria-label="Invoice document">
             <header class="flex flex-wrap items-start justify-between gap-6 border-b border-line pb-6">
                 <div>
-                    <x-logo class="h-12 w-auto" />
+                    <x-logo class="h-16 w-auto" />
                     <p class="mt-3 text-xs text-muted">Meezan Property</p>
                 </div>
                 <div class="text-right">

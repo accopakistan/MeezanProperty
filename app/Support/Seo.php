@@ -116,7 +116,7 @@ class Seo
             '@type' => 'Organization',
             'name' => 'Meezan Property',
             'url' => route('home'),
-            'logo' => asset('images/ref/logo.png'),
+            'logo' => asset('images/logo/meezan-mark.png'),
             'email' => $contact['email'] ?: null,
             'telephone' => $contact['phone'] ?: null,
             'areaServed' => ['@type' => 'Country', 'name' => 'Pakistan'],

@@ -21,7 +21,7 @@ Schedule::call(fn () => DB::table('notifications')
 // With MEEZAN_QUEUE_VIA_SCHEDULER=true the cron-driven scheduler sends
 // queued emails and WhatsApp messages every minute instead (WhatsApp first).
 if (config('meezan.queue_via_scheduler')) {
-    Schedule::command('queue:work --queue='.config('meezan.whatsapp.queue').',default --stop-when-empty --max-time=50 --tries=3')->everyMinute()->withoutOverlapping()->runInBackground();
+    Schedule::command('queue:work --queue='.config('meezan.whatsapp.queue').',default,'.config('meezan.agents.queue').' --stop-when-empty --max-time=50 --tries=3')->everyMinute()->withoutOverlapping()->runInBackground();
 }
 
 // Expire lapsed listings and send expiry reminders.
@@ -40,3 +40,12 @@ Schedule::command('meezan:whatsapp-sweep')->everyFiveMinutes()->withoutOverlappi
 
 // Billing: renewal invoices, overdue/expired subscriptions, scheduled changes, held leads.
 Schedule::command('meezan:billing-lifecycle')->dailyAt('01:30')->withoutOverlapping();
+
+// Investment rankings: recalculated weekly for review; publishing stays a manual admin step.
+Schedule::command('meezan:investment-recalculate')->weeklyOn(1, '04:00')->withoutOverlapping();
+
+// AI agents: daily health and subscription reviews, weekly CEO report, approval/memory expiry.
+Schedule::command('meezan:agents health')->dailyAt('06:00')->withoutOverlapping();
+Schedule::command('meezan:agents subscriptions')->dailyAt('06:15')->withoutOverlapping();
+Schedule::command('meezan:agents ceo-weekly')->weeklyOn(1, '06:30')->withoutOverlapping();
+Schedule::command('meezan:agents maintenance')->hourly()->withoutOverlapping();

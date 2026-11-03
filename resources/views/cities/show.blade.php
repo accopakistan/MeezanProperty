@@ -24,8 +24,17 @@
         </script>
     </x-slot:head>
 
-    <section class="bg-gradient-to-r from-brand-800 to-brand-600">
-        <div class="container-page py-10">
+    @php $cityPhoto = config('meezan.place_photos.'.$city); @endphp
+    <section class="relative isolate overflow-hidden bg-brand-900">
+        @if ($cityPhoto)
+            {{-- A landmark of the city (config meezan.place_photos), credited below as its licence requires. --}}
+            <img src="{{ asset($cityPhoto['file']) }}" alt="{{ $cityPhoto['alt'] }}" width="1920" height="1200" fetchpriority="high"
+                 class="absolute inset-0 -z-20 size-full object-cover" style="object-position: {{ $cityPhoto['position'] }}">
+            <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-900/95 via-brand-900/75 to-brand-900/25"></div>
+        @else
+            <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-800 to-brand-600"></div>
+        @endif
+        <div class="container-page py-10 pb-12 lg:py-16">
             <x-breadcrumbs :items="[['Cities', route('home').'#cities'], [$city, null]]" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
             <p class="mt-6 text-sm font-semibold tracking-wide text-gold-300 uppercase">{{ $summary['province'] }}, Pakistan</p>
             <h1 class="mt-1 text-4xl text-white sm:text-5xl">Property in {{ $city }}</h1>
@@ -48,6 +57,7 @@
                 <div><dt class="text-xs text-white/70">Verified dealers</dt><dd class="text-2xl font-bold">{{ number_format($summary['dealers']) }}</dd></div>
             </dl>
         </div>
+        <x-photo-credit :photo="$cityPhoto" />
     </section>
 
     <div class="container-page py-10">

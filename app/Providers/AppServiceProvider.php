@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Agents\AgentEvents;
+use App\Services\Agents\AiProvider;
 use App\Services\Ai\LlmRequirementParser;
 use App\Services\Ai\RequirementParser;
 use App\Services\Ai\RulesRequirementParser;
@@ -23,9 +25,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // "rules" (default) is fully deterministic. "llm" asks an OpenAI-compatible
+        // One provider manager for the whole application (it holds the current chat channel).
+        $this->app->singleton(AiProvider::class);
+
+        // "rules" (default) is fully deterministic. "llm" asks the configured language
         // model to extract criteria and falls back to the rules on any failure.
-        $this->app->bind(RequirementParser::class, fn ($app) => config('meezan.ai.driver') === 'llm' && filled(config('services.openai.key'))
+        $this->app->bind(RequirementParser::class, fn ($app) => config('meezan.ai.driver') === 'llm' && $app->make(AiProvider::class)->available()
             ? $app->make(LlmRequirementParser::class)
             : $app->make(RulesRequirementParser::class));
 
@@ -56,6 +61,9 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Paginator::defaultView('components.pagination');
+
+        // Listing, dealer and lead events that queue AI agent work (off unless MEEZAN_AGENT_EVENTS=true).
+        AgentEvents::register();
 
         RateLimiter::for('inquiries', fn (Request $request) => [
             Limit::perMinute(5)->by($request->ip()),

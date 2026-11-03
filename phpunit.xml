@@ -32,7 +32,22 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <!-- Tests choose these per case; a developer's local .env must not change results. -->
         <env name="MEEZAN_WHATSAPP_DRIVER" value="meta"/>
+        <env name="WHATSAPP_PHONE_NUMBER_ID" value=""/>
+        <env name="WHATSAPP_ACCESS_TOKEN" value=""/>
+        <env name="WHATSAPP_APP_SECRET" value=""/>
+        <env name="WHATSAPP_VERIFY_TOKEN" value=""/>
+        <env name="WHATSAPP_SEND_ENABLED" value="false"/>
+        <env name="WHATSAPP_GRAPH_VERSION" value="v21.0"/>
+        <env name="MEEZAN_WHATSAPP_NUMBER" value=""/>
         <env name="MEEZAN_MOCK_PAYMENTS" value="false"/>
+        <!-- Real keys in a developer's .env must never be used or billed by a test run. -->
+        <env name="OPENAI_API_KEY" value=""/>
+        <env name="OPENAI_MODEL" value="gpt-4o-mini"/>
+        <env name="ANTHROPIC_API_KEY" value=""/>
+        <env name="OPENAI_BASE_URL" value="https://api.openai.com/v1"/>
+        <env name="ANTHROPIC_BASE_URL" value="https://api.anthropic.com"/>
+        <!-- Agent tasks triggered by model events stay off in tests unless a test turns them on (AgentWorkforceTest). -->
+        <env name="MEEZAN_AGENT_EVENTS" value="false"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

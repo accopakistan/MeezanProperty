@@ -39,7 +39,10 @@
     <meta name="twitter:image" content="{{ $image }}">
 @endunless
 <meta name="theme-color" content="#321064">
-<link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+<link rel="icon" href="{{ asset('favicon.ico') }}" sizes="48x48">
+<link rel="icon" href="{{ asset('images/logo/meezan-icon-32.png') }}" type="image/png" sizes="32x32">
+<link rel="icon" href="{{ asset('images/logo/meezan-icon-192.png') }}" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="{{ asset('images/logo/meezan-apple-touch-icon.png') }}">
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|playfair-display:600,700&display=swap" rel="stylesheet">
 @vite(['resources/css/app.css', 'resources/js/app.js'])

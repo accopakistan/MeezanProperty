@@ -117,6 +117,9 @@ class PropertySearch
             'south' => ['nullable', 'numeric', 'between:-90,90'],
             'east' => ['nullable', 'numeric', 'between:-180,180'],
             'west' => ['nullable', 'numeric', 'between:-180,180'],
+            // Map search: the viewport also matches listings without their own pin
+            // whose area centre is in view (they are drawn there as "approximate").
+            'centres' => ['nullable', 'boolean'],
             // Drawn search area: "lat,lng;lat,lng;..." (see App\Support\Polygon).
             'poly' => ['nullable', 'string', 'max:2600'],
             'verified' => ['nullable', 'boolean'],
@@ -380,8 +383,16 @@ class PropertySearch
                 }
             })
             ->when($this->polygon, fn ($q) => $q->whereIn('properties.id', $this->polygonIds() ?: [0]))
-            ->when(isset($f['north']), fn ($q) => $q->whereBetween('public_latitude', [min($f['south'], $f['north']), max($f['south'], $f['north'])])
-                ->whereBetween('public_longitude', [min($f['west'], $f['east']), max($f['west'], $f['east'])]))
+            ->when(isset($f['north']), function ($q) use ($f) {
+                $lat = [min($f['south'], $f['north']), max($f['south'], $f['north'])];
+                $lng = [min($f['west'], $f['east']), max($f['west'], $f['east'])];
+                $pinned = fn ($w) => $w->whereBetween('public_latitude', $lat)->whereBetween('public_longitude', $lng);
+
+                empty($f['centres'])
+                    ? $pinned($q)
+                    : $q->where(fn ($w) => $w->where($pinned)->orWhere(fn ($a) => $a->whereNull('public_latitude')
+                        ->whereHas('area', fn ($area) => $area->whereBetween('latitude', $lat)->whereBetween('longitude', $lng))));
+            })
             ->when($f['photos'] ?? false, fn ($q) => $q->has('images'))
             ->when($f['listed'] ?? null, fn ($q, $days) => $q->where('published_at', '>=', now()->subDays((int) $days)))
             ->when($f['reduced'] ?? false, fn ($q) => $q->recentlyReduced())
@@ -548,7 +559,7 @@ class PropertySearch
         $key = $chip['key'];
 
         if ($key === 'bounds') {
-            unset($query['north'], $query['south'], $query['east'], $query['west'], $query['follow']);
+            unset($query['north'], $query['south'], $query['east'], $query['west'], $query['follow'], $query['centres']);
 
             return route($route, $query);
         }

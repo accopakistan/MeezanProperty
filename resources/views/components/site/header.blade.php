@@ -13,6 +13,7 @@
     $more = [
         ['label' => 'Sell / List a Property', 'route' => 'sell'],
         ['label' => 'Map Search', 'route' => 'properties.map'],
+        ['label' => 'Investment Insights', 'route' => 'investment.index'],
         ['label' => 'Houses', 'route' => 'properties.index', 'params' => ['type' => 'house']],
         ['label' => 'Apartments & Flats', 'route' => 'properties.index', 'params' => ['type' => 'apartment']],
         ['label' => 'Area Guides', 'route' => 'areas.index'],
@@ -28,7 +29,7 @@
 <header {{ $attributes->merge(['class' => 'sticky top-0 z-40 border-b border-line bg-white']) }}>
     <div class="mx-auto flex h-[76px] max-w-[1440px] items-center gap-6 px-4 sm:px-6 lg:h-[88px] lg:px-10">
         <a href="{{ route('home') }}" class="shrink-0" aria-label="Meezan Property home">
-            <x-logo class="h-12 w-auto lg:h-[62px]" />
+            <x-logo class="h-[60px] w-auto lg:h-[72px]" />
         </a>
 
         <nav class="hidden flex-1 items-center justify-center gap-1 xl:flex" aria-label="Main">

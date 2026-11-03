@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\PropertyType;
 use App\Models\Property;
 use App\Services\NearbyPlaces;
 use App\Services\PropertySearch;
@@ -26,34 +25,6 @@ class PropertyController extends Controller
             'search' => $search,
             'properties' => $properties,
             'markers' => $this->mapMarkers($search, $request, 'properties.index'),
-        ]);
-    }
-
-    public function map(Request $request): View
-    {
-        $search = new PropertySearch($request->query());
-        $properties = $search->paginate(10);
-        $facets = $search->facets();
-
-        $groupCount = fn (array $types) => (int) collect($types)->sum(fn ($t) => $facets['types'][$t->value] ?? 0);
-        $categories = [
-            ['All', null, array_sum($facets['types'])],
-            ['Houses', 'house', $facets['types']['house'] ?? 0],
-            ['Apartments', 'apartment', $facets['types']['apartment'] ?? 0],
-            ['Plots', 'plots', $groupCount(PropertyType::inGroup('plots'))],
-            ['Commercial', 'commercial', $groupCount(PropertyType::inGroup('commercial'))],
-        ];
-
-        // The detail panel shows the chosen listing, or the first result.
-        $selected = $properties->getCollection()->firstWhere('slug', $request->query('selected')) ?? $properties->first();
-        $selected?->setRelation('images', $selected->publicImages()->get());
-
-        return view('properties.map', [
-            'search' => $search,
-            'properties' => $properties,
-            'markers' => $this->mapMarkers($search, $request),
-            'categories' => $categories,
-            'selected' => $selected,
         ]);
     }
 

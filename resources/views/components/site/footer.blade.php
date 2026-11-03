@@ -6,7 +6,8 @@
 <footer class="mt-20 bg-brand-900 text-white/70">
     <div class="mx-auto grid max-w-[1440px] gap-10 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr] lg:px-10">
         <div class="max-w-xs">
-            <x-logo variant="light" class="h-16 w-auto" />
+            {{-- Full logo (with the verse), transparent, light lettering for the dark footer. --}}
+            <x-logo full variant="light" class="h-auto w-36 sm:w-40" />
             <p class="mt-5 text-sm leading-6">Pakistan’s property portal for buying, selling, renting and investing — with reviewed listings and verified dealers.</p>
         </div>
 
@@ -19,6 +20,7 @@
                 <li><a class="hover:text-white" href="{{ route('properties.commercial') }}">Commercial</a></li>
                 <li><a class="hover:text-white" href="{{ route('properties.map') }}">Map Search</a></li>
                 <li><a class="hover:text-white" href="{{ route('ai-finder') }}">AI Property Finder</a></li>
+                <li><a class="hover:text-white" href="{{ route('investment.index') }}">Investment Insights</a></li>
             </ul>
         </div>
 

@@ -67,7 +67,10 @@ class SecurityHeaders
     protected function policy(?string $nonce): string
     {
         $tiles = $this->origin(config('meezan.map.tile_url'));
+        $style = $this->origin(config('meezan.map.style_url'));
         $storage = $this->origin(config('filesystems.disks.public.url'));
+        // MapLibre fetches its style, vector/raster tiles, fonts and sprites with fetch().
+        $mapSources = trim($tiles.' '.$style);
 
         return implode('; ', [
             "default-src 'self'",
@@ -76,8 +79,10 @@ class SecurityHeaders
             // here: a nonce would make browsers ignore 'unsafe-inline' for styles.
             "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
             "font-src 'self' https://fonts.bunny.net data:",
-            trim("img-src 'self' data: blob: {$tiles} {$storage}"),
-            "connect-src 'self'",
+            trim("img-src 'self' data: blob: {$tiles} {$style} {$storage}"),
+            trim("connect-src 'self' {$mapSources}"),
+            // MapLibre's tile worker (same-origin module; blob: when assets are on another origin).
+            "worker-src 'self' blob:",
             "frame-ancestors 'self'",
             "form-action 'self'",
             "base-uri 'self'",

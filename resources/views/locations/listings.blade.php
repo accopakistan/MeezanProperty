@@ -34,8 +34,17 @@
         </x-slot:head>
     @endif
 
-    <section class="bg-gradient-to-r from-brand-800 to-brand-600">
-        <div class="container-page py-10">
+    @php $cityPhoto = config('meezan.place_photos.'.$city); @endphp
+    <section class="relative isolate overflow-hidden bg-brand-900">
+        @if ($cityPhoto)
+            {{-- The city's landmark photo (config meezan.place_photos), credited below as its licence requires. --}}
+            <img src="{{ asset($cityPhoto['file']) }}" alt="{{ $cityPhoto['alt'] }}" width="1920" height="1200"
+                 class="absolute inset-0 -z-20 size-full object-cover" style="object-position: {{ $cityPhoto['position'] }}">
+            <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-900/95 via-brand-900/80 to-brand-900/35"></div>
+        @else
+            <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-800 to-brand-600"></div>
+        @endif
+        <div class="container-page py-10 pb-12">
             <x-breadcrumbs :items="$trail" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
             <h1 class="mt-5 text-3xl text-white sm:text-4xl">{{ $title }}</h1>
             <p class="mt-3 max-w-2xl text-white/85">
@@ -51,6 +60,7 @@
                 <a href="{{ route('ai-finder') }}" class="btn btn-on-dark"><x-icon name="sparkles" class="size-4" /> AI Property Finder</a>
             </div>
         </div>
+        <x-photo-credit :photo="$cityPhoto" />
     </section>
 
     <div class="container-page py-10">

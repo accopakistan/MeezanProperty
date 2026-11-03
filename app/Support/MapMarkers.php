@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Area;
 use App\Models\Property;
 use Illuminate\Support\Collection;
 
@@ -66,8 +67,33 @@ class MapMarkers
             'from' => $count > 1 ? Format::compactPrice((int) $group->min('price')).'+' : null,
             'isNew' => $group->contains(fn ($p) => static::isNew($p)),
             'title' => $area->name,
-            'url' => $query === null ? null : route($route, array_merge(array_diff_key($query, array_flip(['page', 'selected', 'areas', 'poly', 'north', 'south', 'east', 'west', 'follow'])), ['area' => $area->slug])),
+            'url' => $query === null ? null : route($route, array_merge(array_diff_key($query, array_flip(['page', 'selected', 'areas', 'poly', 'north', 'south', 'east', 'west', 'follow', 'centres'])), ['area' => $area->slug])),
             'items' => $group->take(4)->map(fn (Property $p) => static::item($p))->values()->all(),
+        ];
+    }
+
+    /**
+     * Area marker from counts only (large result sets): no listing rows are
+     * loaded, so it carries no preview items, only a link to the area.
+     *
+     * @param  array<string, mixed>|null  $query
+     * @return array<string, mixed>
+     */
+    public static function areaSummary(Area $area, int $count, int $minPrice, ?array $query, string $route = 'properties.map'): array
+    {
+        return [
+            'kind' => 'area',
+            'id' => 'area-'.$area->id,
+            'ids' => [],
+            'lat' => $area->latitude,
+            'lng' => $area->longitude,
+            'count' => $count,
+            'label' => $count === 1 ? Format::compactPrice($minPrice) : $count.' listings',
+            'from' => $count > 1 ? Format::compactPrice($minPrice).'+' : null,
+            'isNew' => false,
+            'title' => $area->name,
+            'url' => $query === null ? null : route($route, array_merge(array_diff_key($query, array_flip(['page', 'selected', 'areas', 'poly', 'north', 'south', 'east', 'west', 'follow', 'centres'])), ['area' => $area->slug])),
+            'items' => [],
         ];
     }
 

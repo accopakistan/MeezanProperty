@@ -11,5 +11,6 @@ Disallow: /webhooks/
 Disallow: /properties/*/nearby
 Disallow: /*?*sort=
 Disallow: /map?
+Disallow: /map/
 
 Sitemap: https://meezanproperty.com/sitemap.xml

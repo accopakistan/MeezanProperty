@@ -16,9 +16,11 @@ use App\Http\Controllers\Dealer;
 use App\Http\Controllers\DealerDirectoryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InquiryController;
+use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\ListingReportController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\LocationListingController;
+use App\Http\Controllers\MapController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PricingController;
@@ -45,7 +47,20 @@ Route::get('/plots', [CategoryController::class, 'plots'])->name('properties.plo
 Route::get('/commercial', [CategoryController::class, 'commercial'])->name('properties.commercial');
 
 Route::get('/properties', [PropertyController::class, 'index'])->name('properties.index');
-Route::get('/map', [PropertyController::class, 'map'])->name('properties.map');
+// Investment intelligence (published ranking snapshots only).
+Route::get('/investment', [InvestmentController::class, 'index'])->name('investment.index');
+Route::get('/investment/compare', [InvestmentController::class, 'compare'])->name('investment.compare');
+Route::get('/investment/methodology', [InvestmentController::class, 'methodology'])->name('investment.methodology');
+Route::get('/investment/rental-yield-calculator', [InvestmentController::class, 'yieldCalculator'])->name('investment.yield');
+Route::get('/investment/{entityType}/{entityId}', [InvestmentController::class, 'show'])->whereIn('entityType', ['city', 'area', 'project'])->whereNumber('entityId')->name('investment.show');
+
+Route::get('/map', [MapController::class, 'page'])->name('properties.map');
+Route::middleware('throttle:120,1')->group(function () {
+    Route::get('/map/data', [MapController::class, 'data'])->name('properties.map.data');
+    Route::get('/map/listings/{property}', [MapController::class, 'preview'])->name('properties.map.preview');
+    Route::get('/map/boundaries', [MapController::class, 'boundaries'])->name('map.boundaries');
+    Route::get('/map/boundaries/{boundary}', [MapController::class, 'boundary'])->whereNumber('boundary')->name('map.boundaries.show');
+});
 Route::get('/properties/{property}', [PropertyController::class, 'show'])->name('properties.show');
 Route::get('/properties/{property}/nearby', [PropertyController::class, 'nearby'])->middleware('throttle:30,1')->name('properties.nearby');
 Route::post('/properties/{property}/inquiries', [InquiryController::class, 'store'])->middleware('throttle:inquiries')->name('inquiries.store');
@@ -303,6 +318,76 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::patch('/areas/{area}', [Admin\AreaController::class, 'update'])->name('areas.update');
     Route::get('/areas/{area}/edit', [Admin\AreaController::class, 'edit'])->name('areas.edit');
     Route::post('/areas/{area}/merge', [Admin\AreaController::class, 'merge'])->name('areas.merge');
+
+    Route::get('/boundaries', [Admin\BoundaryController::class, 'index'])->name('boundaries.index');
+    Route::get('/boundaries/create', [Admin\BoundaryController::class, 'create'])->name('boundaries.create');
+    Route::post('/boundaries', [Admin\BoundaryController::class, 'store'])->name('boundaries.store');
+    Route::get('/boundaries/{boundary}/edit', [Admin\BoundaryController::class, 'edit'])->name('boundaries.edit');
+    Route::patch('/boundaries/{boundary}', [Admin\BoundaryController::class, 'update'])->name('boundaries.update');
+    Route::patch('/boundaries/{boundary}/status', [Admin\BoundaryController::class, 'transition'])->name('boundaries.transition');
+    Route::post('/boundaries/{boundary}/duplicate', [Admin\BoundaryController::class, 'duplicate'])->name('boundaries.duplicate');
+
+    // Market Intelligence & Data Centre
+    Route::prefix('market')->name('market.')->group(function () {
+        Route::get('/', Admin\MarketController::class)->name('index');
+        Route::resource('sources', Admin\MarketSourceController::class)->except(['show', 'destroy']);
+        Route::get('/methodologies', [Admin\InvestmentAdminController::class, 'methodologies'])->name('methodologies.index');
+        Route::post('/methodologies', [Admin\InvestmentAdminController::class, 'createMethodology'])->name('methodologies.store');
+        Route::get('/methodologies/{methodology}/edit', [Admin\InvestmentAdminController::class, 'editMethodology'])->name('methodologies.edit');
+        Route::patch('/methodologies/{methodology}', [Admin\InvestmentAdminController::class, 'updateMethodology'])->name('methodologies.update');
+        Route::post('/methodologies/{methodology}/activate', [Admin\InvestmentAdminController::class, 'activateMethodology'])->name('methodologies.activate');
+        Route::get('/calculations', [Admin\InvestmentAdminController::class, 'calculations'])->name('calculations.index');
+        Route::post('/calculations', [Admin\InvestmentAdminController::class, 'runCalculation'])->middleware('throttle:10,1')->name('calculations.store');
+        Route::get('/calculations/{calculation}', [Admin\InvestmentAdminController::class, 'showCalculation'])->name('calculations.show');
+        Route::post('/calculations/{calculation}/publish', [Admin\InvestmentAdminController::class, 'publish'])->name('calculations.publish');
+
+        Route::whereIn('type', ['observations', 'indicators'])->group(function () {
+            Route::get('/records/{type}', [Admin\MarketRecordController::class, 'index'])->name('records.index');
+            Route::get('/records/{type}/create', [Admin\MarketRecordController::class, 'create'])->name('records.create');
+            Route::post('/records/{type}', [Admin\MarketRecordController::class, 'store'])->name('records.store');
+            Route::get('/records/{type}/import', [Admin\MarketRecordController::class, 'importForm'])->name('records.import');
+            Route::post('/records/{type}/import', [Admin\MarketRecordController::class, 'import'])->middleware('throttle:10,1')->name('records.import.store');
+            Route::get('/records/{type}/template.csv', [Admin\MarketRecordController::class, 'template'])->name('records.template');
+            Route::get('/records/{type}/{id}/edit', [Admin\MarketRecordController::class, 'edit'])->whereNumber('id')->name('records.edit');
+            Route::patch('/records/{type}/{id}', [Admin\MarketRecordController::class, 'update'])->whereNumber('id')->name('records.update');
+            Route::patch('/records/{type}/{id}/status', [Admin\MarketRecordController::class, 'transition'])->whereNumber('id')->name('records.transition');
+        });
+    });
+
+    // AI Command Center (Central AI Brain and agent workforce)
+    Route::prefix('ai')->name('ai.')->controller(Admin\AiCommandCenterController::class)->group(function () {
+        Route::get('/', 'overview')->name('overview');
+        Route::get('/agents', 'agents')->name('agents.index');
+        Route::get('/agents/{agent}', 'agent')->name('agents.show');
+        Route::patch('/agents/{agent}', 'updateAgent')->name('agents.update');
+        Route::get('/tasks', 'tasks')->name('tasks.index');
+        Route::post('/tasks', 'runTask')->middleware('throttle:20,1')->name('tasks.store');
+        Route::get('/tasks/{task}', 'task')->name('tasks.show');
+        Route::get('/tasks/{task}/export', 'exportTask')->name('tasks.export');
+        Route::post('/tasks/{task}/retry', 'retryTask')->middleware('throttle:20,1')->name('tasks.retry');
+        Route::post('/tasks/{task}/cancel', 'cancelTask')->name('tasks.cancel');
+        Route::get('/approvals', 'approvals')->name('approvals.index');
+        Route::post('/approvals/{approval}', 'decide')->name('approvals.decide');
+        Route::get('/usage', 'usage')->name('usage');
+        Route::put('/usage/pricing', 'updatePricing')->name('usage.pricing');
+        Route::get('/knowledge', 'knowledge')->name('knowledge');
+        Route::post('/knowledge', 'storeDocument')->name('knowledge.store');
+        Route::patch('/knowledge/{document}', 'documentStatus')->name('knowledge.status');
+        Route::patch('/memory/{memory}', 'memoryDecision')->name('memory.decide');
+        Route::post('/memory', 'storeMemory')->name('memory.store');
+        Route::get('/work', 'work')->name('work');
+        Route::patch('/tickets/{ticket}', 'updateTicket')->name('tickets.update');
+        Route::patch('/staff-tasks/{staffTask}', 'updateStaffTask')->name('staff-tasks.update');
+        Route::patch('/drafts/{draft}', 'updateDraft')->name('drafts.update');
+        Route::get('/tools', 'tools')->name('tools');
+        Route::get('/logs', 'logs')->name('logs');
+        Route::get('/providers', 'providers')->name('providers');
+        Route::patch('/providers/{provider}', 'updateProvider')->whereIn('provider', ['openai', 'anthropic'])->name('providers.update');
+        Route::post('/providers/{provider}/test', 'testProvider')->whereIn('provider', ['openai', 'anthropic'])->middleware('throttle:10,1')->name('providers.test');
+        Route::patch('/controls', 'updateControls')->name('controls');
+        Route::get('/connectors', 'connectors')->name('connectors');
+        Route::post('/connectors/{key}/check', 'checkConnector')->middleware('throttle:10,1')->where('key', '[a-z_]+')->name('connectors.check');
+    });
 
     Route::get('/billing', [Admin\BillingController::class, 'dashboard'])->name('billing');
     Route::resource('packages', Admin\PackageController::class)->except(['show', 'destroy']);

@@ -7,6 +7,8 @@ use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\User;
 use App\Notifications\AssistantNeedsAttention;
+use App\Services\Agents\AgentChatRouter;
+use App\Services\Agents\AiProvider;
 use App\Services\Ai\RequirementParser;
 use App\Services\Ai\RulesRequirementParser;
 use App\Services\AuditLogger;
@@ -34,6 +36,9 @@ class ConversationAssistant
     /** The assistant message stored for the last reply (channels add delivery details). */
     public ?ConversationMessage $lastMessage = null;
 
+    /** The channel of the current conversation, so the language model follows that channel's settings. */
+    protected ?string $channel = null;
+
     public function __construct(
         protected RequirementParser $parser,
         protected PropertyMatcher $matcher,
@@ -47,13 +52,19 @@ class ConversationAssistant
     public function respond(Conversation $conversation, string $text, ?User $user = null, ?ConversationMessage $userMessage = null): AssistantReply
     {
         $text = mb_substr(trim($text), 0, 500);
+        $this->channel = $conversation->channel;
         $userMessage ??= $conversation->messages()->create(['direction' => 'inbound', 'role' => 'user', 'type' => 'text', 'body' => $text]);
         $state = new RequirementState($conversation->state);
         $intent = $this->intents->detect($text);
 
         $this->watchForBursts($conversation, $state);
 
-        $reply = match ($intent) {
+        // Help, investment and dealer-account questions go to the AI agents (through the Central AI Brain).
+        $control = [IntentDetector::STOP, IntentDetector::HUMAN, IntentDetector::RESET, IntentDetector::SAVE, IntentDetector::YES, IntentDetector::NO, IntentDetector::GREETING, IntentDetector::THANKS];
+        $reply = in_array($intent, $control, true) ? null : $this->agentReply($conversation, $text, $user, $userMessage);
+        $intent = $reply?->intent ?? $intent;
+
+        $reply ??= match ($intent) {
             IntentDetector::STOP => $this->stop($conversation, $state),
             IntentDetector::HUMAN => $this->handOver($conversation, $state),
             IntentDetector::RESET => $this->reset($state),
@@ -81,6 +92,17 @@ class ConversationAssistant
         ]);
 
         return $reply;
+    }
+
+    protected function agentReply(Conversation $conversation, string $text, ?User $user, ConversationMessage $message): ?AssistantReply
+    {
+        try {
+            return app(AgentChatRouter::class)->reply($conversation, $text, $user, $message);
+        } catch (Throwable $e) {
+            report($e);
+
+            return null; // never let an agent failure break the chat
+        }
     }
 
     /* Requirement messages ------------------------------------------------ */
@@ -201,7 +223,7 @@ class ConversationAssistant
     protected function parse(string $text): MatchCriteria
     {
         try {
-            return $this->parser->parse($text);
+            return app(AiProvider::class)->inChannel($this->channel, fn () => $this->parser->parse($text));
         } catch (Throwable $e) {
             // The rules engine is always available; buyers never see a technical error.
             Log::warning('Requirement parser failed; using rules', ['error' => $e->getMessage()]);

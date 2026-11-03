@@ -561,5 +561,7 @@ document.querySelectorAll('[data-area-picker]').forEach((root) => {
 });
 
 if (document.querySelector('[data-map]')) import('./map.js');
+if (document.querySelector('[data-geo-map]')) import('./geo-map/index.js');
+if (document.querySelector('[data-boundary-editor]')) import('./geo-map/boundary-editor.js');
 if (document.querySelector('[data-location-picker]')) import('./location-picker.js');
 if (document.querySelector('[data-ai-finder]')) import('./ai-finder.js');

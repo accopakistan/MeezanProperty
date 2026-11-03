@@ -10,7 +10,7 @@
             @else
                 live. Bot replies are sent while a conversation is in bot mode.
             @endif
-            <span class="text-muted">· Parser: {{ config('meezan.ai.driver') === 'llm' && filled(config('services.openai.key')) ? 'LLM with rules fallback' : 'rules engine' }}</span>
+            <span class="text-muted">· Parser: {{ config('meezan.ai.driver') === 'llm' && app(\App\Services\Agents\AiProvider::class)->available() ? 'LLM with rules fallback' : 'rules engine' }}</span>
         </p>
     </div>
 

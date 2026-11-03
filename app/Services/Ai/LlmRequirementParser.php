@@ -5,15 +5,16 @@ namespace App\Services\Ai;
 use App\Enums\AreaUnit;
 use App\Enums\PropertyType;
 use App\Enums\Purpose;
+use App\Services\Agents\AiProvider;
 use App\Services\Matching\MatchCriteria;
 use App\Support\LocationName;
 use App\Support\LocationResolver;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Optional LLM-backed requirement parser (OpenAI-compatible chat completions).
+ * Optional LLM-backed requirement parser, through the central provider
+ * manager, so it follows the configured provider, limits and usage records.
  *
  * The model only extracts structured criteria; every value is validated
  * against our enums, areas and amenity keys, and listings always come from
@@ -28,25 +29,23 @@ class LlmRequirementParser implements RequirementParser
     {
         $rules = $this->fallback->parse($message);
 
-        if (trim($message) === '' || ! filled(config('services.openai.key'))) {
+        $provider = app(AiProvider::class);
+        if (trim($message) === '' || ! $provider->available()) {
             return $rules;
         }
 
         try {
-            $response = Http::withToken(config('services.openai.key'))
-                ->timeout(12)
-                ->post(rtrim(config('services.openai.base_url'), '/').'/chat/completions', [
-                    'model' => config('services.openai.model'),
-                    'temperature' => 0,
-                    'response_format' => ['type' => 'json_object'],
-                    'messages' => [
-                        ['role' => 'system', 'content' => $this->instructions()],
-                        ['role' => 'user', 'content' => mb_substr($message, 0, 500)],
-                    ],
-                ])
-                ->throw();
+            $res = $provider->completeGeneral([
+                ['role' => 'system', 'content' => $this->instructions()],
+                ['role' => 'user', 'content' => mb_substr($message, 0, 500)],
+            ], 'requirement_parsing', temperature: 0.0, maxTokens: 500, json: true, timeout: 12, retries: 0);
+            if (! $res['ok']) {
+                Log::warning('LLM requirement parsing failed; using rules', ['error' => $res['error']]);
 
-            $data = json_decode((string) $response->json('choices.0.message.content'), true);
+                return $rules;
+            }
+
+            $data = json_decode((string) $res['text'], true);
 
             return is_array($data) ? $rules->merge($this->toCriteria($data, $rules)) : $rules;
         } catch (Throwable $e) {

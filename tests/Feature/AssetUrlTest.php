@@ -23,6 +23,7 @@ it('renders pages without root-relative asset paths', function (string $uri) {
 
     $html = $this->get(str_replace('{slug}', $property->slug, $uri))->assertOk()->getContent();
 
-    expect($html)->toContain('https://meezanproperty.com/public/images/ref/')
+    // The site logo is on every page (public/images/logo).
+    expect($html)->toContain('https://meezanproperty.com/public/images/logo/meezan-logo.png')
         ->not->toMatch('#(src|href|srcset)="/(images|storage|build|favicon)#');
 })->with(['/', '/properties', '/properties/{slug}', '/ai-property-finder']);

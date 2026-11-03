@@ -95,6 +95,12 @@ class Area extends Model
         return $this->hasMany(AreaAlias::class);
     }
 
+    /** Outline versions (draft, verified, published, archived). */
+    public function boundaries(): HasMany
+    {
+        return $this->hasMany(AreaBoundary::class);
+    }
+
     public function properties(): HasMany
     {
         return $this->hasMany(Property::class);

@@ -27,9 +27,10 @@
         ($a = $areaTile('Model Town')) ? ['Model Town', ['area' => $a->slug]] : null,
     ]));
 @endphp
+@php $heroPhoto = config('meezan.place_photos.home'); @endphp
 <x-layouts.app>
     <x-slot:head>
-        <link rel="preload" as="image" href="{{ asset('images/ref/hero-home.jpg') }}">
+        <link rel="preload" as="image" href="{{ asset($heroPhoto['file']) }}">
         <script type="application/ld+json">
             {!! json_encode([
                 '@context' => 'https://schema.org',
@@ -44,7 +45,9 @@
 
     {{-- Hero ---------------------------------------------------------------}}
     <section class="relative isolate overflow-hidden bg-brand-900">
-        <img src="{{ asset('images/ref/hero-home.jpg') }}" alt="" class="absolute inset-y-0 right-0 -z-20 h-full w-full object-cover object-center opacity-70 md:w-[72%] md:opacity-100">
+        {{-- Pakistan's landmark photo (config meezan.place_photos.home), credited below as its licence requires. --}}
+        <img src="{{ asset($heroPhoto['file']) }}" alt="{{ $heroPhoto['alt'] }}" width="1920" height="1163" fetchpriority="high"
+             class="absolute inset-y-0 right-0 -z-20 h-full w-full object-cover opacity-70 md:w-[72%] md:opacity-100" style="object-position: {{ $heroPhoto['position'] }}">
         <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-900 via-brand-900/85 to-brand-900/10 md:via-brand-900/70"></div>
         <div class="absolute inset-x-0 bottom-0 -z-10 h-24 bg-gradient-to-t from-brand-900/80 to-transparent"></div>
 
@@ -83,6 +86,7 @@
                 @endforeach
             </aside>
         </div>
+        <x-photo-credit :photo="$heroPhoto" />
     </section>
 
     {{-- Feature strip -----------------------------------------------------}}
@@ -141,7 +145,7 @@
                     <span class="btn btn-gold mt-auto w-max pt-2.5"><x-icon name="sparkles" class="size-4" /> Try AI Property Finder</span>
                 </div>
                 <div class="absolute top-6 right-6 hidden w-44 rounded-2xl border-4 border-ink/80 bg-white p-3 text-ink shadow-lift sm:block" aria-hidden="true">
-                    <x-logo class="h-7 w-auto" />
+                    <x-logo class="h-10 w-auto" />
                     <div class="mt-3 space-y-2 text-[10px]">
                         <p class="rounded-lg rounded-br-sm bg-brand-600 px-2 py-1.5 text-white">10 marla house in DHA under 6 crore</p>
                         <p class="rounded-lg rounded-bl-sm bg-page px-2 py-1.5">Here are the best options I found…</p>

@@ -75,6 +75,18 @@
                 </form>
             @endif
 
+            @php $outline = $area->boundaries()->whereIn('status', ['published', 'verified', 'draft'])->orderByRaw("case status when 'published' then 0 when 'verified' then 1 else 2 end")->latest('id')->first(); @endphp
+            <section class="card card-body">
+                <h2 class="text-base font-bold">Map boundary</h2>
+                @if ($outline)
+                    <p class="mt-1 text-[13px] text-muted">Outline #{{ $outline->id }} · {{ $outline->statusLabel() }} · {{ number_format($outline->vertex_count) }} points</p>
+                    <a href="{{ route('admin.boundaries.edit', $outline) }}" class="btn btn-secondary btn-sm mt-3">Open outline</a>
+                @else
+                    <p class="mt-1 text-[13px] text-muted">No outline yet. Outlines appear on map search once verified and published.</p>
+                    @if ($area->is_active)<a href="{{ route('admin.boundaries.create', ['area' => $area->id]) }}" class="btn btn-outline btn-sm mt-3"><x-icon name="pencil" class="size-4" /> Draw outline</a>@endif
+                @endif
+            </section>
+
             <section class="card card-body">
                 <h2 class="text-base font-bold">History</h2>
                 <ul class="mt-3 space-y-2 text-[13px]">

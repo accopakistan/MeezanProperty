@@ -288,3 +288,97 @@
 .leaflet-container {
     font-family: inherit;
 }
+
+/* MapLibre map search -------------------------------------------------------
+   Markers are 0×0 wrappers anchored at the point (MapLibre positions the
+   wrapper); the .mp-pin inside draws itself above the point as on Leaflet. */
+.maplibregl-map {
+    font-family: inherit;
+}
+.mp-ml {
+    width: 0;
+    height: 0;
+}
+.maplibregl-marker:has(.mp-pin:hover),
+.maplibregl-marker:has(.mp-pin:focus-visible),
+.maplibregl-marker.is-raised {
+    z-index: 5;
+}
+.mp-pin:focus-visible,
+.mp-cluster:focus-visible {
+    outline: 3px solid var(--color-gold-500);
+    outline-offset: 2px;
+}
+.mp-pin.is-active {
+    @apply bg-gold-500 text-brand-900;
+}
+.mp-pin.is-active::after {
+    @apply bg-gold-500;
+}
+.mp-pin.is-active .mp-pin__label::before {
+    filter: brightness(0.15);
+}
+/* Cluster and grid cell: round purple badge with the real listing count. */
+.mp-cluster {
+    @apply flex min-w-11 flex-col items-center justify-center rounded-full bg-brand-600 px-3 py-2 text-[13px] leading-none font-bold whitespace-nowrap text-white shadow-lift ring-4 ring-brand-500/30;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    transition: transform 0.15s, background-color 0.15s;
+}
+.mp-cluster span {
+    @apply mt-0.5 text-[10px] font-medium text-white/85;
+}
+.mp-cluster:hover {
+    @apply bg-brand-700;
+    transform: translate(-50%, -50%) scale(1.06);
+}
+.mp-cluster--grid {
+    @apply rounded-lg bg-brand-900/90;
+}
+.mp-popup .maplibregl-popup-content {
+    @apply overflow-hidden rounded-xl p-0 text-[13px] text-ink shadow-lift;
+}
+.mp-popup .maplibregl-popup-close-button {
+    @apply top-1 right-1 grid size-7 place-items-center rounded-full bg-white/90 text-base text-ink;
+}
+.mp-popup__cta {
+    @apply mt-1 text-xs font-semibold text-brand-600;
+}
+.mp-popup__cats {
+    @apply m-0! mb-2! list-none space-y-1 p-0!;
+}
+.mp-popup__cats li {
+    @apply flex justify-between gap-3;
+}
+.mp-popup__cats a,
+.mp-popup__link {
+    @apply font-medium text-brand-700 hover:underline;
+}
+.mp-popup__link {
+    @apply mt-2 block text-center text-xs;
+}
+[data-map-card].is-selected {
+    @apply -mx-1.5 rounded-lg bg-gold-500/10 px-1.5 ring-2 ring-gold-500;
+}
+[data-map-results][aria-busy='true'] {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+/* Phones: show the map or the list (switch at the bottom of the screen). */
+@media (max-width: 1023.98px) {
+    [data-map-layout][data-view='map'] [data-map-list],
+    [data-map-layout][data-view='list'] [data-map-pane] {
+        display: none;
+    }
+}
+
+/* Admin boundary editor: draggable vertices and midpoints. */
+.be-vertex {
+    @apply block size-3.5 cursor-grab rounded-full border-2 border-white bg-brand-600 shadow;
+}
+.be-vertex.is-selected {
+    @apply size-4 bg-gold-500;
+}
+.be-midpoint {
+    @apply block size-2.5 cursor-copy rounded-full border border-brand-600 bg-white/90;
+}
