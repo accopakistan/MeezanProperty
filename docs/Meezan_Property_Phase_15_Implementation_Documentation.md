@@ -250,7 +250,7 @@ To repeat the scenarios, ask them in Overview → Ask the AI Brain. Each run add
 
 **Changed for the two providers:** `Services/Agents/AiProvider` (now the manager; same class, no second manager), `BudgetGuard`, `CentralAiOrchestrator`, `IntentRouter`, `OutputGuard`, `ConnectorStatus`, `AgentReadiness`, `AgentAlerts`, `ToolRegistry`, `Workers/FinanceManagerAgent`; `Models/AiAgent`; `Services/Ai/LlmRequirementParser`; `Services/Assistant/ConversationAssistant`; `Services/Investment/InvestmentInsights`; `AppServiceProvider`; Command Center controller and views; `admin/conversations/index`; `routes/web.php`; `config/services.php`, `config/meezan.php`; `.env.example`; `phpunit.xml`.
 
-Phases 13, 14 and 15 were committed together and pushed to a separate branch at the owner's request on 3 November 2026. They are not merged to `main`.
+Phases 13, 14 and 15 were committed together (`3b7a9a0`) and pushed at the owner's request on 3 November 2026. The commit is on both `main` and `phases-13-15-ai-providers`.
 
 ## 14. AI providers
 
