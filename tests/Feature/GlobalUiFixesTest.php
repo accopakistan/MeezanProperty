@@ -29,6 +29,7 @@ function searchTabsOn(string $html): array
 */
 
 it('gives demo entities natural names and keeps them flagged as demo data', function () {
+    AppSetting::put('investment.demo_mode', true); // the admin preview; off by default
     app(DemoDataManager::class)->seed(['Lahore'], 0.2);
     app(DemoDataManager::class)->recalculate(User::factory()->admin()->create());
 
@@ -37,13 +38,11 @@ it('gives demo entities natural names and keeps them flagged as demo data', func
         ->and(MarketObservation::where('is_demo', true)->where('status', 'demo')->count())->toBe(MarketObservation::count())
         ->and(Project::where('developer', 'like', '%Demo%')->count())->toBe(0);
 
-    $html = $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->assertOk()->getContent();
+    // The demo preview now appears on the Investment Insights pages (the Investment Index never shows demo data).
+    $html = $this->get(route('investment.index'))->assertOk()->getContent();
     $visible = strip_tags(preg_replace('/<script.*?<\/script>/s', '', $html));
     expect($visible)->not->toContain('(Demo)')->not->toMatch('/\bDEMO\b(?! DATA)/')
         ->toContain('DEMO DATA')->toContain('The projects shown are fictional examples');
-    foreach (markersOn($html) as $marker) {
-        expect($marker['name'])->not->toContain('Demo')->and($marker['demo'])->toBeTrue();
-    }
     $mall = Project::where('category', 'shopping_mall')->first();
     $this->get(route('projects.show', $mall))->assertOk()->assertSee('This is a fictional example project')->assertDontSee($mall->name.' (Demo)');
     $this->get(route('rankings.advisor', ['question' => 'Best mall in Lahore?']))->assertJsonPath('demo', true)
@@ -115,13 +114,14 @@ it('shows the same four search tabs, in order, on every search page', function (
     'city listings' => ['/lahore/plots-for-sale', 'plots'],
     'map search' => ['/map?group=commercial', 'commercial'],
     'projects' => ['/projects', 'sale'],
-    'investment rankings' => ['/investment-rankings', 'sale'],
-    'city rankings' => ['/investment-rankings/lahore', 'sale'],
-    'residential rankings' => ['/investment-rankings/lahore/residential', 'sale'],
-    'commercial rankings' => ['/investment-rankings/lahore/commercial', 'commercial'],
-    'plot rankings' => ['/investment-rankings/lahore/residential/plots', 'plots'],
-    'shopping malls' => ['/investment-rankings/lahore/commercial/shopping-malls', 'commercial'],
-    'business towers' => ['/investment-rankings/karachi/commercial/business-towers', 'commercial'],
+    'investment rankings (Index home)' => ['/investment-rankings', 'sale'],
+    'housing societies' => ['/investment-rankings/housing-societies', 'sale'],
+    'apartment buildings' => ['/investment-rankings/apartment-buildings?city=Lahore', 'sale'],
+    'shopping malls' => ['/investment-rankings/shopping-malls', 'commercial'],
+    'commercial plazas' => ['/investment-rankings/commercial-plazas', 'commercial'],
+    'business towers' => ['/investment-rankings/business-towers?city=Karachi', 'commercial'],
+    'overall index' => ['/investment-rankings/overall', 'sale'],
+    'index methodology' => ['/investment-rankings/methodology', 'sale'],
 ]);
 
 it('shows each tab only its own filters', function () {
@@ -142,10 +142,11 @@ it('sends each tab to the right results', function () {
     $this->get('/search?tab=plots&type=house&beds=3&size=5m')->assertRedirect('/properties?tab=plots&size=5m');
     $this->get('/search?tab=commercial&type=commercial_plot&city=Lahore')->assertRedirect('/properties?tab=commercial&city=Lahore&type=commercial_plot');
     $this->get('/search?tab=commercial&city=Lahore&investment=shopping-malls&max_price=20000000&stage=completed')
-        ->assertRedirect(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls', 'budget' => 20000000, 'stage' => 'completed']));
-    $this->get('/search?mode=investment&tab=rent&investment_city=lahore')->assertRedirect(route('rankings.segment', ['lahore', 'residential', 'apartments', 'sort' => 'yield']));
-    $this->get('/search?mode=investment&tab=plots&investment_city=islamabad&size=5-marla')->assertRedirect(route('rankings.segment', ['islamabad', 'residential', 'plots', 'size' => '5-marla']));
-    $this->get('/search?mode=investment&tab=commercial&investment_city=karachi')->assertRedirect(route('rankings.group', ['karachi', 'commercial']));
+        ->assertRedirect(route('rankings.category', ['shopping-malls', 'city' => 'Lahore']));
+    $this->get('/search?mode=investment&tab=rent&investment_city=lahore')->assertRedirect(route('rankings.category', ['apartment-buildings', 'city' => 'Lahore']));
+    // Plots are not ranked by the Investment Index: housing societies are the closest leaderboard.
+    $this->get('/search?mode=investment&tab=plots&investment_city=islamabad&size=5-marla')->assertRedirect(route('rankings.category', ['housing-societies', 'city' => 'Islamabad']));
+    $this->get('/search?mode=investment&tab=commercial&investment_city=karachi')->assertRedirect(route('rankings.index'));
     $this->get('/search?tab=elsewhere')->assertSessionHasErrors('tab');
 });
 

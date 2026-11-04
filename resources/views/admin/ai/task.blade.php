@@ -7,7 +7,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-2">
                         @include('admin.ai.partials.status', ['status' => $task->status, 'label' => $task->statusLabel()])
-                        <span class="text-[13px] text-muted">{{ $task->agent?->name ?? 'No agent' }} · {{ $task->mode === 'llm' ? 'data + model wording' : 'data only (rules)' }}</span>
+                        <span class="text-[13px] text-muted">{{ $task->agent?->name ?? 'No agent' }} · {{ match ($task->mode) { 'llm' => 'data + model wording', 'llm_tools' => 'data + model tool calls', default => 'data only (rules)' } }}</span>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         @if ($task->result)<a href="{{ route('admin.ai.tasks.export', $task) }}" class="btn btn-secondary btn-sm">Export report (.md)</a>@endif

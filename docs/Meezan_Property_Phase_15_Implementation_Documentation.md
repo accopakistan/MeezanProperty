@@ -2,7 +2,7 @@
 
 Central AI Brain and 16 agents, as actually built. Written 3 November 2026, after the continuation work. Results and status are in `Meezan_Property_Phase_15_Completion_Report.md`; how the work was recovered is in `Meezan_Property_Phase_15_Continuation_Audit.md`.
 
-**Read this first:** agents are deterministic workflows that call tools against the real database. A language model is optional. When configured, it only chooses a route or workflow and words the final summary. No API key is configured today, so everything below has run in **rules mode** only.
+**Read this first:** agents are deterministic workflows that call tools against the real database. The language model is **Google Gemini** (since 4 Nov 2026; section 14). When a key is configured, it chooses a route or workflow and words the final summary; agents switched to "Model tool calls" may also call their own permitted tools through Gemini function calling. No Gemini key is configured yet, so everything has run in **rules mode** locally, and Gemini itself only against faked responses.
 
 ---
 
@@ -132,16 +132,16 @@ Approved agent and shared notes appear in the agent's report under "Approved not
 
 ## 7. Language model
 
-OpenAI (primary) and Anthropic Claude (secondary) sit behind one manager. Section 14 has the full design.
+Google Gemini, behind one manager (`AiProvider`). Section 14 has the full design.
 
 - **Where it is used, when configured:**
   1. routing a request to an agent;
   2. choosing a workflow as structured JSON, only when keyword rules find nothing, validated against that worker's list;
   3. wording the final report's summary.
-- **Where it is not used:** deciding which tools to call. Workflows do that.
+- **Where it is not used by default:** deciding which tools to call. Workflows do that; an agent switched to "Model tool calls" may also call its own tools through Gemini function calling (section 14).
 - **Grounding:** a reply is discarded if it contains a figure not in the data, compared whole (`Support/Grounding`).
 - **Cost control:** subtasks are not worded, so a CEO report pays for one summary. Task, per-agent and overall daily limits. Reaching one falls back to data-only and alerts admins once a day.
-- **Cost figures:** from provider-reported tokens and admin-entered prices. Null without prices. Never estimated.
+- **Cost figures:** from Google-reported tokens and prices entered in Usage & Cost, else Google's published prices (dated, in config). Null for a model with no known price. On the free tier the figure is the paid-tier equivalent.
 
 ## 8. Website and WhatsApp
 
@@ -213,10 +213,10 @@ All optional unless stated. Values go in the server's `.env`; `.env.example` lis
 
 | Setting | Purpose |
 |---|---|
-| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_DEFAULT_MODEL` (or the older `OPENAI_MODEL`) | OpenAI access. There is no built-in model: choose one your account lists |
-| `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_DEFAULT_MODEL`, `ANTHROPIC_VERSION`, `ANTHROPIC_EFFORT` | Anthropic access |
-| `OPENAI_MODEL_ROUTINE`, `_EXTRACTION`, `_SUPPORT`, `_RESEARCH`, `_REASONING`, and the same five as `ANTHROPIC_MODEL_*` | Model per workload tier |
-| `OPENAI_TIMEOUT`, `OPENAI_MAX_RETRIES`, `OPENAI_MIN_OUTPUT_TOKENS`, and the same three as `ANTHROPIC_*`; `OPENAI_REASONING_EFFORT` (low) | Client behaviour |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` (empty = `gemini-3.8-flash`), `GEMINI_BASE_URL`, `GEMINI_TIMEOUT` (60) | Gemini access. A key saved in Gemini Settings wins |
+| `GEMINI_MAX_RETRIES` (2), `GEMINI_THINKING_LEVEL` (low), `GEMINI_MIN_OUTPUT_TOKENS` (512), `GEMINI_BILLING_TIER` (free) | Client behaviour and cost labelling |
+| `GEMINI_MODEL_ROUTINE`, `_EXTRACTION`, `_SUPPORT`, `_RESEARCH`, `_REASONING` | Model per workload tier |
+| `MEEZAN_AI_PROVIDER` (gemini), `MEEZAN_AI_REDACT_PERSONAL_DATA` (true), `MEEZAN_AGENT_MAX_MODEL_TOOL_ROUNDS` (4) | Provider, personal-data masking, function-calling rounds |
 | `MEEZAN_AGENTS_USE_LLM`, `MEEZAN_AI_PROVIDER`, `MEEZAN_AI_FALLBACK` (off) | Use of a model at all, default provider, fallback at start |
 | `MEEZAN_AGENT_MAX_TOOL_CALLS` (25), `_MAX_DEPTH` (2), `_MAX_SUBTASKS` (8), `_MAX_ATTEMPTS` (2), `_MAX_SECONDS` (60), `_MAX_TOKENS_PER_TASK` (8000), `_DAILY_TOKENS` (200000) | Limits |
 | `MEEZAN_AGENTS_DAILY_TOKENS` (1000000), `MEEZAN_AGENTS_DAILY_COST_USD` | Overall budgets |
@@ -246,118 +246,136 @@ To repeat the scenarios, ask them in Overview → Ask the AI Brain. Each run add
 
 **Outside Phase 15, changed deliberately:** `app/Services/Investment/InvestmentInsights.php` (Phase 14) now uses `Grounding`, because the same flaw let invented figures through there and made a Phase 14 test fail intermittently.
 
-**Added for the two providers:** `Services/Agents/Providers/` (`ProviderAdapter`, `ProviderConfig`, `HttpAdapter`, `OpenAiAdapter`, `AnthropicAdapter`); `Models/AiProviderSetting.php`; `views/admin/ai/providers`; migration 000046; `tests/Feature/AiProviderTest.php`.
+**Provider files (since the Gemini migration):** `Services/Agents/Providers/` (`ProviderAdapter`, `ProviderConfig`, `HttpAdapter`, `GeminiAdapter`), `Services/Agents/ToolDeclarations.php`, `Services/Agents/PersonalDataMask.php`, migration `2026_11_04_000053_move_ai_agents_to_gemini.php`, tests `tests/Feature/GeminiProviderTest.php`. The OpenAI and Anthropic adapters were removed (section 14, History).
 
 **Changed for the two providers:** `Services/Agents/AiProvider` (now the manager; same class, no second manager), `BudgetGuard`, `CentralAiOrchestrator`, `IntentRouter`, `OutputGuard`, `ConnectorStatus`, `AgentReadiness`, `AgentAlerts`, `ToolRegistry`, `Workers/FinanceManagerAgent`; `Models/AiAgent`; `Services/Ai/LlmRequirementParser`; `Services/Assistant/ConversationAssistant`; `Services/Investment/InvestmentInsights`; `AppServiceProvider`; Command Center controller and views; `admin/conversations/index`; `routes/web.php`; `config/services.php`, `config/meezan.php`; `.env.example`; `phpunit.xml`.
 
 Phases 13, 14 and 15 were committed together (`3b7a9a0`) and pushed at the owner's request on 3 November 2026. The commit is on both `main` and `phases-13-15-ai-providers`.
 
-## 14. AI providers
+## 14. Google Gemini (the AI provider since 4 November 2026)
+
+Google Gemini replaced OpenAI and Anthropic on 4 November 2026. Every language-model call in the application now goes to Gemini over HTTPS from the server. The application needs nothing installed locally (no Ollama, no local model), so it runs the same on Hostinger. The setup steps are in `Meezan_Property_Gemini_API_Setup_Guide.md`.
 
 ### Architecture
 
 ```
-Agents, IntentRouter, website and WhatsApp parser, investment wording
+Agents (16), IntentRouter, website requirement parser, WhatsApp chat, investment wording
         |
-   AiProvider (the manager): route -> budget check -> adapter -> usage record -> fallback decision
-        |                                   |
-   BudgetGuard                  OpenAiAdapter    AnthropicAdapter    (ProviderAdapter interface)
+   AiProvider (the one manager): route -> personal-data mask -> quota pause -> budgets
+        |                        -> GeminiAdapter -> usage record -> quota/auth stop
+   BudgetGuard        ToolDeclarations (agent tools -> Gemini functions)        PersonalDataMask
 ```
 
-Only the two adapters contain provider URLs, and a test fails if any other file in `app/` does. An agent can't call a provider itself: it holds tool permissions and goes through the manager.
+**One adapter.** `meezan.agents.adapters` registers `gemini => GeminiAdapter`. Another provider can be added there without changing any agent. A test proves that fallback to a second registered adapter still works. No second provider is registered, so fallback is never used.
 
-| Piece | Role |
+**One file talks to Google.** A test fails if any file in `app/` other than `GeminiAdapter.php` contains a model-API address.
+
+**Every feature uses Gemini.** The 16 agents, the routing, the website requirement parser, WhatsApp chat (through the same Brain) and investment wording all call `AiProvider`. None has its own integration.
+
+### API format (Google's documentation, checked 4 Nov 2026)
+
+Google's documentation moved from ai.google.dev to aistudio.google.com/docs. `generateContent` is still a current method. The newer Interactions API was not needed: `generateContent` covers system instructions, function calling, JSON output and streaming.
+
+| Item | Implementation |
 |---|---|
-| `AiProvider::completeFor()` | A model call for an agent |
-| `AiProvider::completeGeneral()` | A call with no agent: website parsing, investment wording |
-| `AiProvider::route()` | Decides provider and model for an agent, tier and channel |
-| `AiProvider::check()` | Lists models. Free, and proves the key |
-| `AiProvider::testConnection()` | `check()`, then one very small paid request to the default model |
-| `AiProvider::controls()` | Budgets, emergency stop, fallback, channels (stored as the `ai.controls` setting) |
-| `ProviderConfig` | One provider's settings. Hides the key from debug output |
-| `BudgetGuard::beforeRequest()` | The spending checks made before every request, including fallback requests |
+| Endpoint | `POST {GEMINI_BASE_URL}/models/{model}:generateContent`; streaming `:streamGenerateContent?alt=sse`; model list `GET /models` (paged) |
+| Authentication | `x-goog-api-key` header only. Never in a URL, log, view or browser response |
+| Messages | `system` messages become `systemInstruction`. `assistant` becomes role `model`. Consecutive turns of the same role are merged |
+| Output limit | `generationConfig.maxOutputTokens`, at least `GEMINI_MIN_OUTPUT_TOKENS` (512); the agent and admin limits always win |
+| Temperature | Sent only to models before 3.6. Google's docs say 3.6 and later ignore it |
+| Thinking | `thinkingConfig.thinkingLevel` (`GEMINI_THINKING_LEVEL`, default LOW), only for Gemini 3 and later, which accept it. Thinking tokens are counted as output (billed that way) |
+| JSON | `responseMimeType: application/json`, plus `responseJsonSchema` when a schema is given |
+| Usage | `promptTokenCount` as input; `candidatesTokenCount + thoughtsTokenCount` as output |
+| Refusals | `promptFeedback.blockReason` and finish reasons SAFETY, PROHIBITED_CONTENT, BLOCKLIST, SPII, RECITATION are classed "safety". MAX_TOKENS with no text is "truncated". Malformed tool calls are "malformed" |
 
-**Unified response:** `ok, text, model, provider, tokens_in, tokens_out, error, failure`, and `fallback_from` when a fallback answered.
+### Model selection
 
-### Why Anthropic uses plain HTTP
-
-The brief asked for the API key and required headers, and for no unnecessary packages. Both adapters use Laravel's `Http` client, so no SDK was added.
-
-### Request details
-
-| | OpenAI | Anthropic |
-|---|---|---|
-| Endpoint | `POST {base}/chat/completions` | `POST {base}/v1/messages` |
-| Authentication | Bearer token | `x-api-key`, `anthropic-version: 2026-10-21` |
-| Output limit | `max_completion_tokens` on api.openai.com, `max_tokens` on compatible servers | `max_tokens` |
-| Temperature | Sent. If a model refuses it, one retry without it | **Never sent:** that API version rejects sampling settings, so an agent's temperature has no effect on Claude |
-| Thinking depth | `reasoning_effort` (low) on api.openai.com. If a model refuses it, one retry without it | `output_config.effort` (low). If a model refuses it, one retry without it |
-| JSON | `response_format` | Instruction in `system`; code fences removed from the reply |
-| Model list | `GET {base}/models` | `GET {base}/v1/models` |
-| Lowest output limit | 256 tokens | 1,024 tokens, because thinking is spent from the same limit |
-
-Administrator limits on output tokens override those lowest values.
-
-### Failure classes
-
-| Class | Examples | Retried | Falls back |
-|---|---|---|---|
-| `temporary` | 429 rate limit, 5xx, 529, timeout | Yes | If allowed |
-| `disabled`, `not_configured`, `no_model` | Primary can't be used yet | No | If allowed |
-| `auth` | Key rejected | No | **Never** |
-| `quota` | No API credit | No | **Never** |
-| `model` | Model unavailable to this account | No | **Never** |
-| `invalid` | Invalid request | No | **Never** |
-| `safety` | Provider declined | No | **Never** |
-| `truncated`, `malformed` | No usable answer | No | **Never** |
-| `budget` | A limit would be exceeded, or the emergency stop is on | No | **Never** |
-
-Every failure ends in a data-only report and the portal keeps working. A rejected key or missing credit alerts administrators once a day. Provider error text is never repeated on a rejected key, because it can echo part of the key.
-
-### Model choice
-
-For an agent: the channel's model if the task came from that channel, then the agent's own model, then the tier's model for that provider, then the provider default. No model IDs are built in. If none is set, the call stops with "No model is selected" and no request is sent.
-
-**Server-side fallback is not used.** Anthropic offers a `fallbacks` request setting, which was left out because it would switch models silently.
-
-### Fallback
-
-Three switches must all allow it: global (`AI Providers`, off by default), the agent (`fallback_enabled`, on by default), and the channel, when the request came from one. **The global switch is off by default because fallback sends the same data to a second company at its prices.**
-
-A fallback request passes the same budget checks. Both calls are recorded; the second has `fallback_from`. The task's limitations say which provider answered and why, and Activity & Errors lists fallbacks.
-
-### Budgets
-
-| Limit | Where | Applies to |
-|---|---|---|
-| Emergency stop | Usage & Cost | Every paid request |
-| Monthly total, requests per day, max tokens per request | Usage & Cost | All AI |
-| Monthly budget | AI Providers | One provider |
-| Monthly budget, requests per day, max tokens | Agent page | One agent |
-| Per-task and per-day token limits, daily cost | `.env` | As before |
-
-Monthly budgets count the most the next request could cost, so a budget can't be overrun by that request. While a monthly budget is set, a model with no entered price is refused, because its spending can't be controlled. Prices come only from the admin's own entries; none are built in.
-
-### Key handling
-
-| Rule | How |
+| Setting | Source |
 |---|---|
-| Server side only | Read by adapters on the server; never in a view, script or API response |
-| Saved encrypted | `api_key` uses Laravel's `encrypted` cast, with `APP_KEY`, and is `$hidden` |
-| Never shown again | Password field, always empty; the page says only Yes or No and where the key came from |
-| Empty field keeps the key | Only a typed key or the Remove checkbox changes it |
-| Not flashed to the session | Form errors use `withInput($request->except('api_key'))` |
-| Not logged | Audit entries record which fields changed and `api_key_changed`, never the value |
-| Removed from output | `OutputGuard` knows the saved and `.env` keys and common key shapes |
-| Key sent only over HTTPS | A plain HTTP base URL is refused, except localhost |
-| Admin only | `role:admin`; dealer, buyer and guest tests |
+| Default | `gemini-3.8-flash`. Google's models page recommends it for new projects, and it has a free tier |
+| Override | `GEMINI_MODEL`, or "Active model" in Gemini Settings, which wins |
+| Per workload tier | `GEMINI_MODEL_ROUTINE`, `_EXTRACTION`, `_SUPPORT`, `_RESEARCH`, `_REASONING` |
+| Per agent | Model override on the agent's page |
+| Per channel | Gemini model for website AI or WhatsApp AI, in Gemini Settings |
 
-If `APP_KEY` changes, saved keys can't be read. The page reports this and asks for the key again. Keep a copy of the key in your provider account, not in this project.
+**Checking the model.** "Test Gemini connection" reads the key's own model list. Only models that support `generateContent` are kept. The test refuses a model the list doesn't contain, then sends one tiny real request. Other current options on 4 Nov 2026: `gemini-3.6-flash` (stable Flash), `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` (cheaper). Google routes `gemini-2.5-flash` to `gemini-3.5-flash-lite` from 1 December 2026.
 
-### Database (migration 000046, additive)
+### Errors, retries and quota
 
-- New table `ai_provider_settings`: provider, enabled, api_key, base_url, default_model, monthly_budget_usd, connection_status, last_checked_at, last_success_at, last_error, last_error_at, available_models.
-- `ai_agents`: primary_provider (openai), secondary_provider (anthropic), secondary_model, fallback_enabled (on), max_tokens, daily_request_limit, monthly_budget_usd.
-- `ai_usage_records`: fallback_from, with an index.
+| Gemini response | Class | What happens |
+|---|---|---|
+| 400 `API_KEY_INVALID`, 401 | auth | No retry. Requests pause until an admin tests again; admins are alerted once |
+| 403 `PERMISSION_DENIED` | auth | As above. The key is restricted, blocked or reported as leaked |
+| 400 `FAILED_PRECONDITION`, 402 | quota | No retry. Billing needed (free tier not available to the project) or prepaid credit used up. Paused until a successful test |
+| 429 with a per-day quota (`...PerDay...`) | quota | No retry. **Paused until midnight Pacific time**, when Google resets daily quotas. Admins are alerted, and Gemini Settings and Usage & Cost show the pause |
+| 429 per-minute rate limit | temporary | Retried with Google's `RetryInfo.retryDelay`, else exponential backoff with jitter (0.5 s, 1 s, …, at most 20 s) |
+| 500, 503, 504, 408, connection or timeout | temporary | Retried the same way (`GEMINI_MAX_RETRIES`, default 2) |
+| 404 | model | No retry. Choose a listed model |
+| Other 400s | invalid | No retry. Google's message is shown, cleaned of secrets; key errors never echo Google's text |
 
-The 16 agents start as OpenAI primary and Anthropic secondary, and each can be changed on its own page. Changing them creates a new agent version.
+**During a pause, nothing reaches Google.** Agents keep producing reports from data, website answers keep working, and no answer is made up. Nothing switches to a paid provider. Changing the key or the model clears the pause.
+
+### Function calling
+
+**The default is unchanged.** Fixed workflows choose the tools, as decided on 3 Nov 2026, and the model only routes and words summaries.
+
+**The new opt-in mode, "Model tool calls".** It's set per agent on the agent's page, is saved as a new agent version, and is off for all 16 agents.
+
+1. The workflow runs first, so the data-only report always exists.
+2. `ToolDeclarations` turns the agent's permitted tools into Gemini `functionDeclarations`, with JSON Schemas derived from each tool's Laravel validation rules. Prohibited tools are never declared. Approval tools say they only create an approval request. Agents allowed to delegate (the CEO) also get `agents.delegate`.
+3. `AiProvider::completeWithTools()` runs the exchange. Each model turn is sent back exactly as received, thought signatures included. Each call is answered with a `functionResponse` (`output`, or `error`), matched by call `id`.
+4. Every tool call goes through `ToolRunner`: registered, not prohibited, permitted for this agent, input validated server-side, tool-call and time limits, approval requests for approval tools, and an `ai_tool_calls` log row. Delegation goes through the Brain's `delegate()`, with its depth and subtask caps.
+5. Limits: `MEEZAN_AGENT_MAX_MODEL_TOOL_ROUNDS` (4) model turns, `MEEZAN_AGENT_MAX_TOOL_CALLS` (25), `MEEZAN_AGENT_MAX_DEPTH` (2), `MEEZAN_AGENT_MAX_SUBTASKS` (8). Every turn is a budget-checked, recorded request.
+6. **Grounding:** the final answer is discarded if it has a figure that isn't in the workflow data or the tool results. The ordinary data-only wording is used instead.
+
+There is no SQL, shell or file access: tools are fixed Laravel services.
+
+### Investment Analyst, MPIS and the Investment Index
+
+- **Scores come from the engines only.** MPIS (the earlier segment rankings) is calculated only by `RankingCalculator`, and the Meezan Investment Index only by `IndexEngine`. Gemini never assigns or estimates a score: its instructions say so, and grounding rejects figures not returned by the tools.
+- **Two new read-only tools for the Investment Analyst** (added as its version 3):
+  - `investment_index.leaderboard`: one category's published ranked projects, their scores, confidence, risk, legal status and last verification, plus how many have Insufficient Verified Data or are excluded;
+  - `investment_index.project`: one development's profile, with each factor's verified value or why it's missing, risks and reasons.
+- **Demo data stays labelled.** It is flagged in tool results ("demo": true) and in the advisor's answers. Demo mode is off by default.
+- **Scenarios** (conservative, moderate, optimistic) come only from `GrowthScenarios` when enough verified history exists, and they are always presented as hypothetical.
+
+### Usage and cost
+
+- **Recording:** every request writes an `ai_usage_records` row: provider, model, purpose, agent, task, input and output tokens, estimated cost, success, and since this migration, the failure class.
+- **Usage & Cost page:** requests, successes and failures; input, output and total tokens; per agent, per model, per task, daily (14 days) and monthly totals; failures by reason this month; and the quota pause. Earlier providers' history is shown as "OpenAI (no longer used)" and "Anthropic (no longer used)".
+- **Estimated cost:**
+  - **Sources:** prices entered in Usage & Cost, else Google's published paid-tier prices in `config/services.php`, which are dated: gemini-3.8-flash and 3.6-flash USD 0.75 / 3.75 per million until 31 Dec 2026, then 1.50 / 7.50; 3.5-flash-lite 0.30 / 2.50; 3.1-flash-lite 0.25 / 1.50. Checked 4 Nov 2026.
+  - **Free tier:** Google doesn't charge on the free tier (`GEMINI_BILLING_TIER=free`), so the figure is the paid-tier equivalent.
+- **Limits:**
+  - daily requests in total and per agent;
+  - a monthly spending limit in total, for Gemini, and per agent (the next request's maximum cost is counted, so a limit is never overrun);
+  - tokens per task, per agent per day, and in total per day;
+  - maximum output tokens per request and per agent;
+  - the emergency AI stop.
+
+### Security and data handling
+
+- **Key handling:**
+  - The key is read from `GEMINI_API_KEY`, or saved encrypted with `APP_KEY` in Gemini Settings.
+  - It's never shown again, never in the session or a failed form, never in the audit log or application log, and never in browser responses. `OutputGuard` also removes `AIza…` and `AQ.…` key formats from agent output.
+- **Personal data:** `PersonalDataMask` masks phone numbers, e-mail addresses, CNIC and card numbers in everything sent to Gemini. This is on by default (`MEEZAN_AI_REDACT_PERSONAL_DATA`). Prices, sizes and dates stay.
+- **Free tier:** Google may use free-tier content to improve its products. Gemini Settings says so. Use a paid tier for sensitive production workflows.
+- **Admin only:** Gemini settings, controls and tests (dealers, buyers and guests get 403 or a redirect), with rate-limited test requests.
+
+### History: OpenAI and Anthropic (retired 4 Nov 2026)
+
+**Removed:** the adapters, their configuration and the `OPENAI_*` / `ANTHROPIC_*` variables in `.env.example`. They were never live: neither account had API credit.
+
+**Kept:**
+- The two settings rows remain (disabled), with any saved key.
+- Usage history (6 OpenAI and 3 Anthropic rows) is unchanged.
+- Each agent's earlier definition stays in its version history.
+- The old code is in Git commit `0e69d7b` and in `C:\xampp\backups\MeezanProperty-before-gemini-migration-2026-11-04\`.
+
+**Database (migration 000053, additive):**
+- adds `ai_usage_records.failure` and `ai_agents.planning` (default `workflow`);
+- column defaults are now `primary_provider = gemini` and `secondary_provider = null`;
+- inserts the `gemini` settings row;
+- disables the OpenAI and Anthropic rows;
+- gives each agent a new version moved to Gemini;
+- clears saved routing that named a removed provider.

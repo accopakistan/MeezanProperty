@@ -36,35 +36,42 @@ return [
     ],
 
     /*
-    | Language-model providers. Every call goes through App\Services\Agents\AiProvider.
-    | Keys can also be saved (encrypted) in Admin -> AI Command Center -> AI Providers,
-    | which takes priority over these values. Server-side only.
-    | OpenAI: any OpenAI-compatible chat-completions endpoint works.
+    | Language model: Google Gemini API, the only active provider. Every call goes
+    | through App\Services\Agents\AiProvider (server-side only; the key never
+    | reaches the browser). A key saved (encrypted) in Admin -> AI Command Center
+    | -> Gemini Settings takes priority over GEMINI_API_KEY.
+    |
+    | Checked against Google's documentation on 4 Nov 2026 (aistudio.google.com/docs):
+    | - generateContent at {base_url}/models/{model}:generateContent, key in the
+    |   x-goog-api-key header; streamGenerateContent?alt=sse for streaming.
+    | - gemini-3.8-flash: the Flash model Google recommends for new projects, with a
+    |   free tier. Test connection confirms it is in your account's model list.
+    | - Models from 3.6 on ignore temperature; thinkingLevel needs Gemini 3 or later.
     */
-    'openai' => [
-        'key' => env('OPENAI_API_KEY'),
-        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
-        // OPENAI_DEFAULT_MODEL is the agent-era name; OPENAI_MODEL stays supported.
-        'model' => env('OPENAI_DEFAULT_MODEL') ?: env('OPENAI_MODEL'),
-        'timeout' => (int) env('OPENAI_TIMEOUT', 30),
-        'max_retries' => (int) env('OPENAI_MAX_RETRIES', 2),
-        'min_output_tokens' => (int) env('OPENAI_MIN_OUTPUT_TOKENS', 256),
-        // Thinking depth on api.openai.com. Agents only classify and word short summaries.
-        'reasoning_effort' => env('OPENAI_REASONING_EFFORT', 'low'),
-    ],
-
-    'anthropic' => [
-        'key' => env('ANTHROPIC_API_KEY'),
-        'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.anthropic.com'),
-        // No default on purpose: choose one from the list your own account returns.
-        'model' => env('ANTHROPIC_DEFAULT_MODEL'),
-        // API version sent in the anthropic-version header.
-        'version' => env('ANTHROPIC_VERSION', '2026-10-21'),
-        // Thinking depth (low, medium, high). Agents only classify and word short summaries.
-        'effort' => env('ANTHROPIC_EFFORT', 'low'),
-        'timeout' => (int) env('ANTHROPIC_TIMEOUT', 60),
-        'max_retries' => (int) env('ANTHROPIC_MAX_RETRIES', 2),
-        'min_output_tokens' => (int) env('ANTHROPIC_MIN_OUTPUT_TOKENS', 1024),
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'model' => env('GEMINI_MODEL') ?: 'gemini-3.8-flash',
+        'timeout' => (int) env('GEMINI_TIMEOUT', 60),
+        'max_retries' => (int) env('GEMINI_MAX_RETRIES', 2),
+        // Thinking is billed as output: agents only route, pick workflows and word short summaries.
+        'thinking_level' => env('GEMINI_THINKING_LEVEL', 'low'),
+        'min_output_tokens' => (int) env('GEMINI_MIN_OUTPUT_TOKENS', 512),
+        // free | paid. On the free tier Google does not charge; costs shown are the paid-tier
+        // equivalent, and Google may use free-tier content to improve its products.
+        'billing_tier' => env('GEMINI_BILLING_TIER', 'free'),
+        /*
+        | Paid-tier prices, USD per 1M tokens (output includes thinking), from Google's
+        | pricing page on 4 Nov 2026. Prices entered in Usage & Cost take priority.
+        | A period applies from its "from" date (inclusive).
+        */
+        'pricing' => [
+            'gemini-3.8-flash' => [['from' => null, 'input' => 0.75, 'output' => 3.75], ['from' => '2027-01-01', 'input' => 1.50, 'output' => 7.50]],
+            'gemini-3.6-flash' => [['from' => null, 'input' => 0.75, 'output' => 3.75], ['from' => '2027-01-01', 'input' => 1.50, 'output' => 7.50]],
+            'gemini-3.5-flash-lite' => [['from' => null, 'input' => 0.30, 'output' => 2.50]],
+            'gemini-3.1-flash-lite' => [['from' => null, 'input' => 0.25, 'output' => 1.50]],
+        ],
+        'pricing_checked_on' => '2026-11-04',
     ],
 
     /*

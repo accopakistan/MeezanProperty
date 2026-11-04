@@ -18,7 +18,7 @@
         <h2 class="text-base font-bold">Central AI status</h2>
         <dl class="mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 xl:grid-cols-4">
             <div><dt class="text-[13px] text-muted">Language model</dt><dd class="font-semibold">{{ $llm ? 'Configured' : 'Not configured (rules mode)' }}</dd></div>
-            <div><dt class="text-[13px] text-muted">OpenAI / Anthropic</dt><dd class="font-semibold">{{ str_replace('_', ' ', ucfirst($connectors['openai']['status'])) }} / {{ str_replace('_', ' ', $connectors['anthropic']['status']) }} · <a href="{{ route('admin.ai.providers') }}" class="link font-normal">AI Providers</a></dd></div>
+            <div><dt class="text-[13px] text-muted">Google Gemini</dt><dd class="font-semibold">{{ str_replace('_', ' ', ucfirst($connectors['gemini']['status'])) }} · <a href="{{ route('admin.ai.providers') }}" class="link font-normal">Gemini Settings</a></dd></div>
             <div><dt class="text-[13px] text-muted">Agent jobs waiting</dt><dd class="font-semibold">{{ $agentJobsWaiting }} on queue "{{ config('meezan.agents.queue') }}"</dd></div>
             <div><dt class="text-[13px] text-muted">Running now</dt><dd class="font-semibold">{{ $tasksByStatus['running'] ?? 0 }} task(s)</dd></div>
         </dl>

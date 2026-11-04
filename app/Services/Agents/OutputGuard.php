@@ -26,14 +26,14 @@ class OutputGuard
     public static function text(string $text): string
     {
         foreach (array_filter([
-            ...AiProviderSetting::storedKeys(), config('services.openai.key'), config('services.anthropic.key'), config('app.key'), config('services.whatsapp.access_token'), config('services.whatsapp.app_secret'), config('services.meta_graph.access_token'), config('services.sms.api_key'), config('services.web_search.api_key'),
+            ...AiProviderSetting::storedKeys(), config('services.gemini.key'), config('app.key'), config('services.whatsapp.access_token'), config('services.whatsapp.app_secret'), config('services.meta_graph.access_token'), config('services.sms.api_key'), config('services.web_search.api_key'),
             config('database.connections.mysql.password'), config('mail.mailers.smtp.password'),
         ], fn ($s) => is_string($s) && strlen($s) >= 6) as $secret) {
             $text = str_replace($secret, '[redacted]', $text);
         }
 
         $text = preg_replace([
-            '/\bsk-[A-Za-z0-9_\-]{16,}\b/',                         // OpenAI-style keys
+            '/\b(?:sk-[A-Za-z0-9_\-]{16,}|AIza[0-9A-Za-z_\-]{30,}|AQ\.[A-Za-z0-9_\-]{20,})/', // OpenAI-style and Google API keys
             '/\bbase64:[A-Za-z0-9+\/=]{20,}/',                       // Laravel app keys
             '/\b(?:EAA|ghp_|xox[bap]-)[A-Za-z0-9_\-]{16,}\b/',       // Meta / GitHub / Slack tokens
             '/\b(password|passwd|secret|api[_ -]?key|token)\s*[:=]\s*\S+/i',

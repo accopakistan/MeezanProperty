@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\Agents\Providers\GeminiAdapter;
+
 return [
 
     /*
@@ -231,9 +233,9 @@ return [
     | AI matching
     |--------------------------------------------------------------------------
     |
-    | "rules" is the built-in deterministic parser. "llm" adds an
-    | OpenAI-compatible model (config/services.php "openai") for parsing only;
-    | matching always runs against the database.
+    | "rules" is the built-in deterministic parser. "llm" adds the Gemini
+    | model (config/services.php "gemini", through AiProvider) for parsing
+    | only; matching always runs against the database.
     |
     */
 
@@ -315,17 +317,22 @@ return [
             'official_record' => 'Official development / approval record',
             'verified_rental' => 'Verified rental observations',
             'admin_research' => 'Meezan Property research',
+            // Investment Index evidence sources.
+            'site_inspection' => 'Independent site inspection',
+            'audited_document' => 'Audited / certified document (rent roll, safety certificate, accounts)',
+            'licensed_data' => 'Licensed data provider',
+            'owner_document' => 'Owner-submitted document (staff-verified)',
             'demo' => 'Illustrative data (not real)',
         ],
 
         /*
         | Demonstration data. Demo projects and market records (is_demo) are
         | ranked in their own calculation, which never replaces the real one.
-        | With demo mode on, public dashboards show the demo snapshot with a
-        | notice; with it off, only real verified data appears. Admins can
-        | override this in Market Data Centre → Demo Data (stored setting).
+        | Off by default: public rankings show real verified data only, and the
+        | Meezan Investment Index never reads demo records at all. Admins can
+        | switch it on for a private preview in Market Data Centre → Demo Data.
         */
-        'demo_mode' => (bool) env('INVESTMENT_DEMO_MODE', true),
+        'demo_mode' => (bool) env('INVESTMENT_DEMO_MODE', false),
         'demo_notice' => 'DEMO DATA — Illustrative figures for platform preview only. Prices, rental yields, investment scores and forecasts are not verified market information.',
         'reliability' => ['high' => 1.0, 'medium' => 0.6, 'low' => 0.3],
 
@@ -477,7 +484,7 @@ return [
         ],
 
         // "rules" (default) explains rankings from the snapshot data; "llm" rephrases that
-        // explanation with the OpenAI-compatible model in services.openai (grounding-checked).
+        // explanation with the Gemini model (grounding-checked: no figure the data lacks).
         'ai_driver' => env('MEEZAN_INVESTMENT_AI', 'rules'),
 
         'disclaimer' => 'Meezan Property rankings and investment insights are informational tools and do not constitute financial, legal or investment advice. Property investments involve risk. Historical performance does not guarantee future returns.',
@@ -488,33 +495,35 @@ return [
     | Central AI Brain & agents (Phase 15)
     |--------------------------------------------------------------------------
     |
-    | One provider layer for every agent. Agents always work from tools that
-    | read the real database; the language model (when configured) only
-    | classifies requests and words the summary. Without an API key the
-    | agents run in "rules" mode and say so. Model names are configuration,
-    | never code: each workload tier can use a different (cheaper) model.
+    | One provider layer for every agent: Google Gemini. Agents always work
+    | from tools that read the real database; by default the model only
+    | classifies requests and words the summary. An agent switched to
+    | "model tool calls" may also call its own permitted tools through Gemini
+    | function calling, within the limits below. Without an API key the agents
+    | run in "rules" mode and say so. Each workload tier can use its own model.
     |
     */
 
     'agents' => [
-        'provider' => env('MEEZAN_AI_PROVIDER', 'openai'),
+        'provider' => env('MEEZAN_AI_PROVIDER', 'gemini'),
+        // Registered providers (key => adapter class). Gemini only; another provider is added here.
+        'adapters' => [
+            'gemini' => GeminiAdapter::class,
+        ],
+        // A model per workload tier; empty means GEMINI_MODEL (or the model saved in Gemini Settings).
         'models' => [
-            'routine' => env('OPENAI_MODEL_ROUTINE'),
-            'extraction' => env('OPENAI_MODEL_EXTRACTION'),
-            'support' => env('OPENAI_MODEL_SUPPORT'),
-            'research' => env('OPENAI_MODEL_RESEARCH'),
-            'reasoning' => env('OPENAI_MODEL_REASONING'),
+            'routine' => env('GEMINI_MODEL_ROUTINE'),
+            'extraction' => env('GEMINI_MODEL_EXTRACTION'),
+            'support' => env('GEMINI_MODEL_SUPPORT'),
+            'research' => env('GEMINI_MODEL_RESEARCH'),
+            'reasoning' => env('GEMINI_MODEL_REASONING'),
         ],
-        // The same tiers for Anthropic; empty means ANTHROPIC_DEFAULT_MODEL.
-        'anthropic_models' => [
-            'routine' => env('ANTHROPIC_MODEL_ROUTINE'),
-            'extraction' => env('ANTHROPIC_MODEL_EXTRACTION'),
-            'support' => env('ANTHROPIC_MODEL_SUPPORT'),
-            'research' => env('ANTHROPIC_MODEL_RESEARCH'),
-            'reasoning' => env('ANTHROPIC_MODEL_REASONING'),
-        ],
-        // Off until an administrator turns it on: fallback sends the same data to a second company.
+        // Only meaningful with a second provider registered; it would send the same data to another company.
         'fallback_allowed' => (bool) env('MEEZAN_AI_FALLBACK', false),
+        // Phone numbers, e-mail addresses, CNIC and card numbers are masked before text is sent to the provider.
+        'redact_personal_data' => (bool) env('MEEZAN_AI_REDACT_PERSONAL_DATA', true),
+        // Gemini function calling for agents switched to "model tool calls": model turns per task.
+        'max_model_tool_rounds' => (int) env('MEEZAN_AGENT_MAX_MODEL_TOOL_ROUNDS', 4),
         // Use the model to classify requests and word summaries when a key is set.
         'use_llm' => (bool) env('MEEZAN_AGENTS_USE_LLM', true),
         'limits' => [

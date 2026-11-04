@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Area;
-use App\Models\InvestmentCalculation;
+use App\Models\InvestmentIndexRun;
 use App\Models\Property;
 use App\Support\Cities;
 use App\Support\Seo;
@@ -77,25 +77,27 @@ class SitemapController extends Controller
     }
 
     /**
-     * Investment Rankings pages that have at least one scored entry (pages
-     * without verified data are noindex and stay out of the sitemap).
+     * Meezan Investment Index pages: the methodology always; a leaderboard and
+     * the Overall Index once they have ranked projects; profiles of ranked
+     * projects (pages without verified results are noindex and stay out).
      *
      * @return Collection<int, array{loc: string, lastmod: ?string}>
      */
     protected function rankings(): Collection
     {
-        // Real rankings only: demo snapshots are never offered to search engines.
-        $calc = InvestmentCalculation::where('status', 'published')->where('includes_demo', false)->latest('published_at')->latest('id')->first();
-        if (! $calc) {
-            return collect();
+        $urls = collect([['loc' => route('rankings.methodology'), 'lastmod' => null]]);
+        $run = InvestmentIndexRun::latestPublished();
+        if (! $run) {
+            return $urls;
         }
-        $lastmod = $calc->published_at?->toAtomString();
-        $rows = $calc->rankings()->whereNotNull('segment')->ranked()->toBase()->select('segment', 'city')->distinct()->get();
-        $segments = config('meezan.investment.segments');
+        $lastmod = $run->published_at?->toAtomString();
+        $ranked = $run->scores()->where('status', 'ranked')->with('project:id,slug,is_demo,is_published')->get()
+            ->filter(fn ($s) => $s->project && ! $s->project->is_demo && $s->project->is_published);
 
-        return $rows->pluck('city')->unique()->map(fn ($city) => ['loc' => route('rankings.city', Cities::slug($city)), 'lastmod' => $lastmod])
-            ->concat($rows->pluck('segment')->unique()->map(fn ($s) => ['loc' => route('rankings.segment', ['pakistan', $segments[$s]['group'], $s]), 'lastmod' => $lastmod]))
-            ->concat($rows->map(fn ($r) => ['loc' => route('rankings.segment', [Cities::slug($r->city), $segments[$r->segment]['group'], $r->segment]), 'lastmod' => $lastmod]))
+        return $urls
+            ->concat($ranked->pluck('category')->unique()->map(fn ($c) => ['loc' => route('rankings.category', $c), 'lastmod' => $lastmod]))
+            ->concat($ranked->whereNotNull('overall_rank')->isNotEmpty() ? [['loc' => route('rankings.overall'), 'lastmod' => $lastmod]] : [])
+            ->concat($ranked->map(fn ($s) => ['loc' => route('rankings.project', $s->project), 'lastmod' => $lastmod]))
             ->values();
     }
 

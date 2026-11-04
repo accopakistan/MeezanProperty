@@ -17,7 +17,8 @@ class InvestmentAnalystAgent extends Agent
         return [
             'compare' => ['compare', 'versus', ' vs ', 'better investment', 'muqabla'],
             'yield' => ['yield', 'rental return', 'rent return', 'kiraya'],
-            'rankings' => ['ranking', 'best investment', 'where to invest', 'where should i invest', 'top areas', 'investment report', 'score', 'invest', 'sarmaya'],
+            'rankings' => ['ranking', 'best investment', 'where to invest', 'where should i invest', 'top areas', 'investment report', 'score', 'invest', 'sarmaya',
+                'investment index', 'leaderboard', 'shopping mall', 'commercial plaza', 'business tower', 'housing societ', 'apartment building'],
             'data_status' => ['market data', 'data quality', 'data confidence'],
             'methodology' => ['methodology change', 'change weights', 'new weights', 'propose weights'],
             'advisor' => ['investment advisor'],
@@ -36,20 +37,57 @@ class InvestmentAnalystAgent extends Agent
         };
     }
 
+    /** Index categories by the words people use for them. */
+    protected const INDEX_CATEGORIES = [
+        'housing-societies' => ['housing societ', 'society', 'societies', 'housing scheme'],
+        'commercial-plazas' => ['plaza'],
+        'apartment-buildings' => ['apartment building', 'apartment', 'flat'],
+        'shopping-malls' => ['shopping mall', 'mall'],
+        'business-towers' => ['business tower', 'tower', 'office building'],
+    ];
+
+    /**
+     * The Meezan Investment Index first: the category asked about, or all
+     * five leaderboards. Scores come only from the Index engine; a category
+     * without ranked projects is reported as Insufficient Verified Data. The
+     * earlier MPIS snapshot is added only when one is published.
+     */
     protected function rankings(AgentContext $ctx): Report
     {
-        $city = $this->city($ctx->task->request);
-        $r = new Report('Investment rankings'.($city ? " — {$city}" : ''));
-        $data = $this->need($ctx, $r, 'investment.rankings', array_filter(['city' => $city, 'limit' => 10]));
-        if ($data && ! $data['published']) {
-            $r->finding('No investment rankings are published yet, because no verified market data has been reviewed and published. I will not estimate prices or returns without it.');
-            $r->missing('Published investment rankings (Market Data Centre).');
-
-            return $r;
+        $text = mb_strtolower($ctx->task->request);
+        $asked = collect(self::INDEX_CATEGORIES)->filter(fn ($words) => collect($words)->contains(fn ($w) => str_contains($text, $w)))->keys()->first();
+        $r = new Report('Meezan Investment Index'.($asked ? ' — '.config("investment_index.categories.$asked.label") : ''));
+        $ranked = [];
+        foreach ($asked ? [$asked] : array_keys(config('investment_index.categories')) as $category) {
+            $board = $this->need($ctx, $r, 'investment_index.leaderboard', ['category' => $category, 'limit' => $asked ? 10 : 3]);
+            if (! $board) {
+                continue;
+            }
+            if (! $board['published']) {
+                $r->finding('No Investment Index run has been published yet: Insufficient Verified Data.');
+                break;
+            }
+            $r->period = 'Published '.$board['published_at'].' · methodology v'.$board['methodology_version'];
+            $c = $board['counts'];
+            $r->finding("{$board['category']}: {$c['ranked']} ranked, {$c['insufficient_verified_data']} with insufficient verified data, {$c['excluded']} excluded, of {$c['assessed']} assessed.");
+            foreach ($board['items'] as $x) {
+                $ranked[] = [$board['category'], $x['rank'], $x['name'], $x['city'], $x['score'], $x['confidence'], $x['risk'], $x['legal_status']];
+            }
+            foreach ($board['missing'] as $m) {
+                $r->missing($board['category'].': '.$m);
+            }
         }
-        if ($data) {
-            $r->period = 'Published '.$data['published_at'].' · methodology v'.$data['methodology_version'];
-            $r->table('Calculated metrics (published snapshot)', ['Entry', 'City', 'Score', 'Confidence', 'Risk', '1-yr change', 'Gross yield'],
+        if ($ranked) {
+            $r->table('Investment Index leaderboards (published)', ['Category', 'Rank', 'Project', 'City', 'Score', 'Confidence', 'Risk', 'Legal status'], $ranked);
+            $r->finding('Scores come from verified, traceable evidence only and are not guarantees of future returns.');
+        }
+
+        // The earlier area / segment snapshot (MPIS), only when one is published.
+        $city = $this->city($ctx->task->request);
+        $data = $this->need($ctx, $r, 'investment.rankings', array_filter(['city' => $city, 'limit' => 10]));
+        if ($data && $data['published']) {
+            $r->finding('Earlier area and segment snapshot (MPIS), published '.$data['published_at'].' with methodology v'.$data['methodology_version'].'.');
+            $r->table('Earlier area and segment snapshot (MPIS)', ['Entry', 'City', 'Score', 'Confidence', 'Risk', '1-yr change', 'Gross yield'],
                 collect($data['rows'])->map(fn ($x) => [$x['entity'], $x['city'], $x['score'] ?? 'not ranked', $x['confidence'], $x['risk'],
                     $x['change_1y'] !== null ? $x['change_1y'].'%' : 'Insufficient Historical Data', $x['gross_yield'] !== null ? $x['gross_yield'].'%' : 'no data'])->all());
             $data['includes_demo'] ?? false

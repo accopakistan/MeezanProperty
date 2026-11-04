@@ -29,7 +29,13 @@ class AiAgent extends Model
         'reasoning' => 'Complex reasoning',
     ];
 
-    protected $fillable = ['primary_provider', 'secondary_provider', 'secondary_model', 'fallback_enabled', 'max_tokens', 'daily_request_limit', 'monthly_budget_usd', 'name', 'role', 'description', 'instructions', 'model_tier', 'model', 'temperature', 'tools', 'memory_policy', 'status', 'daily_token_budget'];
+    /** How an agent uses the model. Fixed workflows stay the default: the model only routes and words. */
+    public const PLANNING = [
+        'workflow' => 'Fixed workflows (the model only routes requests and words summaries)',
+        'model_tools' => 'Model tool calls (Gemini may also call the agent’s own permitted tools)',
+    ];
+
+    protected $fillable = ['planning', 'primary_provider', 'secondary_provider', 'secondary_model', 'fallback_enabled', 'max_tokens', 'daily_request_limit', 'monthly_budget_usd', 'name', 'role', 'description', 'instructions', 'model_tier', 'model', 'temperature', 'tools', 'memory_policy', 'status', 'daily_token_budget'];
 
     protected function casts(): array
     {
@@ -77,7 +83,7 @@ class AiAgent extends Model
     {
         return $this->versions()->create([
             'version' => $this->version,
-            'snapshot' => $this->only(['primary_provider', 'secondary_provider', 'secondary_model', 'fallback_enabled', 'max_tokens', 'daily_request_limit', 'monthly_budget_usd', 'name', 'role', 'description', 'instructions', 'model_tier', 'model', 'temperature', 'tools', 'memory_policy', 'status', 'daily_token_budget']),
+            'snapshot' => $this->only(['planning', 'primary_provider', 'secondary_provider', 'secondary_model', 'fallback_enabled', 'max_tokens', 'daily_request_limit', 'monthly_budget_usd', 'name', 'role', 'description', 'instructions', 'model_tier', 'model', 'temperature', 'tools', 'memory_policy', 'status', 'daily_token_budget']),
             'change_note' => $note,
             'changed_by' => $by?->id,
             'created_at' => now(),

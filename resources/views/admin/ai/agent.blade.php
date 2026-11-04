@@ -42,16 +42,24 @@
                 <fieldset class="rounded-lg border border-line p-3">
                     <legend class="px-1 text-sm font-semibold">Provider and limits</legend>
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <x-field name="primary_provider" type="select" label="Primary provider" required :options="$providerLabels" :value="$agent->primary_provider" />
-                        <x-field name="secondary_provider" type="select" label="Secondary provider" :options="['' => 'None'] + $providerLabels" :value="$agent->secondary_provider" />
-                        <x-field name="secondary_model" label="Secondary model (optional)" :value="$agent->secondary_model" placeholder="tier or provider default" />
-                        <x-field name="max_tokens" type="number" min="1" label="Max tokens per request" :value="$agent->max_tokens" placeholder="No extra limit" />
+                        @if (count($providerLabels) > 1)
+                            <x-field name="primary_provider" type="select" label="Provider" required :options="$providerLabels" :value="$agent->primary_provider" />
+                            <x-field name="secondary_provider" type="select" label="Secondary provider" :options="['' => 'None'] + $providerLabels" :value="$agent->secondary_provider" />
+                            <x-field name="secondary_model" label="Secondary model (optional)" :value="$agent->secondary_model" placeholder="tier or provider default" />
+                        @else
+                            <div><p class="label">Provider</p><p class="text-sm font-semibold">{{ reset($providerLabels) }}</p><input type="hidden" name="primary_provider" value="{{ array_key_first($providerLabels) }}"></div>
+                        @endif
+                        <x-field name="max_tokens" type="number" min="1" label="Max output tokens per request" :value="$agent->max_tokens" placeholder="No extra limit" />
                         <x-field name="daily_request_limit" type="number" min="1" label="Requests per day" :value="$agent->daily_request_limit" placeholder="No limit" />
                         <x-field name="monthly_budget_usd" type="number" step="0.01" min="0" label="Monthly budget (USD)" :value="$agent->monthly_budget_usd" placeholder="No limit" />
                     </div>
-                    <label class="mt-3 flex items-center gap-2 text-sm"><input type="hidden" name="fallback_enabled" value="0"><input type="checkbox" name="fallback_enabled" value="1" @checked($agent->fallback_enabled)> Allow fallback for this agent (also needs the switch in <a href="{{ route('admin.ai.providers') }}" class="link">AI Providers</a>)</label>
+                    <x-field class="mt-4" name="planning" type="select" label="How the model is used" :options="\App\Models\AiAgent::PLANNING" :value="$agent->planning ?? 'workflow'"
+                        hint="Model tool calls: Gemini may call this agent's permitted tools (and, for agents that delegate, other agents) to answer; every call is permission-checked, validated, limited and logged, and an answer with figures not in the data is discarded. Costs more requests per task." />
+                    @if (count($providerLabels) > 1)
+                        <label class="mt-3 flex items-center gap-2 text-sm"><input type="hidden" name="fallback_enabled" value="0"><input type="checkbox" name="fallback_enabled" value="1" @checked($agent->fallback_enabled)> Allow fallback for this agent (also needs the switch in <a href="{{ route('admin.ai.providers') }}" class="link">Gemini Settings</a>)</label>
+                    @endif
                     @if ($modelWarning)<p class="mt-2 text-[13px] text-amber-800">{{ $modelWarning }}</p>@endif
-                    <p class="mt-2 text-[13px] text-muted">The model override above is for the primary provider. Temperature applies to OpenAI only: Anthropic's current API version uses its default sampling.</p>
+                    <p class="mt-2 text-[13px] text-muted">The model override must be a Gemini model from your list in <a href="{{ route('admin.ai.providers') }}" class="link">Gemini Settings</a>. Gemini 3.6 and later ignore temperature; it still applies to earlier models.</p>
                 </fieldset>
                 <fieldset>
                     <legend class="label">Permitted tools</legend>

@@ -415,10 +415,10 @@ it('grounds insights in the snapshot and rejects AI text with invented numbers',
         ->and(implode(' ', $rules['calculated']))->toContain('+11.11%')
         ->and($rules['scenarios'][0])->toContain('not a forecast');
 
-    config(['meezan.investment.ai_driver' => 'llm', 'services.openai.key' => 'test-key']);
+    config(['meezan.investment.ai_driver' => 'llm', 'services.gemini.key' => 'test-key']);
     Http::fake(['*' => Http::sequence()
-        ->push(['choices' => [['message' => ['content' => 'Prices will rise 45% next year.']]]])
-        ->push(['choices' => [['message' => ['content' => 'Verified transactions show an 11.11% rise over one year; rental data supports a gross yield of 6%.']]]])]);
+        ->push(['candidates' => [['content' => ['parts' => [['text' => 'Prices will rise 45% next year.']]], 'finishReason' => 'STOP']]])
+        ->push(['candidates' => [['content' => ['parts' => [['text' => 'Verified transactions show an 11.11% rise over one year; rental data supports a gross yield of 6%.']]], 'finishReason' => 'STOP']]])]);
     expect(app(InvestmentInsights::class)->for($r)['interpretation_source'])->toBe('rules');
 
     $grounded = app(InvestmentInsights::class)->for($r);

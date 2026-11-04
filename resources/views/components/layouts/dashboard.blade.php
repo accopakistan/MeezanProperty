@@ -57,6 +57,7 @@
             ['Locations', 'admin.areas.index', 'map-pin', null],
             ['Map Boundaries', 'admin.boundaries.index', 'map', null],
             ['Market Data Centre', 'admin.market.index', 'chart', null],
+            ['Investment Index', 'admin.investment-index.overview', 'badge-check', (\App\Models\InvestmentException::where('status', 'open')->count() + \App\Models\InvestmentEvidenceSubmission::where('status', 'pending')->count()) ?: null],
             ['Inquiries & Leads', 'admin.leads.index', 'inbox', null],
             ['Lead Oversight', 'admin.crm', 'chart', null],
             ['AI Command Center', 'admin.ai.overview', 'sparkles', \App\Models\AiApproval::where('status', 'pending')->count() ?: null],

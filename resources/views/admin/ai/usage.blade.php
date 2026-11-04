@@ -1,8 +1,15 @@
-<x-layouts.dashboard title="AI Usage & Cost" section="admin" heading="Usage & Cost" subheading="Token use reported by the provider for every model call. Costs are calculated only from the prices you enter below; without them, cost is shown as not calculated, never guessed.">
+<x-layouts.dashboard title="AI Usage & Cost" section="admin" heading="Usage & Cost" subheading="Token use reported by Google for every model call (thinking tokens count as output). Estimated cost uses the prices you enter below, else Google's published prices; on the free tier Google does not charge, and the estimate shows the paid-tier equivalent.">
     @include('admin.ai.partials.nav')
 
     @if ($controls['emergency_stop'])
-        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="status"><strong>Emergency stop is on.</strong> No paid AI requests are being made. The portal and data-only reports keep working.</div>
+        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="status"><strong>Emergency AI stop is on.</strong> No AI requests are being made. The portal and data-only reports keep working.</div>
+    @endif
+    @foreach ($quota as $key => $block)
+        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="status"><strong>{{ $labels[$key] ?? $key }} requests paused.</strong> {{ $block['reason'] }}
+            {{ $block['until'] ? 'Resumes at '.\Carbon\CarbonImmutable::parse($block['until'])->setTimezone(config('meezan.timezone'))->format('j M Y, H:i').'.' : 'Test the connection in Gemini Settings once fixed.' }}</div>
+    @endforeach
+    @if ($failures->isNotEmpty())
+        <p class="mb-4 text-[13px] text-muted">Failed requests this month by reason: {{ $failures->map(fn ($n, $f) => str_replace('_', ' ', $f).' '.$n)->implode(' · ') }}.</p>
     @endif
 
     <section class="card card-body min-w-0">
@@ -38,7 +45,7 @@
                 <x-field name="daily_requests_total" type="number" min="1" label="Requests per day" :value="$controls['daily_requests_total']" placeholder="No limit" />
                 <x-field name="max_tokens_per_request" type="number" min="1" label="Max tokens per request" :value="$controls['max_tokens_per_request']" placeholder="No limit" />
             </div>
-            <p class="text-[13px] text-muted">Spent this month: {{ $monthSpend !== null ? 'USD '.number_format($monthSpend, 4) : 'not calculated' }}. Each provider's monthly budget is set in <a href="{{ route('admin.ai.providers') }}" class="link">AI Providers</a>; each agent's limits on its own page. While a monthly budget is set, a model with no price below cannot be used, because its spending could not be controlled. When a budget runs out, paid requests stop and agents report from data only.</p>
+            <p class="text-[13px] text-muted">Spent this month: {{ $monthSpend !== null ? 'USD '.number_format($monthSpend, 4) : 'not calculated' }}. Gemini's monthly spending limit is set in <a href="{{ route('admin.ai.providers') }}" class="link">Gemini Settings</a>; each agent's limits on its own page. While a monthly budget is set, a model with no price below cannot be used, because its spending could not be controlled. When a budget runs out, paid requests stop and agents report from data only.</p>
             <button class="btn btn-primary btn-sm">Save limits</button>
         </form>
 
@@ -102,7 +109,7 @@
     <form method="POST" action="{{ route('admin.ai.usage.pricing') }}" class="card card-body mt-6">
         @csrf @method('PUT')
         <h2 class="text-base font-bold">Model pricing (USD per 1M tokens)</h2>
-        <p class="mt-1 text-[13px] text-muted">Enter the prices from each provider's current price list, using the exact model name. Update them when the provider changes its prices. Leave a row empty to remove it.</p>
+        <p class="mt-1 text-[13px] text-muted">Prices you enter here take priority. Without one, Google's published price (checked {{ config('services.gemini.pricing_checked_on') }}) is used: {{ collect($published)->map(fn ($p, $m) => $m.' '.$p['input'].' / '.$p['output'])->implode('; ') ?: 'none' }}. Check Google's pricing page when prices change (3.8 and 3.6 Flash prices rise on 1 January 2027, which is already configured). Leave a row empty to remove it.</p>
         @php $rows = collect($pricing)->map(fn ($p, $m) => ['model' => $m] + $p)->values()->all(); $rows = array_pad($rows, count($rows) + 2, ['model' => '', 'input' => '', 'output' => '']); @endphp
         <div class="mt-3 space-y-2">
             @foreach ($rows as $i => $row)

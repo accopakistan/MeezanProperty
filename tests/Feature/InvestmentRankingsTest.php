@@ -84,19 +84,19 @@ function rkPublish(): InvestmentCalculation
 | Without data: honest empty states
 */
 
-it('shows every page with live counts and no invented figures when nothing is published', function () {
+it('retires the earlier ranking pages: each redirects permanently to the Meezan Investment Index', function () {
     rkMall('Fixture Mall Without Data');
 
-    foreach (['rankings.index' => [], 'rankings.city' => ['lahore'], 'rankings.group' => ['lahore', 'residential'], 'rankings.segment' => ['lahore', 'commercial', 'shopping-malls'],
-        'rankings.compare' => ['lahore', 'commercial', 'shopping-malls']] as $route => $params) {
-        $this->get(route($route, $params))->assertOk();
+    $this->get(route('rankings.index'))->assertOk()->assertSee('Meezan Investment Index')->assertSee('Insufficient Verified Data')->assertSee(config('meezan.investment.disclaimer'));
+    $this->get(route('rankings.city', ['lahore']))->assertRedirect(route('rankings.index'))->assertStatus(301);
+    $this->get(route('rankings.group', ['lahore', 'residential']))->assertStatus(301)->assertRedirect(route('rankings.index'));
+    $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->assertStatus(301)->assertRedirect(route('rankings.category', ['shopping-malls', 'city' => 'Lahore']));
+    $this->get(route('rankings.compare', ['karachi', 'commercial', 'business-towers']))->assertStatus(301)->assertRedirect(route('rankings.category', ['business-towers', 'city' => 'Karachi']));
+    $this->get(route('rankings.segment', ['pakistan', 'residential', 'societies']))->assertRedirect(route('rankings.category', 'housing-societies'));
+    // Individual plots, houses, shops and offices are no longer ranked: their pages lead to the Index home.
+    foreach ([['residential', 'plots'], ['residential', 'houses'], ['commercial', 'commercial-shops'], ['commercial', 'office-spaces'], ['commercial', 'commercial-plots'], ['mixed-use', 'mixed-use']] as [$g, $seg]) {
+        $this->get(route('rankings.segment', ['lahore', $g, $seg]))->assertStatus(301)->assertRedirect(route('rankings.index'));
     }
-    $this->get(route('rankings.index'))->assertSee('No rankings are published yet')->assertSee('Smart Real Estate')->assertSee(config('meezan.investment.disclaimer'));
-
-    $html = $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->assertOk()
-        ->assertSee('Top')->assertSee('Shopping Malls')->assertSee('Fixture Mall Without Data')->assertSee('Insufficient Data')
-        ->assertSee('Forecast unavailable — insufficient verified data')->assertSee('noindex, follow', false)->getContent();
-    expect($html)->not->toContain('MPIS Score</span>')->not->toMatch('/Rental Yield \(Annual, gross\)<\/dt><dd[^>]*>\d/');
 });
 
 it('counts real records for city cards and the overview', function () {
@@ -115,8 +115,7 @@ it('counts real records for city cards and the overview', function () {
 it('rejects unknown cities, groups and categories', function () {
     $this->get('/investment-rankings/london')->assertNotFound();
     $this->get('/investment-rankings/lahore/industrial')->assertNotFound();
-    $this->get('/investment-rankings/lahore/residential/shopping-malls')->assertNotFound();
-    $this->get('/investment-rankings/lahore?tab=nonsense')->assertNotFound();
+    $this->get('/investment-rankings/casinos')->assertNotFound();
     $this->get('/investment-rankings/pakistan')->assertRedirect(route('rankings.index'));
 });
 
@@ -187,7 +186,7 @@ it('labels entries ranked, provisional, under review or insufficient without sco
         ->and($items->keys()->first())->toBe('Fixture Documented Mall');
 });
 
-it('filters, searches and sorts the ranking table', function () {
+it('filters, searches and sorts the earlier segment snapshot used by the AI tools', function () {
     $gulberg = area('Gulberg');
     rkDocument(['area_id' => $gulberg->id], 'residential', 'residential_plot', [9_000_000, 10_000_000, 11_000_000, 12_000_000], [5, 'marla']);
     rkDocument(['area_id' => $gulberg->id], 'residential', 'residential_plot', [18_000_000, 19_000_000, 21_000_000, 23_000_000], [10, 'marla']);
@@ -199,42 +198,24 @@ it('filters, searches and sorts the ranking table', function () {
         ->and($browser->items('plots', 'Lahore', ['sort' => 'price', 'dir' => 'desc'])->first()['size_key'])->toBe('10-marla')
         ->and($browser->items('plots', 'Karachi'))->toBeEmpty();
 
-    $this->get(route('rankings.segment', ['lahore', 'residential', 'plots', 'size' => '10-marla']))->assertOk()->assertSee('10 Marla')->assertDontSee('noindex, follow', false);
-    // The in-place update returns only the results block.
-    $partial = $this->withHeader('X-Rankings-Partial', '1')->get(route('rankings.segment', ['lahore', 'residential', 'plots', 'sort' => 'price']))->assertOk()->getContent();
-    expect($partial)->toStartWith('<div data-rankings-results>')->not->toContain('<html');
+    // The public plot ranking page is retired: plots are not ranked by the Investment Index.
+    $this->get(route('rankings.segment', ['lahore', 'residential', 'plots', 'size' => '10-marla']))->assertRedirect(route('rankings.index'));
 });
 
 /*
 | Performance, charts, forecasts, comparison
 */
 
-it('draws the price chart only from verified observations and keeps forecasts as scenarios', function () {
+it('draws the price chart only from verified observations', function () {
     expect(PriceChart::build([['date' => '2025-01-01', 'amount' => 100]]))->toBeNull();
     $chart = PriceChart::build([['date' => '2023-01-01', 'amount' => 100], ['date' => '2024-01-01', 'amount' => 120], ['date' => '2025-01-01', 'amount' => 150]], '1y');
     expect($chart['count'])->toBe(2);
     expect(PriceChart::build([['date' => '2023-01-01', 'amount' => 100], ['date' => '2025-01-01', 'amount' => 150]], '1y'))->toBeNull();
-
-    $mall = rkMall('Fixture Chart Mall');
-    rkDocument(['project_id' => $mall->id], 'commercial', 'shop', [8_000_000, 9_000_000, 10_000_000, 11_000_000], [200, 'sqft'], 60_000);
-    rkPublish();
-    $html = $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls', 'selected' => 'project:'.$mall->id, 'period' => 'all']))->assertOk()->getContent();
-
-    expect($html)->toContain('4 verified observations of one comparable series')
-        ->toContain('Conservative')->toContain('These are illustrations of past rates continuing, not predictions or guarantees.')
-        ->toContain('Asking prices, transactions and valuations are never mixed');
 });
 
-it('compares only entries of the same segment and highlights a winner only when all have the metric', function () {
-    $a = rkMall('Fixture Mall A');
-    rkDocument(['project_id' => $a->id], 'commercial', 'shop', [8_000_000, 9_000_000, 10_000_000, 11_000_000], [200, 'sqft'], 60_000);
-    $b = rkMall('Fixture Mall B');
-    rkDocument(['project_id' => $b->id], 'commercial', 'shop', [8_000_000, 8_500_000, 9_000_000, 9_500_000], [200, 'sqft']);
-    rkPublish();
-
-    $this->get(route('rankings.compare', ['lahore', 'commercial', 'shopping-malls', 'items' => ['project:'.$a->id, 'project:'.$b->id]]))->assertOk()
-        ->assertSee('Fixture Mall A')->assertSee('Fixture Mall B')->assertSee('No verified data');
-    $this->get(route('rankings.compare', ['lahore', 'commercial', 'shopping-malls', 'items' => ['bad key']]))->assertSessionHasErrors('items.0');
+it('sends the earlier compare pages to the matching Investment Index leaderboard', function () {
+    $this->get(route('rankings.compare', ['lahore', 'commercial', 'shopping-malls', 'items' => ['bad key']]))->assertStatus(301)
+        ->assertRedirect(route('rankings.category', ['shopping-malls', 'city' => 'Lahore']));
 });
 
 /*
@@ -267,10 +248,10 @@ it('keeps model wording only when it adds no figures', function () {
     $mall = rkMall('Fixture Worded Mall');
     rkDocument(['project_id' => $mall->id], 'commercial', 'shop', [8_000_000, 9_000_000, 10_000_000, 11_000_000], [200, 'sqft'], 60_000);
     rkPublish();
-    config(['meezan.investment.ai_driver' => 'llm', 'services.openai.key' => 'test-key']);
+    config(['meezan.investment.ai_driver' => 'llm', 'services.gemini.key' => 'test-key']);
     Http::fake(['*' => Http::sequence()
-        ->push(['choices' => [['message' => ['content' => 'Fixture Worded Mall will return 40% next year.']]]])
-        ->push(['choices' => [['message' => ['content' => 'Fixture Worded Mall is the top-ranked mall in the verified data; scores are not guarantees.']]]])]);
+        ->push(['candidates' => [['content' => ['parts' => [['text' => 'Fixture Worded Mall will return 40% next year.']]], 'finishReason' => 'STOP']]])
+        ->push(['candidates' => [['content' => ['parts' => [['text' => 'Fixture Worded Mall is the top-ranked mall in the verified data; scores are not guarantees.']]], 'finishReason' => 'STOP']]])]);
 
     expect(app(InvestmentAdvisor::class)->answer('Best mall in Lahore?')['mode'])->toBe('rules');
     $worded = app(InvestmentAdvisor::class)->answer('Best mall in Lahore?');
@@ -281,37 +262,10 @@ it('keeps model wording only when it adds no figures', function () {
 | Hero search, map, SEO
 */
 
-it('sends the hero search to the chosen city and category', function () {
-    $this->get(route('rankings.index', ['go' => 1, 'city' => 'karachi', 'segment' => 'apartments', 'min_yield' => 5]))
-        ->assertRedirect(route('rankings.segment', ['karachi', 'residential', 'apartments', 'min_yield' => 5]));
-    $this->get(route('rankings.index', ['go' => 1, 'city' => 'multan']))->assertRedirect(route('rankings.city', ['multan']));
-    $this->get(route('rankings.index', ['go' => 1, 'city' => 'pakistan']))->assertRedirect(route('rankings.index'));
-});
-
-it('maps entries with a known position, and leaves out those without one', function () {
-    $mall = rkMall('Fixture Mapped Mall');
-    rkDocument(['project_id' => $mall->id], 'commercial', 'shop', [8_000_000, 9_000_000, 10_000_000, 11_000_000], [200, 'sqft'], 60_000);
-    rkMall('Fixture Unmapped Mall', ['latitude' => null, 'longitude' => null]);
-    rkPublish();
-
-    $markers = markersOn($this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->getContent());
-    expect(collect($markers)->pluck('name')->all())->toBe(['Fixture Mapped Mall'])
-        ->and($markers[0]['approximate'])->toBeFalse()->and($markers[0]['score'])->not->toBeNull();
-});
-
-it('indexes only pages with scored entries and lists them in the sitemap', function () {
-    $mall = rkMall('Fixture Indexed Mall');
-    rkDocument(['project_id' => $mall->id], 'commercial', 'shop', [8_000_000, 9_000_000, 10_000_000, 11_000_000], [200, 'sqft'], 60_000);
-    rkPublish();
-
-    $html = $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->assertOk()->getContent();
-    expect($html)->toContain('<link rel="canonical" href="'.route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']).'">')
-        ->toContain('"@type":"ItemList"')->toContain('"@type":"BreadcrumbList"')->not->toContain('noindex');
-    $this->get(route('rankings.segment', ['lahore', 'commercial', 'business-towers']))->assertSee('noindex, follow', false);
-
-    $sitemap = $this->get(route('sitemap.show', 'pages'))->assertOk()->getContent();
-    expect($sitemap)->toContain(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))
-        ->toContain(route('rankings.index'))->not->toContain(route('rankings.segment', ['lahore', 'commercial', 'business-towers']));
+it('sends investment searches to the closest Investment Index leaderboard', function () {
+    $this->get('/search?mode=investment&tab=rent&investment_city=karachi')->assertRedirect(route('rankings.category', ['apartment-buildings', 'city' => 'Karachi']));
+    $this->get('/search?mode=investment&tab=sale&investment_city=multan')->assertRedirect(route('rankings.category', ['housing-societies', 'city' => 'Multan']));
+    $this->get('/search?mode=investment&tab=commercial&investment_city=pakistan')->assertRedirect(route('rankings.index'));
 });
 
 /*
@@ -329,7 +283,7 @@ it('lets admins categorise and locate projects, with specifications and validati
     $p = Project::where('name', 'Fixture Business Tower')->sole();
     expect($p->category)->toBe('business_tower')->and($p->specifications)->toBe(['Floors' => '20', 'Parking' => '400 cars'])
         ->and($p->latitude)->toEqual(31.52)->and($p->launched_on->isPast())->toBeTrue();
-    $this->get(route('rankings.segment', ['lahore', 'commercial', 'business-towers']))->assertSee('Fixture Business Tower');
+    $this->get(route('rankings.project', $p))->assertOk()->assertSee('Fixture Business Tower')->assertSee('Business tower');
 
     $this->post(route('admin.projects.store'), ['name' => 'Bad', 'city' => 'Lahore', 'status' => 'completed', 'category' => 'casino', 'latitude' => 51.5, 'longitude' => 74,
         'description' => str_repeat('x', 40)])->assertSessionHasErrors(['category', 'latitude']);

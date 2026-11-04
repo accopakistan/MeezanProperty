@@ -28,10 +28,8 @@ class ConnectorStatus
         $filled = fn (...$values) => count(array_filter($values, fn ($v) => filled($v)));
 
         $list = [
-            'openai' => ['OpenAI API (primary language model)', app(AiProvider::class)->config('openai')->hasKey() ? 'configured' : 'not_configured',
+            'gemini' => ['Google Gemini API (language model)', app(AiProvider::class)->config('gemini')->hasKey() ? 'configured' : 'not_configured',
                 'Agents run in rules mode without a language model: reports still come from real data, but there is no model wording or classification.', true],
-            'anthropic' => ['Anthropic Claude API (secondary language model)', app(AiProvider::class)->config('anthropic')->hasKey() ? 'configured' : 'not_configured',
-                'Used by agents assigned to it, and as a fallback only when that is switched on.', true],
             'whatsapp' => ['WhatsApp Business Cloud API', $wa->isConfigured() ? 'configured' : ($filled(config('services.whatsapp.phone_number_id'), config('services.whatsapp.access_token'), config('services.whatsapp.app_secret')) ? 'requires_setup' : 'not_configured'),
                 $wa->isLive() ? 'Live sending enabled.' : 'Sending is off or in mock mode; replies are recorded, not delivered.', true],
             'search_console' => ['Google Search Console', $filled(config('services.google.search_console_site'), config('services.google.search_console_credentials')) === 2 ? 'configured' : 'not_configured', 'Needed for live search rankings and indexing data.', false],
@@ -62,7 +60,7 @@ class ConnectorStatus
     {
         $current = $this->all()[$key]['status'] ?? 'not_configured';
         $result = match ($key) {
-            'openai', 'anthropic' => app(AiProvider::class)->check($key),
+            'gemini' => app(AiProvider::class)->check($key),
             'whatsapp' => $this->checkWhatsApp($current),
             // Without a real check the status stays what configuration says; it is never upgraded to "verified".
             default => ['status' => $current === 'verified' ? 'configured' : $current, 'detail' => 'No automatic check exists for this connector.', 'store' => false],

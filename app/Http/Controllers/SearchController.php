@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\PropertyType;
 use App\Services\Investment\RankingBrowser;
+use App\Services\InvestmentIndex\IndexBrowser;
 use App\Services\PropertySearch;
 use App\Support\Cities;
 use Illuminate\Http\RedirectResponse;
@@ -14,9 +15,10 @@ use Illuminate\Validation\Rule;
  * Target of the shared search bar (Buy | Rent | Plots | Commercial).
  * Property mode: Buy and Rent search listings for sale or rent, Plots searches
  * plot listings, Commercial searches commercial listings (commercial plots
- * included) or, with an investment category, that category's rankings.
- * Investment mode (Investment Rankings pages): the same tabs open residential,
- * rental-income (ranked by yield), plot and commercial rankings.
+ * included) or, with an investment category, that category's Investment
+ * Index leaderboard. Investment mode: the tabs open the closest Investment
+ * Index leaderboard (housing societies, apartment buildings, or the commercial
+ * category chosen); individual plots, houses and shops are not ranked.
  * The tab stays in the results URL, so the results page shows the same tab.
  */
 class SearchController extends Controller
@@ -49,12 +51,9 @@ class SearchController extends Controller
 
     protected function property(string $tab, array $d): RedirectResponse
     {
-        // Commercial + an investment category → that category's rankings (malls, plazas, towers …).
+        // Commercial + an investment category → that category's Investment Index leaderboard (malls, plazas, towers).
         if ($tab === 'commercial' && ! empty($d['investment'])) {
-            $seg = RankingBrowser::segment($d['investment']);
-
-            return redirect()->route('rankings.segment', [RankingBrowser::citySlug($d['city'] ?? null), $seg['group'], $d['investment']]
-                + array_filter(['budget' => $d['max_price'] ?? null, 'stage' => $d['stage'] ?? null]));
+            return $this->index(IndexBrowser::categoryForSegment($d['investment']), $d['city'] ?? null);
         }
 
         $type = $d['type'] ?? null;
@@ -84,26 +83,24 @@ class SearchController extends Controller
     protected function investment(string $tab, array $d): RedirectResponse
     {
         $city = $d['investment_city'] ?? RankingBrowser::citySlug($d['city'] ?? null);
-        $segment = $d['segment'] ?? match ($tab) {
-            'rent' => 'apartments',
-            'plots' => 'plots',
-            default => null,
+        $segment = $d['segment'] ?? null;
+
+        // The Investment Index ranks developments only: each tab leads to the closest leaderboard
+        // (individual plots, houses and shops are not ranked; Buy and Plots lead to housing societies).
+        $category = IndexBrowser::categoryForSegment($segment) ?? match ($tab) {
+            'rent' => 'apartment-buildings',
+            'commercial' => null,
+            default => 'housing-societies',
         };
-        $query = array_filter([
-            'q' => $d['q'] ?? null,
-            'budget' => $d['budget'] ?? null,
-            'min_yield' => in_array($tab, ['rent', 'commercial'], true) ? ($d['min_yield'] ?? null) : null,
-            'size' => $tab === 'plots' ? ($d['size'] ?? null) : null,
-            'stage' => in_array($tab, ['sale', 'commercial'], true) ? ($d['stage'] ?? null) : null,
-            // Rent = rental income: ranked by yield.
-            'sort' => $tab === 'rent' ? 'yield' : null,
-        ], fn ($v) => $v !== null && $v !== '');
 
-        if ($segment) {
-            return redirect()->route('rankings.segment', [$city, RankingBrowser::segment($segment)['group'], $segment] + $query);
-        }
+        return $this->index($category, $city === 'pakistan' ? null : Cities::fromSlug((string) $city));
+    }
 
-        // No category chosen: the residential or commercial overview (Pakistan has a group page too).
-        return redirect()->route('rankings.group', [$city, $tab === 'commercial' ? 'commercial' : 'residential'] + array_intersect_key($query, ['q' => 1]));
+    /** An Investment Index leaderboard (optionally one city), or the Index home without a category. */
+    protected function index(?string $category, ?string $city): RedirectResponse
+    {
+        return $category
+            ? redirect()->route('rankings.category', array_filter(['category' => $category, 'city' => in_array($city, Cities::names(), true) ? $city : null]))
+            : redirect()->route('rankings.index');
     }
 }

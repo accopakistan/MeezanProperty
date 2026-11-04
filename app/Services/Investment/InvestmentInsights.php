@@ -13,7 +13,7 @@ use Throwable;
  * verified data, calculated metrics, interpretation (automated), scenarios
  * and what is missing.
  *
- * With MEEZAN_INVESTMENT_AI=llm and an OpenAI-compatible key, the
+ * With MEEZAN_INVESTMENT_AI=llm and a Gemini API key, the
  * interpretation is rephrased by the model from the same structured data;
  * any reply that introduces a number not present in that data is rejected
  * and the rules-based text is used instead.

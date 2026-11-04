@@ -17,6 +17,8 @@ use App\Http\Controllers\DealerDirectoryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\InvestmentController;
+use App\Http\Controllers\InvestmentEvidenceController;
+use App\Http\Controllers\InvestmentIndexController;
 use App\Http\Controllers\InvestmentRankingsController;
 use App\Http\Controllers\ListingReportController;
 use App\Http\Controllers\LocationController;
@@ -59,15 +61,24 @@ Route::get('/investment/methodology', [InvestmentController::class, 'methodology
 Route::get('/investment/rental-yield-calculator', [InvestmentController::class, 'yieldCalculator'])->name('investment.yield');
 Route::get('/investment/{entityType}/{entityId}', [InvestmentController::class, 'show'])->whereIn('entityType', ['city', 'area', 'project'])->whereNumber('entityId')->name('investment.show');
 
-// Investment Rankings: city -> group (residential, commercial, mixed use) -> property-type segment.
-Route::prefix('investment-rankings')->name('rankings.')->controller(InvestmentRankingsController::class)->group(function () {
+// Investment Rankings = the Meezan Investment Index: five Pakistan-wide leaderboards, the Overall
+// Index, project profiles and the methodology. The earlier city / group / segment pages redirect here.
+Route::prefix('investment-rankings')->name('rankings.')->group(function () {
     $cities = array_merge(['pakistan'], array_map([Cities::class, 'slug'], Cities::names()));
-    Route::get('/', 'index')->name('index');
-    Route::get('/advisor', 'advisor')->middleware('throttle:30,1')->name('advisor');
-    Route::get('/{city}', 'city')->whereIn('city', $cities)->name('city');
-    Route::get('/{city}/{group}', 'group')->whereIn('city', $cities)->whereIn('group', array_keys(config('meezan.investment.groups')))->name('group');
-    Route::get('/{city}/{group}/{segment}', 'segment')->whereIn('city', $cities)->whereIn('group', array_keys(config('meezan.investment.groups')))->name('segment');
-    Route::get('/{city}/{group}/{segment}/compare', 'compare')->whereIn('city', $cities)->whereIn('group', array_keys(config('meezan.investment.groups')))->name('compare');
+    $groups = array_keys(config('meezan.investment.groups'));
+    Route::controller(InvestmentIndexController::class)->group(function () use ($cities, $groups) {
+        Route::get('/', 'home')->name('index');
+        Route::get('/overall', 'overall')->name('overall');
+        Route::get('/methodology', 'methodology')->name('methodology');
+        Route::get('/projects/{project}', 'project')->name('project');
+        Route::get('/{category}', 'category')->whereIn('category', array_keys(config('investment_index.categories')))->name('category');
+        Route::get('/{city}', 'legacyCity')->whereIn('city', $cities)->name('city');
+        Route::get('/{city}/{group}', 'legacyGroup')->whereIn('city', $cities)->whereIn('group', $groups)->name('group');
+        Route::get('/{city}/{group}/{segment}', 'legacySegment')->whereIn('city', $cities)->whereIn('group', $groups)->name('segment');
+        Route::get('/{city}/{group}/{segment}/compare', 'legacySegment')->whereIn('city', $cities)->whereIn('group', $groups)->name('compare');
+    });
+    // The earlier rankings advisor (JSON), still used by the AI tools for the earlier MPIS snapshot.
+    Route::get('/advisor', [InvestmentRankingsController::class, 'advisor'])->middleware('throttle:30,1')->name('advisor');
 });
 
 Route::get('/map', [MapController::class, 'page'])->name('properties.map');
@@ -92,6 +103,11 @@ Route::get('/agents/{dealer:slug}', [DealerDirectoryController::class, 'show'])-
 
 Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
 Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+// Owners and managers submit documented evidence for the Meezan Investment Index (staff-checked).
+Route::middleware('auth')->prefix('projects/{project}/evidence')->name('investment-index.evidence.')->controller(InvestmentEvidenceController::class)->group(function () {
+    Route::get('/', 'create')->name('create');
+    Route::post('/', 'store')->middleware('throttle:10,60')->name('store');
+});
 
 Route::get('/areas', [AreaGuideController::class, 'index'])->name('areas.index');
 Route::get('/areas/{area:slug}', [AreaGuideController::class, 'show'])->name('areas.show');
@@ -378,6 +394,27 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         });
     });
 
+    // Meezan Investment Index: sources, collection, official registry, exceptions, owner evidence review
+    Route::prefix('investment-index')->name('investment-index.')->controller(Admin\InvestmentIndexController::class)->group(function () {
+        Route::get('/', 'overview')->name('overview');
+        Route::get('/sources', 'sources')->name('sources');
+        Route::post('/sources/setup', 'setupSources')->name('sources.setup');
+        Route::patch('/sources/{source}/access', 'authorizeSource')->name('sources.authorize');
+        Route::post('/sources/{source}/collect', 'collect')->middleware('throttle:6,1')->name('sources.collect');
+        Route::get('/registry', 'registry')->name('registry');
+        Route::post('/registry/{entry}/match', 'match')->name('registry.match');
+        Route::get('/exceptions', 'exceptions')->name('exceptions');
+        Route::post('/exceptions/{exception}/resolve', 'resolve')->name('exceptions.resolve');
+        Route::get('/submissions', 'submissions')->name('submissions');
+        Route::get('/submissions/{submission}', 'submission')->name('submissions.show');
+        Route::get('/submissions/{submission}/files/{index}', 'file')->whereNumber('index')->name('submissions.file');
+        Route::post('/submissions/{submission}/review', 'review')->name('submissions.review');
+        Route::get('/methodology', 'methodology')->name('methodology');
+        Route::post('/methodology', 'createDraft')->name('methodology.draft');
+        Route::patch('/methodology/{methodology}', 'updateDraft')->name('methodology.update');
+        Route::post('/methodology/{methodology}/activate', 'activate')->name('methodology.activate');
+    });
+
     // AI Command Center (Central AI Brain and agent workforce)
     Route::prefix('ai')->name('ai.')->controller(Admin\AiCommandCenterController::class)->group(function () {
         Route::get('/', 'overview')->name('overview');
@@ -406,8 +443,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/tools', 'tools')->name('tools');
         Route::get('/logs', 'logs')->name('logs');
         Route::get('/providers', 'providers')->name('providers');
-        Route::patch('/providers/{provider}', 'updateProvider')->whereIn('provider', ['openai', 'anthropic'])->name('providers.update');
-        Route::post('/providers/{provider}/test', 'testProvider')->whereIn('provider', ['openai', 'anthropic'])->middleware('throttle:10,1')->name('providers.test');
+        Route::patch('/providers/{provider}', 'updateProvider')->whereIn('provider', array_keys(config('meezan.agents.adapters')))->name('providers.update');
+        Route::post('/providers/{provider}/test', 'testProvider')->whereIn('provider', array_keys(config('meezan.agents.adapters')))->middleware('throttle:10,1')->name('providers.test');
         Route::patch('/controls', 'updateControls')->name('controls');
         Route::get('/connectors', 'connectors')->name('connectors');
         Route::post('/connectors/{key}/check', 'checkConnector')->middleware('throttle:10,1')->where('key', '[a-z_]+')->name('connectors.check');

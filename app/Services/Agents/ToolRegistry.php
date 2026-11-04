@@ -12,6 +12,7 @@ use App\Models\Area;
 use App\Models\AreaBoundary;
 use App\Models\DealerProfile;
 use App\Models\InvestmentCalculation;
+use App\Models\InvestmentIndexRun;
 use App\Models\Invoice;
 use App\Models\LeadFollowUp;
 use App\Models\MarketIndicator;
@@ -138,6 +139,12 @@ class ToolRegistry
                 ['question' => ['required', 'string', 'min:3', 'max:300'], 'city' => $city, 'segment' => ['nullable', Rule::in(array_keys(config('meezan.investment.segments')))],
                     'focus' => ['nullable', Rule::in(['best', 'compare', 'rental', 'risk', 'forecast'])]],
                 fn (array $i) => $this->advisor($i), 'investment'),
+            new ToolDefinition('investment_index.leaderboard', 'Meezan Investment Index leaderboard for one category (housing societies, commercial plazas, apartment buildings, shopping malls, business towers): ranked projects with score, Data Confidence Score, risk, legal status and last verification, plus how many have Insufficient Verified Data or are excluded. Scores come only from the Index engine.', 'read',
+                ['category' => ['required', Rule::in(array_keys(config('investment_index.categories')))], 'limit' => $limit],
+                fn (array $i) => $this->indexLeaderboard($i['category'], (int) ($i['limit'] ?? 10)), 'investment'),
+            new ToolDefinition('investment_index.project', 'One development\'s Meezan Investment Index profile: status (ranked, not eligible, Insufficient Verified Data, excluded), score, ranks, each factor with its verified value or why it is missing, risks, legal status and reasons.', 'read',
+                ['name' => ['required', 'string', 'min:2', 'max:120']],
+                fn (array $i) => $this->indexProject($i['name']), 'investment'),
             new ToolDefinition('market_data.quality', 'Market Data Centre status: records by status and city, sources by reliability, last calculation.', 'read', [],
                 fn () => $this->marketQuality(), 'investment'),
             new ToolDefinition('locations.coverage', 'Location data coverage per city: areas, centres, boundaries, projects.', 'read', [],
@@ -580,6 +587,47 @@ class ToolRegistry
             'key' => $x['key'], 'name' => $x['name'], 'location' => $x['location'], 'group' => $x['group_label'], 'score' => $x['score'], 'status' => $x['status_label'],
             'confidence' => $x['confidence_label'], 'yield' => $x['yield'], 'image' => $x['image'], 'demo' => $x['is_demo'],
         ])->all()];
+    }
+
+    /** The published Investment Index leaderboard of one category; never a score the engine did not publish. */
+    protected function indexLeaderboard(string $category, int $limit): array
+    {
+        $run = InvestmentIndexRun::latestPublished();
+        if (! $run) {
+            return ['category' => config("investment_index.categories.$category.label"), 'published' => false, 'items' => [],
+                'missing' => ['No Investment Index run has been published yet: Insufficient Verified Data.']];
+        }
+        $scores = $run->scores()->where('category', $category)->with('project:id,name,city,developer')->get();
+        $ranked = $scores->where('status', 'ranked')->sortBy('category_rank')->take(max(1, min($limit, 25)));
+
+        return [
+            'category' => config("investment_index.categories.$category.label"), 'published' => true, 'run' => $run->id, 'published_at' => $run->published_at?->toDateString(),
+            'methodology_version' => $run->methodology_version,
+            'items' => $ranked->map(fn ($s) => ['rank' => $s->category_rank, 'name' => $s->project?->name, 'city' => $s->project?->city, 'developer' => $s->project?->developer,
+                'score' => $s->score, 'overall_index_rank' => $s->overall_rank, 'confidence' => $s->confidence_score, 'confidence_level' => $s->confidence_level,
+                'risk' => $s->riskLabel(), 'legal_status' => $s->legal_status, 'verified_yield' => $s->verified_yield, 'last_verified' => $s->last_verified_at?->toDateString()])->values()->all(),
+            'counts' => ['assessed' => $scores->count(), 'ranked' => $scores->where('status', 'ranked')->count(), 'not_eligible' => $scores->where('status', 'not_eligible')->count(),
+                'insufficient_verified_data' => $scores->where('status', 'insufficient')->count(), 'excluded' => $scores->where('status', 'excluded')->count()],
+            'missing' => $ranked->isEmpty() ? ['No project in this category has enough verified evidence to be ranked: Insufficient Verified Data.'] : [],
+        ];
+    }
+
+    protected function indexProject(string $name): array
+    {
+        $run = InvestmentIndexRun::latestPublished();
+        $project = Project::where('is_demo', false)->where('name', 'like', '%'.addcslashes($name, '%_').'%')->orderByRaw('length(name)')->first();
+        $score = $run && $project ? $run->scores()->where('project_id', $project->id)->first() : null;
+        if (! $score) {
+            return ['found' => false, 'missing' => [$project ? "{$project->name} has no published Investment Index assessment: Insufficient Verified Data." : "No real development named \"{$name}\" is in the Investment Index."]];
+        }
+
+        return ['found' => true, 'name' => $project->name, 'city' => $project->city, 'category' => $score->categoryLabel(), 'status' => $score->statusLabel(),
+            'score' => $score->score, 'category_rank' => $score->category_rank, 'overall_index_rank' => $score->overall_rank, 'confidence' => $score->confidence_score,
+            'confidence_level' => $score->confidence_level, 'risk' => $score->riskLabel(), 'risks' => $score->risks, 'legal_status' => $score->legal_status,
+            'verified_yield' => $score->verified_yield, 'development_progress' => $score->development_progress, 'last_verified' => $score->last_verified_at?->toDateString(),
+            'factors' => collect($score->factors)->map(fn ($f) => ['label' => $f['label'], 'weight' => $f['weight'], 'score' => $f['score'], 'value' => $f['value'], 'missing' => $f['missing']])->values()->all(),
+            'reasons' => array_values(array_filter($score->reasons ?? [], fn ($r) => ! str_starts_with($r, 'Confidence:'))),
+            'published_at' => $run->published_at?->toDateString()];
     }
 
     protected function rankingRow($r): array

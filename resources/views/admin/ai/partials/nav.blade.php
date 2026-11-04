@@ -7,7 +7,7 @@
         ['Staff Work', 'admin.ai.work', 'admin.ai.work'],
         ['Usage & Cost', 'admin.ai.usage', 'admin.ai.usage*'],
         ['Memory & Knowledge', 'admin.ai.knowledge', 'admin.ai.knowledge*'],
-        ['AI Providers', 'admin.ai.providers', 'admin.ai.providers*'],
+        ['Gemini Settings', 'admin.ai.providers', 'admin.ai.providers*'],
         ['Tools', 'admin.ai.tools', 'admin.ai.tools'],
         ['Connectors', 'admin.ai.connectors', 'admin.ai.connectors*'],
         ['Activity & Errors', 'admin.ai.logs', 'admin.ai.logs'],

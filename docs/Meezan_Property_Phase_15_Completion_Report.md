@@ -3,6 +3,8 @@
 
 Date: 3 November 2026 · Environment: localhost / XAMPP (Laravel 12.70, PHP 8.2, MariaDB) · No deployment and no destructive database operations. Pushed to GitHub at the owner's request on 3 November 2026, as commit `3b7a9a0` on both `main` and `phases-13-15-ai-providers`.
 
+> **Update, 4 November 2026: AI provider changed to Google Gemini.** OpenAI and Anthropic are no longer used. Sections 8 and 21 describe the earlier providers and are kept as history; the current provider, its implementation and its test results are in **§22**. Gemini is live: the connection is verified and all 16 agents completed real tasks on 4 Nov 2026 (§22).
+
 ---
 
 ## 1. Executive summary
@@ -118,7 +120,7 @@ Run on the real database, final code. **All are local functional tests in rules 
 | 9 | Application health | Technical Operations | 6 waiting jobs, 0 failed, recommends a worker |
 | 10 | Seven-city expansion report | AI CEO + 8 agents | Consolidated; subtasks traceable; competitor gap stated |
 
-## 8. AI provider status
+## 8. AI provider status (earlier providers; superseded by §22)
 
 | Provider | Local implementation | Mock provider test | Live API test | Status |
 |---|---|---|---|---|
@@ -302,7 +304,7 @@ Listed in Implementation Documentation §13.
 
 No `migrate:fresh`, `db:wipe`, dropped tables or deletions. `.env` was not changed. `public/Refrence/` is untouched. Nothing was deployed. The work was committed and pushed to GitHub (`main` and `phases-13-15-ai-providers`) only when the owner asked. No existing test was weakened; `AgentWorkforceTest.php` only had automatic formatting applied.
 
-## 21. Activating the AI providers
+## 21. Activating the AI providers (earlier providers; superseded by §22)
 
 **Current state, 3 November 2026:** both real keys are saved and accepted, and models and prices are chosen (§8). Only API credit is missing: add it, then press Test connection. Each provider counts as live only after that test passes.
 
@@ -351,3 +353,105 @@ A key saved in the panel takes priority over `.env`. Don't paste keys into chat,
 | The saved key can no longer be read | `APP_KEY` changed | Enter the key again |
 
 To stop all spending at once, tick **Emergency stop** in **Usage & Cost**. The portal keeps working.
+
+## 22. Gemini migration (4 November 2026)
+
+**Google Gemini is now the only AI provider.** The Central AI Brain, all 16 agents, website AI, WhatsApp AI (through the same Brain) and investment wording run through it. OpenAI and Anthropic are no longer used or required. **Live since 4 Nov 2026:** your key is accepted, the connection is verified on `gemini-3.6-flash`, and all 16 agents completed real tasks through Gemini (see Live Gemini results below). The free-tier daily quota was reached during testing. Design and configuration are in the Implementation Documentation §14; setup and testing are in `Meezan_Property_Gemini_API_Setup_Guide.md`.
+
+### What was done
+
+1. **Audit.**
+   - **Old providers:** they were wired in through two adapters (`OpenAiAdapter`, `AnthropicAdapter`), the `services.openai` / `services.anthropic` config, the `OPENAI_*` / `ANTHROPIC_*` variables, the agents' `primary_provider` / `secondary_provider` columns, the settings rows, `ConnectorStatus`, `OutputGuard`, the admin views and six test files.
+   - **No bypass:** no feature called a model API directly.
+   - **No local AI:** there was no Ollama or local model.
+2. **Backup:**
+   - `C:\xampp\backups\MeezanProperty-before-gemini-migration-2026-11-04\` holds the database (76 tables), the project files (without vendor, node_modules and `.env`) and a copy of `.env`.
+   - The old adapters are also in Git commit `0e69d7b`.
+3. **Gemini provider service** (`GeminiAdapter`):
+   - **Requests:** `generateContent` as documented on 4 Nov 2026, with the key in the `x-goog-api-key` header only. System instructions, conversation turns, JSON output, function calling and streaming (SSE).
+   - **Model rules:** temperature only for models before 3.6, and thinking level only for Gemini 3 and later.
+   - **Accounting:** token usage with thinking counted as output.
+   - **Errors:** the full Gemini error classification.
+   - **Retries:** backoff with Google's retry delay and jitter. A daily quota, billing or key error is never retried.
+   - **Health check:** the paged model list, filtered to models that can generate content.
+4. **Configuration:**
+   - `config/services.php`: `gemini` block, with the default `gemini-3.8-flash` and Google's dated prices.
+   - `config/meezan.php`: adapter registry, Gemini model tiers, personal-data masking, function-calling rounds.
+   - `.env.example`: Gemini variables only, with an empty key.
+   - `.env`: empty `GEMINI_*` placeholders appended. Nothing else changed, and no key was written.
+5. **Agents (migration 000053, additive):**
+   - all 16 moved to Gemini as a new version each, with the previous provider recorded in the version note;
+   - the OpenAI and Anthropic settings disabled, with their history kept;
+   - planning mode (`workflow` by default) and the usage failure class added;
+   - the Investment Analyst given the two Investment Index tools.
+
+   Instructions, permissions, tools, memory, knowledge, task history, approvals and audit logs are unchanged.
+6. **Function calling** (opt-in per agent: "Model tool calls"):
+   - agent tools become Gemini functions, with schemas from their validation rules;
+   - every call goes through `ToolRunner` (permission, validation, limits, approvals, log), and delegation goes through the Brain with its depth and subtask caps;
+   - at most 4 model turns per task, and the answer must be grounded in the data.
+7. **Quota and usage:**
+   - a daily or free-tier quota pauses all requests until midnight Pacific time, and admins are alerted;
+   - billing and key errors pause until a successful test;
+   - usage records include the failure class;
+   - Usage & Cost shows the pause, failures by reason, and the earlier providers' history;
+   - estimated cost uses Google's published prices unless prices are entered.
+8. **Admin, Gemini Settings:**
+   - **Shown:** provider, whether a key is configured, active model, model availability, base URL, timeout and retries, thinking level, connection status, last success, last error, today's usage, the price in use, the billing tier and the free-tier data notice.
+   - **Controls:** enable or disable, encrypted key replacement, "Test Gemini connection" (a real request) and a channel model for website and WhatsApp.
+   - **Missing key:** shows "Gemini API key not configured. Add your API key to activate AI services."
+9. **Security:**
+   - everything is server-side, and the key is never in a URL, log, session, view or browser response;
+   - `OutputGuard` removes Google key formats from output;
+   - `PersonalDataMask` masks phones, e-mails, CNIC and card numbers before anything is sent;
+   - settings are admin-only, and test requests are rate-limited.
+
+### Test results
+
+| Kind | What | Result |
+|---|---|---|
+| **Automated mock tests** | `GeminiProviderTest`, 52 tests: request format, header-only key, missing key, invalid, rejected or blocked key, billing, prepaid credit, model not found, per-minute rate limit (retried), daily free-tier quota (paused until midnight Pacific), outages and timeouts, safety and truncation, model list paging, streaming, personal-data masking, function declarations and schemas, tool calls through ToolRunner (permitted, prohibited, invalid), thought signatures returned, grounding, round limit, CEO delegation by function call, published and entered pricing, budgets, limits, emergency stop, website parsing, channel models, admin settings and key secrecy, admin-only access, planning mode versioning, fallback with a stand-in second provider | **52 passed** |
+| Automated suite | All tests, including the 6 earlier files moved to Gemini's response format | **790 passed, 4,620 assertions, 0 failed** |
+| **Local implementation tests (MariaDB)** | Migration on the real database; then, in a rolled-back transaction with HTTP faked: an Investment Analyst task with Gemini function calling (investment_index.leaderboard called and logged, answer grounded, two usage rows with cost), a daily-quota 429 followed by a pause (nothing more sent, failure column "quota"), the Index project tool, and the Gemini Settings, Usage and agent pages rendering without the key | Passed; database unchanged after rollback |
+| **Live Gemini API test** | Real requests with your key, 4 Nov 2026 | **Passed:** connection verified; 16 of 16 agents worded by Gemini; English parsing live. Roman Urdu and Urdu parsing not proven live (timeout, overload); daily free-tier quota reached. Details below |
+
+**Removed with the old providers:** the old `AiProviderTest` (859 lines). It tested OpenAI- and Anthropic-specific request formats, and its provider-independent checks (budgets, keys, admin, channels) were carried over to `GeminiProviderTest`.
+
+### Live Gemini results (4 November 2026, with the owner's key)
+
+**The key is accepted, the connection is verified, and all 16 agents completed real tasks through Gemini.** The key was saved in Gemini Settings and is the same key that was pasted in the chat: replace it in Google AI Studio.
+
+| Live check | Result |
+|---|---|
+| Key and model list | Accepted. 46 models available to this key, including `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` |
+| `gemini-3.8-flash` | **Not usable at the time:** HTTP 503, "This model is currently experiencing high demand", on three tries |
+| Active model changed | To `gemini-3.6-flash` (stable Flash, same price) for testing. Recorded in the audit log; switch back in Gemini Settings at any time |
+| Test Gemini connection | **Connection verified:** gemini-3.6-flash answered (8 tokens in, 72 out, mostly thinking; USD 0.000276 paid-tier equivalent) |
+| All 16 agents, one real task each | **16 of 16 completed with Gemini wording** (mode "data + model wording"): 17 requests, all successful, every summary accepted by the figure check. About 230–780 tokens in and 50–510 out per task; USD 0.019 in total (paid-tier equivalent). Requests are listed in the setup guide §5 |
+| Website requirement parsing, English | **Worked live:** "3 marla house in Johar Town Lahore under 1.5 crore, 3 bedrooms" parsed to sale, house, Lahore, Johar Town, maximum PKR 15,000,000, 3 bedrooms. The phone number in the message was masked before sending |
+| Website parsing, Roman Urdu and Urdu | **Not proven live:** one request timed out (12 s parser limit) and one got 503 high demand. Both fell back to the rules parser as designed, and its answers came back |
+| Free-tier daily quota | **Reached after about 20 requests** on gemini-3.6-flash. Google answered 429 with the daily free-tier quota. The pause started automatically: no request is sent until 5 Nov 2026, 13:00 Pakistan time, and agents keep working from data only |
+
+**Observations:**
+- **Property Manager:** "Which listings need attention?" matched no keyword rule, so Gemini picked a workflow. It chose the new-listing review, which is plausible but narrower than the question.
+- **Investment Analyst:** its default workflow still reads the earlier MPIS rankings, which have no published real data, so it said rankings aren't published yet. The Investment Index tools are used only in "Model tool calls" mode, which wasn't tested live.
+- **Not run live:** model tool calls (function calling), streaming, and WhatsApp, which isn't configured. These are covered by the mock tests only.
+
+**What the free tier means in practice:** about 20 requests per model per day. An agent task uses 1–2 requests, so that's roughly 10–20 AI-worded tasks a day before the pause. For regular use:
+- **Enable billing (Tier 1).** This is recommended. At the measured volumes, a task costs about USD 0.001–0.002.
+- **Or spread the load:** each model has its own daily quota, so give routine work to `gemini-3.5-flash-lite` with `GEMINI_MODEL_ROUTINE`.
+
+### Still required from you
+
+1. **Replace the key.** The key in use is the one pasted in the chat. Create a new key in Google AI Studio, save it in Gemini Settings, test, then delete the old key there.
+2. **Tier:** decided on 4 Nov 2026 to **stay on the free tier** (`GEMINI_BILLING_TIER=free`). Expect about 20 requests per model per day; when the quota runs out, requests pause until 13:00 Pakistan time and agents report from data only. Moving routine work to `gemini-3.5-flash-lite` (its own quota) is optional.
+3. **Choose the model.** The active model is `gemini-3.6-flash`; switch back to `gemini-3.8-flash` when its high demand eases, then test.
+4. **Optional:** set a monthly spending limit and a daily request limit in Usage & Cost, and switch individual agents to "Model tool calls" if you want Gemini to plan tool use.
+
+### Remaining issues
+
+- **The Interactions API is not used.** Google now documents a newer Interactions API (`/v1beta/interactions`) alongside `generateContent`. `generateContent` remains current and covers everything used here.
+- **Streaming has no screen yet.** It's supported in the provider service and tested, but no existing screen streams, so it isn't wired into a page.
+- **Free-tier data use.** On the free tier, Google may use request content to improve its products. Personal data is masked, but review the terms before sensitive production use.
+- **WhatsApp isn't live.** WhatsApp AI depends on the WhatsApp Cloud API being configured and tested; no WhatsApp message is delivered until then.
+- **Pricing date.** Google's prices are configured as checked on 4 Nov 2026, including the 1 Jan 2027 rise for Flash. Re-check Google's pricing page when it changes.

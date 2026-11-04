@@ -11,7 +11,7 @@ use Throwable;
 /** What both HTTP adapters share: result shapes, retry rules and safe error text. */
 abstract class HttpAdapter implements ProviderAdapter
 {
-    protected const NO_CREDIT = 'No API credit: this account has no available API quota. Add billing credit in the provider console. A ChatGPT or Claude subscription does not include API credit.';
+    protected const NO_CREDIT = 'No API quota or credit is available for this key. Check the quota and billing in the provider console.';
 
     protected function failed(string $model, string $failure, string $error, int $in = 0, int $out = 0): array
     {

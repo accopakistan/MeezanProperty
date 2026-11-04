@@ -26,6 +26,15 @@
             <h2 class="font-serif text-xl font-bold">About this project</h2>
             <p class="mt-3 text-[15px] leading-7 whitespace-pre-line text-ink/85">{{ $project->description }}</p>
         </section>
+        @if (\App\Services\InvestmentIndex\EvidenceSubmissions::accepts($project))
+            <section class="card card-body mt-6 flex flex-wrap items-center justify-between gap-3">
+                <p class="text-[14px] text-muted"><span class="font-semibold text-ink">Meezan Investment Index.</span> See this development's legal verification, score, data confidence and sources. Own or manage it? Submit documented evidence; staff check every document, and rankings cannot be bought.</p>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('rankings.project', $project) }}" class="btn btn-primary btn-sm">Investment Index profile</a>
+                    <a href="{{ route('investment-index.evidence.create', $project) }}" class="btn btn-secondary btn-sm">Submit evidence</a>
+                </div>
+            </section>
+        @endif
         @if ($listings->isNotEmpty())
             <section class="mt-10">
                 <h2 class="section-title text-2xl">Listings in {{ $project->area->name }}</h2>

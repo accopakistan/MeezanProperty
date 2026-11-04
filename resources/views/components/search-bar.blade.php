@@ -56,7 +56,8 @@
         'plots' => array_intersect_key(RankingBrowser::segments(), array_flip(['plots', 'commercial-plots'])),
         'commercial' => RankingBrowser::segmentsIn('commercial') + RankingBrowser::segmentsIn('mixed-use'),
     ];
-    $commercialInvestments = $investmentSets['commercial'];
+    // The commercial categories of the Meezan Investment Index (their keys match these segments).
+    $commercialInvestments = array_intersect_key(RankingBrowser::segments(), array_flip(['shopping-malls', 'commercial-plazas', 'business-towers']));
 @endphp
 
 <form method="GET" action="{{ route('search') }}" {{ $attributes->merge(['class' => $variant === 'bar' ? '' : '']) }} role="search" data-search-form>

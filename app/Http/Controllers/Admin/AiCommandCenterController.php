@@ -91,7 +91,7 @@ class AiCommandCenterController extends Controller
     public function updateAgent(Request $request, AiAgent $agent, ToolRegistry $registry): RedirectResponse
     {
         $allowed = collect($registry->all())->reject(fn ($t) => $t->risk === 'prohibited')->keys()->all();
-        $providers = array_keys(AiProvider::ADAPTERS);
+        $providers = array_keys(AiProvider::adapters());
         $modelName = ['nullable', 'string', 'max:80', 'regex:/^[A-Za-z0-9._:\-]+$/'];
         $data = $request->validate([
             'primary_provider' => ['sometimes', Rule::in($providers)],
@@ -107,6 +107,7 @@ class AiCommandCenterController extends Controller
             'temperature' => ['required', 'numeric', 'between:0,1'],
             'status' => ['required', Rule::in(array_keys(AiAgent::STATUSES))],
             'daily_token_budget' => ['nullable', 'integer', 'min:0', 'max:10000000'],
+            'planning' => ['sometimes', Rule::in(array_keys(AiAgent::PLANNING))],
             'tools' => ['array'],
             'tools.*' => ['string', Rule::in($allowed)],
             'change_note' => ['required', 'string', 'max:255'],
@@ -239,9 +240,16 @@ class AiCommandCenterController extends Controller
             'byModel' => AiUsageRecord::where('created_at', '>=', $since)->selectRaw('model, count(*) as calls, sum(tokens_in + tokens_out) as tokens, sum(cost_usd) as cost')->groupBy('model')->get(),
             'records' => AiUsageRecord::with('agent')->latest('id')->limit(30)->get(),
             'toolCalls' => AiToolCall::where('created_at', '>=', $since)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status'),
-            'pricing' => AiProvider::pricing(),
+            'pricing' => AiProvider::enteredPricing(),
+            'published' => collect(AiProvider::pricing())->where('source', 'published')->all(),
             'limits' => config('meezan.agents.limits'),
-            'labels' => $provider->labels(),
+            // Earlier providers keep their usage history, shown under their own name.
+            'labels' => $provider->labels() + AiUsageRecord::query()->distinct()->pluck('provider')
+                ->reject(fn ($p) => array_key_exists($p, AiProvider::adapters()))
+                ->mapWithKeys(fn ($p) => [$p => (['openai' => 'OpenAI', 'anthropic' => 'Anthropic'][$p] ?? ucfirst($p)).' (no longer used)'])->all(),
+            'quota' => collect(AiProvider::adapters())->keys()->mapWithKeys(fn ($k) => [$k => AiProvider::quotaBlock($k)])->filter()->all(),
+            'failures' => AiUsageRecord::where('created_at', '>=', now()->startOfMonth())->where('ok', false)->whereNotNull('failure')
+                ->selectRaw('failure, count(*) as n')->groupBy('failure')->pluck('n', 'failure'),
             'today' => $stats(now()->startOfDay()),
             'month' => $stats(now()->startOfMonth()),
             'monthSpend' => $monthSpend === null ? null : (float) $monthSpend,
@@ -420,7 +428,7 @@ class AiCommandCenterController extends Controller
         $agents = AiAgent::orderBy('id')->get();
 
         return view('admin.ai.providers', [
-            'providers' => collect(AiProvider::ADAPTERS)->map(function ($class, $key) use ($provider) {
+            'providers' => collect(AiProvider::adapters())->map(function ($class, $key) use ($provider) {
                 $config = $provider->config($key);
                 $row = $provider->row($key);
                 [$status, $label] = match (true) {
@@ -433,7 +441,13 @@ class AiCommandCenterController extends Controller
                     default => ['configured', 'Key added, not tested'],
                 };
 
-                return ['config' => $config, 'row' => $row, 'status' => $status, 'statusLabel' => $label, 'warning' => $provider->modelWarning($key, $config->defaultModel)];
+                $listed = $row?->available_models;
+
+                return ['config' => $config, 'row' => $row, 'status' => $status, 'statusLabel' => $label, 'warning' => $provider->modelWarning($key, $config->defaultModel),
+                    'quota' => AiProvider::quotaBlock($key),
+                    'modelAvailable' => $listed ? in_array($config->defaultModel, $listed, true) : null,
+                    'price' => $config->defaultModel ? (AiProvider::pricing()[$config->defaultModel] ?? null) : null,
+                    'today' => AiUsageRecord::where('provider', $key)->where('created_at', '>=', now()->startOfDay())->selectRaw('count(*) as requests, sum(case when ok then 1 else 0 end) as ok, coalesce(sum(tokens_in), 0) as tokens_in, coalesce(sum(tokens_out), 0) as tokens_out')->first()];
             })->all(),
             'labels' => $provider->labels(),
             'default' => $provider->defaultProvider(),
@@ -481,6 +495,10 @@ class AiCommandCenterController extends Controller
             $keyChanged = true;
         }
         $connectionChanged = $keyChanged || $row->isDirty('base_url');
+        if ($connectionChanged || $row->isDirty('default_model')) {
+            // A new key or model may well have quota: let the next request try.
+            AiProvider::clearQuotaBlock($provider);
+        }
         if ($connectionChanged) {
             $row->fill(['connection_status' => 'untested', 'available_models' => null, 'last_error' => null, 'last_error_at' => null, 'last_success_at' => null]);
             $connectors->remember($provider, null);
@@ -512,7 +530,7 @@ class AiCommandCenterController extends Controller
     /** Budgets, the emergency stop, fallback and channel routing. Each form sends only its own fields. */
     public function updateControls(Request $request, AiProvider $manager): RedirectResponse
     {
-        $providers = array_keys(AiProvider::ADAPTERS);
+        $providers = array_keys(AiProvider::adapters());
         $data = $request->validate([
             'emergency_stop' => ['sometimes', 'boolean'],
             'fallback_allowed' => ['sometimes', 'boolean'],
@@ -532,6 +550,10 @@ class AiCommandCenterController extends Controller
         }
         foreach ($data['channels'] ?? [] as $channel => $values) {
             $data['channels'][$channel]['fallback'] = (bool) ($values['fallback'] ?? false);
+            // With one provider, a channel model is an override on that provider; an empty one uses the agent's setting.
+            if (count($providers) === 1) {
+                $data['channels'][$channel]['provider'] = filled($values['model'] ?? null) ? $providers[0] : null;
+            }
         }
         $before = AiProvider::controls();
         AppSetting::put('ai.controls', $data + $before, $request->user()->id);

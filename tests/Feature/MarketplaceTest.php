@@ -260,12 +260,12 @@ it('understands spelled-out numbers and requested features', function () {
 });
 
 it('uses a configured LLM for parsing and falls back to rules on failure', function () {
-    config(['services.openai.key' => 'test-key']);
-    Http::fakeSequence('*/chat/completions')
-        ->push(['choices' => [['message' => ['content' => json_encode([
+    config(['services.gemini.key' => 'test-key']);
+    Http::fakeSequence('*:generateContent')
+        ->push(['candidates' => [['content' => ['parts' => [['text' => json_encode([
             'purpose' => 'rent', 'type' => 'apartment', 'areas' => ['Gulberg', 'Atlantis'], 'max_price' => 150000,
             'min_size' => null, 'bedrooms' => 2, 'bathrooms' => null, 'amenities' => ['lift', 'helipad'],
-        ])]]]])
+        ])]]], 'finishReason' => 'STOP']]])
         ->push('down', 500);
 
     $criteria = app(LlmRequirementParser::class)->parse('flat chahiye');

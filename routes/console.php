@@ -44,6 +44,12 @@ Schedule::command('meezan:billing-lifecycle')->dailyAt('01:30')->withoutOverlapp
 // Investment rankings: recalculated weekly for review; publishing stays a manual admin step.
 Schedule::command('meezan:investment-recalculate')->weeklyOn(1, '04:00')->withoutOverlapping();
 
+// Meezan Investment Index: recalculated and published automatically after every verified
+// change (queued); this daily run also ages evidence out and catches anything missed.
+Schedule::command('meezan:investment-index run')->dailyAt('04:30')->withoutOverlapping();
+// Authorized official sources (approved / illegal scheme lists) are read daily before that run.
+Schedule::command('meezan:investment-collect')->dailyAt('03:45')->withoutOverlapping();
+
 // AI agents: daily health and subscription reviews, weekly CEO report, approval/memory expiry.
 Schedule::command('meezan:agents health')->dailyAt('06:00')->withoutOverlapping();
 Schedule::command('meezan:agents subscriptions')->dailyAt('06:15')->withoutOverlapping();

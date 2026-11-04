@@ -17,8 +17,12 @@ use App\Services\Investment\RankingCalculator;
 
 /*
 | Investment Rankings demonstration dataset: flagged, separately ranked,
-| clearly disclosed, removable without touching real data.
+| clearly disclosed, removable without touching real data. Demo mode is
+| off by default (real verified data only); these tests switch the
+| preview on, as an admin would, to check how it is disclosed.
 */
+
+beforeEach(fn () => AppSetting::put('investment.demo_mode', true));
 
 function demoSeed(float $scale = 0.2, array $cities = ['Lahore']): InvestmentCalculation
 {
@@ -115,18 +119,22 @@ it('fills every property type with scored entries for a city', function () {
         ->and($row->metric('series'))->not->toBeEmpty();
 });
 
-it('discloses demo data on every page and keeps it out of search engines', function () {
+it('discloses demo data where it is previewed, and never puts it in the Investment Index', function () {
     demoSeed();
     $notice = config('meezan.investment.demo_notice');
 
-    foreach ([route('rankings.index'), route('rankings.city', 'lahore'), route('rankings.group', ['lahore', 'commercial']), route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']),
-        route('rankings.compare', ['lahore', 'commercial', 'shopping-malls']), route('investment.index')] as $url) {
-        $this->get($url)->assertOk()->assertSee('DEMO DATA', false)->assertSee('Illustrative figures for platform preview only', false)->assertSee('noindex', false);
+    // The Investment Insights preview still discloses it and stays out of search engines.
+    $this->get(route('investment.index'))->assertOk()->assertSee('DEMO DATA', false)->assertSee('Illustrative figures for platform preview only', false)->assertSee('noindex', false);
+
+    // The Investment Index (the public rankings) never reads demo records, even with demo mode on.
+    foreach ([route('rankings.index'), route('rankings.category', 'shopping-malls'), route('rankings.overall')] as $url) {
+        $page = $this->get($url)->assertOk()->assertDontSee('DEMO DATA')->assertSee('Insufficient Verified Data');
+        foreach (Project::where('is_demo', true)->where('category', 'shopping_mall')->limit(5)->pluck('name') as $name) {
+            $page->assertDontSee($name);
+        }
     }
-    $html = $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->getContent();
-    expect($html)->toContain('>Illustrative data</span>')->not->toContain('"@type":"ItemList"')->not->toContain('Verified transaction')
-        ->toContain('Hypothetical illustration built from illustrative prices')->not->toContain('(Demo)');
-    expect(markersOn($html)[0]['demo'])->toBeTrue();
+    $demo = Project::where('is_demo', true)->first();
+    $this->get(route('rankings.project', $demo))->assertNotFound();
     expect($this->get(route('sitemap.show', 'pages'))->getContent())->not->toContain('investment-rankings/lahore/commercial');
 });
 
@@ -134,12 +142,9 @@ it('hides demo data when demo mode is off and says there is not enough verified 
     demoSeed();
     AppSetting::put('investment.demo_mode', false);
 
-    $page = $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->assertOk()
-        ->assertDontSee('DEMO DATA')->assertSee('No rankings are published yet');
-    foreach (Project::where('is_demo', true)->where('category', 'shopping_mall')->pluck('name') as $name) {
-        $page->assertDontSee($name);
-    }
+    $this->get(route('investment.index'))->assertOk()->assertDontSee('DEMO DATA');
     expect(app(RankingBrowser::class)->items('shopping-malls', 'Lahore'))->toBeEmpty();
+    $this->get(route('rankings.category', ['shopping-malls', 'city' => 'Lahore']))->assertOk()->assertSee('Insufficient Verified Data');
 });
 
 it('answers advisor questions through the Investment Analyst agent and discloses demo data', function () {

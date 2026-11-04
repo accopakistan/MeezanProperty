@@ -51,7 +51,7 @@ use Illuminate\Support\Str;
 */
 
 beforeEach(function () {
-    config(['services.openai.key' => null]);
+    config(['services.gemini.key' => null]);
     $this->admin = User::factory()->admin()->create();
 });
 
@@ -71,12 +71,12 @@ function continuationContext(string $slug, ?User $user = null): AgentContext
 
 function fakeReplies(array $texts): void
 {
-    config(['services.openai.key' => 'sk-test-'.str_repeat('a', 24), 'meezan.agents.use_llm' => true, 'meezan.agents.provider' => 'openai']);
+    config(['services.gemini.key' => 'sk-test-'.str_repeat('a', 24), 'meezan.agents.use_llm' => true, 'meezan.agents.provider' => 'gemini']);
     $sequence = Http::sequence();
     foreach ($texts as $text) {
-        $sequence->push(['model' => 'gpt-4o-mini', 'choices' => [['message' => ['content' => $text]]], 'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 20]]);
+        $sequence->push(['candidates' => [['content' => ['parts' => [['text' => $text]]], 'finishReason' => 'STOP']], 'usageMetadata' => ['promptTokenCount' => 100, 'candidatesTokenCount' => 20]]);
     }
-    Http::fake(['*/chat/completions' => $sequence]);
+    Http::fake(['*:generateContent' => $sequence]);
 }
 
 /** A lead assigned to a dealer, ready for CRM records. */
@@ -440,7 +440,7 @@ it('counts subtasks against the task token limit, and only words the final repor
 it('checks the overall budget before routing with the model', function () {
     fakeReplies(['seo-manager']);
     config(['meezan.agents.limits.daily_tokens_total' => 10]);
-    AiUsageRecord::create(['provider' => 'openai', 'model' => 'x', 'purpose' => 'narrative', 'tokens_in' => 50, 'tokens_out' => 0, 'ok' => true, 'created_at' => now()]);
+    AiUsageRecord::create(['provider' => 'gemini', 'model' => 'x', 'purpose' => 'narrative', 'tokens_in' => 50, 'tokens_out' => 0, 'ok' => true, 'created_at' => now()]);
 
     expect(app(IntentRouter::class)->route('Something about staff rota'))->toBe('hr-admin');
     Http::assertNothingSent();
@@ -450,7 +450,7 @@ it('tells the administrators once when a budget stops the model', function () {
     Notification::fake();
     fakeReplies(['Fine.']);
     config(['meezan.agents.limits.daily_tokens_total' => 10, 'cache.default' => 'array']);
-    AiUsageRecord::create(['provider' => 'openai', 'model' => 'x', 'purpose' => 'narrative', 'tokens_in' => 50, 'tokens_out' => 0, 'ok' => true, 'created_at' => now()]);
+    AiUsageRecord::create(['provider' => 'gemini', 'model' => 'x', 'purpose' => 'narrative', 'tokens_in' => 50, 'tokens_out' => 0, 'ok' => true, 'created_at' => now()]);
 
     continuationBrain()->submit('Run an SEO audit', 'seo-manager', $this->admin);
     continuationBrain()->submit('Run an SEO audit', 'seo-manager', $this->admin);
@@ -463,7 +463,7 @@ it('lets the model pick a workflow only when the rules find none, accepting only
 
     $task = continuationBrain()->submit('Anything odd about what sellers are asking?', 'property-manager', $this->admin);
     expect($task->intent)->toBe('anomalies')->and(AiUsageRecord::where('purpose', 'intent')->count())->toBe(1);
-    Http::assertSent(fn ($r) => ($r['response_format']['type'] ?? null) === 'json_object');
+    Http::assertSent(fn ($r) => ($r['generationConfig']['responseMimeType'] ?? null) === 'application/json');
 
     $task = continuationBrain()->submit('Anything odd about what sellers are asking?', 'property-manager', $this->admin);
     expect($task->intent)->toBe('inventory');
@@ -608,7 +608,7 @@ it('keeps Staff Work admin only', function () {
 */
 
 it('shows the tool registry, activity log and operational status to admins, without secrets', function () {
-    config(['services.openai.key' => 'sk-secret-'.str_repeat('Q', 30)]);
+    config(['services.gemini.key' => 'sk-secret-'.str_repeat('Q', 30)]);
     AiKnowledgeDocument::query()->update(['status' => 'approved']);
     continuationBrain()->submit('Prepare a business performance report for this month', 'ceo', $this->admin);
     continuationContext('marketing-director')->tool('system.shell');

@@ -18,7 +18,31 @@ class MarketSource extends Model
 
     protected function casts(): array
     {
-        return ['last_checked_on' => 'date', 'is_active' => 'boolean', 'is_demo' => 'boolean'];
+        return ['last_checked_on' => 'date', 'is_active' => 'boolean', 'is_demo' => 'boolean',
+            'collector_config' => 'array', 'authorized_at' => 'datetime', 'last_collected_at' => 'datetime'];
+    }
+
+    /**
+     * Collected automatically only when active, linked to a known collector,
+     * and authorized: an admin has recorded once on what basis automated
+     * access is permitted.
+     */
+    public function isCollectable(): bool
+    {
+        return $this->is_active && ! $this->is_demo && $this->authorized_at && $this->access_basis && $this->collectorPreset() !== null;
+    }
+
+    /** The collector preset merged with this source's own settings, or null. */
+    public function collectorPreset(): ?array
+    {
+        $preset = $this->collector ? config('investment_index.collectors.'.$this->collector) : null;
+
+        return $preset ? array_replace_recursive($preset, $this->collector_config ?? []) : null;
+    }
+
+    public function collectionRuns(): HasMany
+    {
+        return $this->hasMany(InvestmentCollectionRun::class, 'source_id');
     }
 
     public function observations(): HasMany

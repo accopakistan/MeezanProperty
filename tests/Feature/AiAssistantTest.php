@@ -362,15 +362,15 @@ it('keeps dealers and guests away from the buyer-only actions', function () {
 /* LLM fallback ------------------------------------------------------------ */
 
 it('uses the rules engine when no LLM key is configured', function () {
-    config(['meezan.ai.driver' => 'llm', 'services.openai.key' => null]);
+    config(['meezan.ai.driver' => 'llm', 'services.gemini.key' => null]);
 
     expect(app(RequirementParser::class))->toBeInstanceOf(RulesRequirementParser::class);
     chat($this, 'house in Gulberg under 5 crore')->assertJsonPath('reply', fn ($r) => str_contains($r, 'best option') || str_contains($r, 'No exact match'));
 });
 
 it('falls back to the rules when the LLM fails', function () {
-    config(['meezan.ai.driver' => 'llm', 'services.openai.key' => 'test-key']);
-    Http::fake(['*/chat/completions' => Http::response('down', 500)]);
+    config(['meezan.ai.driver' => 'llm', 'services.gemini.key' => 'test-key']);
+    Http::fake(['*:generateContent' => Http::response('down', 500)]);
     Property::factory()->create(['title' => 'Fallback Match', 'area_id' => area('Gulberg')->id, 'price' => 40_000_000]);
 
     expect(app(RequirementParser::class))->toBeInstanceOf(LlmRequirementParser::class);
