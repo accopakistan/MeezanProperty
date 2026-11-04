@@ -315,7 +315,18 @@ return [
             'official_record' => 'Official development / approval record',
             'verified_rental' => 'Verified rental observations',
             'admin_research' => 'Meezan Property research',
+            'demo' => 'Illustrative data (not real)',
         ],
+
+        /*
+        | Demonstration data. Demo projects and market records (is_demo) are
+        | ranked in their own calculation, which never replaces the real one.
+        | With demo mode on, public dashboards show the demo snapshot with a
+        | notice; with it off, only real verified data appears. Admins can
+        | override this in Market Data Centre → Demo Data (stored setting).
+        */
+        'demo_mode' => (bool) env('INVESTMENT_DEMO_MODE', true),
+        'demo_notice' => 'DEMO DATA — Illustrative figures for platform preview only. Prices, rental yields, investment scores and forecasts are not verified market information.',
         'reliability' => ['high' => 1.0, 'medium' => 0.6, 'low' => 0.3],
 
         'price_bases' => ['transaction' => 'Verified transaction', 'asking' => 'Asking (advertised)', 'valuation' => 'Professional valuation'],
@@ -330,6 +341,8 @@ return [
             'legal_verification' => ['label' => 'Legal verification', 'levels' => ['verified' => 100, 'partially_verified' => 55, 'unverified' => 10, 'disputed' => 0]],
             'developer_status' => ['label' => 'Developer / project status', 'levels' => ['completed' => 95, 'on_track' => 75, 'delayed' => 35, 'stalled' => 5]],
             'growth_drivers' => ['label' => 'Future growth indicators', 'levels' => ['strong' => 90, 'moderate' => 60, 'weak' => 30]],
+            // Shown on commercial dashboards only; not a scoring factor.
+            'occupancy' => ['label' => 'Occupancy (%)', 'numeric' => true],
         ],
 
         'factors' => [
@@ -351,6 +364,76 @@ return [
             'emerging' => ['label' => 'Best Emerging Investment', 'requires' => ['development_progress'], 'emerging_only' => true],
             'commercial' => ['label' => 'Best Commercial Investment', 'requires' => [], 'asset_class' => 'commercial'],
             'residential' => ['label' => 'Best Residential Investment', 'requires' => [], 'asset_class' => 'residential'],
+        ],
+
+        /*
+        | Investment Rankings by property type. A project's category says what
+        | it is; a segment is one ranking view (city → group → segment). Each
+        | segment ranks only the entities and property types that belong to it,
+        | with the weights of an existing methodology category ("weights"), so
+        | there is one scoring system and admins change weights in one place.
+        |   entities       which snapshot entities can appear (area, project)
+        |   area_types     areas that count for the segment (null = any area)
+        |   project_types  project categories that belong to the segment
+        |   types          property types whose observations are used (null = all)
+        |   group_by       size | bedrooms: one row per comparable size or bedroom count
+        |   columns        ranking table columns, in order
+        */
+        'project_categories' => [
+            'residential_society' => ['label' => 'Residential society / housing scheme', 'asset_class' => 'residential'],
+            'apartment_complex' => ['label' => 'Apartment complex', 'asset_class' => 'residential'],
+            'shopping_mall' => ['label' => 'Shopping mall', 'asset_class' => 'commercial'],
+            'commercial_plaza' => ['label' => 'Commercial plaza', 'asset_class' => 'commercial'],
+            'business_tower' => ['label' => 'Business tower', 'asset_class' => 'commercial'],
+            'office_building' => ['label' => 'Office building / business centre', 'asset_class' => 'commercial'],
+            'commercial_market' => ['label' => 'Market / commercial shops', 'asset_class' => 'commercial'],
+            'commercial_land' => ['label' => 'Commercial land / business district plots', 'asset_class' => 'commercial'],
+            'mixed_use' => ['label' => 'Mixed-use development', 'asset_class' => 'mixed'],
+        ],
+
+        'groups' => [
+            'residential' => ['label' => 'Residential'],
+            'commercial' => ['label' => 'Commercial'],
+            'mixed-use' => ['label' => 'Mixed Use'],
+        ],
+
+        'segments' => [
+            'societies' => ['group' => 'residential', 'label' => 'Residential Societies', 'singular' => 'Society', 'asset_class' => 'residential', 'entities' => ['area', 'project'],
+                'area_types' => ['housing_scheme', 'cooperative_society', 'government_scheme', 'defence_scheme', 'cantonment', 'phase', 'sector', 'block', 'neighbourhood'],
+                'project_types' => ['residential_society'], 'types' => null,
+                'weights' => 'residential', 'columns' => ['price', 'change_1y', 'change_2y', 'yield', 'score', 'risk']],
+            'plots' => ['group' => 'residential', 'label' => 'Residential Plots', 'singular' => 'Plot', 'asset_class' => 'residential', 'entities' => ['area', 'project'],
+                'project_types' => ['residential_society'], 'types' => ['residential_plot', 'plot_file'], 'group_by' => 'size',
+                'sizes' => ['3 Marla', '5 Marla', '7 Marla', '10 Marla', '1 Kanal', '2 Kanal'],
+                'weights' => 'appreciation', 'columns' => ['size', 'price', 'change_1y', 'change_2y', 'score', 'development']],
+            'houses' => ['group' => 'residential', 'label' => 'Houses', 'singular' => 'House', 'asset_class' => 'residential', 'entities' => ['area', 'project'],
+                'project_types' => ['residential_society'], 'types' => ['house'], 'group_by' => 'size', 'sizes' => ['3 Marla', '5 Marla', '10 Marla', '1 Kanal'],
+                'weights' => 'residential', 'columns' => ['size', 'price', 'change_1y', 'yield', 'score', 'risk']],
+            'apartments' => ['group' => 'residential', 'label' => 'Apartments', 'singular' => 'Apartment', 'asset_class' => 'residential', 'entities' => ['area', 'project'],
+                'project_types' => ['apartment_complex', 'mixed_use'], 'types' => ['apartment', 'penthouse'], 'group_by' => 'bedrooms',
+                'bedrooms' => ['0' => 'Studio', '1' => '1 Bedroom', '2' => '2 Bedroom', '3' => '3 Bedroom', '4' => '4 Bedroom'],
+                'weights' => 'rental', 'columns' => ['size', 'price', 'change_1y', 'yield', 'score', 'status']],
+            'shopping-malls' => ['group' => 'commercial', 'label' => 'Shopping Malls', 'singular' => 'Mall', 'asset_class' => 'commercial', 'entities' => ['project'],
+                'project_types' => ['shopping_mall'], 'types' => ['shop', 'office'],
+                'weights' => 'rental', 'columns' => ['price_sqft', 'yield', 'score', 'occupancy', 'status']],
+            'commercial-plazas' => ['group' => 'commercial', 'label' => 'Commercial Plazas', 'singular' => 'Plaza', 'asset_class' => 'commercial', 'entities' => ['project'],
+                'project_types' => ['commercial_plaza'], 'types' => ['shop', 'office', 'building'],
+                'weights' => 'commercial', 'columns' => ['price_sqft', 'change_1y', 'yield', 'score', 'occupancy', 'status']],
+            'business-towers' => ['group' => 'commercial', 'label' => 'Business Towers', 'singular' => 'Tower', 'asset_class' => 'commercial', 'entities' => ['project'],
+                'project_types' => ['business_tower', 'office_building'], 'types' => ['office', 'building'],
+                'weights' => 'commercial', 'columns' => ['price_sqft', 'change_1y', 'yield', 'score', 'occupancy', 'status']],
+            'office-spaces' => ['group' => 'commercial', 'label' => 'Office Spaces', 'singular' => 'Office', 'asset_class' => 'commercial', 'entities' => ['area', 'project'],
+                'project_types' => ['business_tower', 'office_building', 'commercial_plaza', 'mixed_use'], 'types' => ['office'], 'group_by' => 'size',
+                'weights' => 'rental', 'columns' => ['size', 'price', 'change_1y', 'yield', 'score', 'risk']],
+            'commercial-shops' => ['group' => 'commercial', 'label' => 'Commercial Shops', 'singular' => 'Shop', 'asset_class' => 'commercial', 'entities' => ['area', 'project'],
+                'project_types' => ['shopping_mall', 'commercial_plaza', 'commercial_market', 'mixed_use'], 'types' => ['shop'], 'group_by' => 'size',
+                'weights' => 'rental', 'columns' => ['size', 'price', 'change_1y', 'yield', 'score', 'risk']],
+            'commercial-plots' => ['group' => 'commercial', 'label' => 'Commercial Plots', 'singular' => 'Plot', 'asset_class' => 'commercial', 'entities' => ['area', 'project'],
+                'project_types' => ['commercial_land'], 'types' => ['commercial_plot'], 'group_by' => 'size', 'sizes' => ['5 Marla', '8 Marla', '1 Kanal', '2 Kanal'],
+                'weights' => 'appreciation', 'columns' => ['size', 'price', 'change_1y', 'change_2y', 'score', 'development']],
+            'mixed-use' => ['group' => 'mixed-use', 'label' => 'Mixed-Use Developments', 'singular' => 'Development', 'asset_class' => 'mixed', 'entities' => ['project'],
+                'project_types' => ['mixed_use'], 'types' => null,
+                'weights' => 'overall', 'columns' => ['price_sqft', 'change_1y', 'yield', 'score', 'occupancy', 'status']],
         ],
 
         // Methodology version 1: the proposed initial weights (each category sums to 100).
@@ -376,6 +459,7 @@ return [
             // Comparable windows for one- and two-year changes (months before the latest observation).
             'one_year_window' => [9, 15],
             'two_year_window' => [21, 27],
+            'five_year_window' => [54, 66],
             // Rent and sale observations must be this close in time to compute a yield.
             'yield_max_gap_months' => 12,
             // Growth scenarios need this much history and this many observations.

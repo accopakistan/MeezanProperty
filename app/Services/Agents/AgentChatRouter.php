@@ -51,7 +51,7 @@ class AgentChatRouter
 
         return match (true) {
             (bool) preg_match(self::SUPPORT, $text) => ['customer-support', 'faq'],
-            (bool) preg_match(self::INVESTMENT, $text) => ['investment-analyst', null],
+            (bool) preg_match(self::INVESTMENT, $text) => ['investment-analyst', 'advisor'],
             default => null,
         };
     }

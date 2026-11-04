@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InvestmentCalculation;
 use App\Models\Project;
 use App\Models\Property;
 use Illuminate\Http\Request;
@@ -15,7 +16,8 @@ class ProjectController extends Controller
         $status = $request->validate(['status' => ['nullable', Rule::in(array_keys(Project::STATUSES))]])['status'] ?? null;
 
         return view('projects.index', [
-            'projects' => Project::published()->with('area:id,name')
+            // Demo projects (Investment Rankings preview) are fictional: never listed as real developments.
+            'projects' => Project::published()->where('is_demo', false)->with('area:id,name')
                 ->when($status, fn ($q, $s) => $q->where('status', $s))
                 ->latest()->paginate(12)->withQueryString(),
             'status' => $status,
@@ -25,6 +27,8 @@ class ProjectController extends Controller
     public function show(Project $project): View
     {
         abort_unless($project->is_published, 404);
+        // A demo project's page exists only while demo mode shows the demo rankings that link to it.
+        abort_if($project->is_demo && ! InvestmentCalculation::demoMode(), 404);
 
         return view('projects.show', [
             'project' => $project->load('area'),

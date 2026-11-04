@@ -20,6 +20,7 @@ class InvestmentAnalystAgent extends Agent
             'rankings' => ['ranking', 'best investment', 'where to invest', 'where should i invest', 'top areas', 'investment report', 'score', 'invest', 'sarmaya'],
             'data_status' => ['market data', 'data quality', 'data confidence'],
             'methodology' => ['methodology change', 'change weights', 'new weights', 'propose weights'],
+            'advisor' => ['investment advisor'],
         ];
     }
 
@@ -30,6 +31,7 @@ class InvestmentAnalystAgent extends Agent
             'yield' => $this->yield($ctx),
             'data_status' => $this->dataStatus($ctx),
             'methodology' => $this->propose($ctx, 'investment.methodology_change', 'Ranking methodology change request'),
+            'advisor' => $this->advisor($ctx),
             default => $this->rankings($ctx),
         };
     }
@@ -50,7 +52,41 @@ class InvestmentAnalystAgent extends Agent
             $r->table('Calculated metrics (published snapshot)', ['Entry', 'City', 'Score', 'Confidence', 'Risk', '1-yr change', 'Gross yield'],
                 collect($data['rows'])->map(fn ($x) => [$x['entity'], $x['city'], $x['score'] ?? 'not ranked', $x['confidence'], $x['risk'],
                     $x['change_1y'] !== null ? $x['change_1y'].'%' : 'Insufficient Historical Data', $x['gross_yield'] !== null ? $x['gross_yield'].'%' : 'no data'])->all());
-            $r->finding('Scores and changes are calculated from verified records; see each analysis page for sources. These are not guarantees of future returns.');
+            $data['includes_demo'] ?? false
+                ? $r->limitation(config('meezan.investment.demo_notice'))
+                : $r->finding('Scores and changes are calculated from verified records; see each analysis page for sources. These are not guarantees of future returns.');
+        }
+
+        return $r;
+    }
+
+    /** The Investment Rankings advisor (website panel and chat): city / property-type questions. */
+    protected function advisor(AgentContext $ctx): Report
+    {
+        $in = $ctx->task->input ?? [];
+        $r = new Report('Investment advisor');
+        $a = $this->need($ctx, $r, 'investment.advisor', array_filter(['question' => $ctx->task->request, 'city' => $in['city'] ?? null,
+            'segment' => $in['segment'] ?? null, 'focus' => $in['focus'] ?? null]));
+        if (! $a) {
+            return $r;
+        }
+        foreach ($a['answer'] as $line) {
+            $r->finding($line);
+        }
+        foreach ($a['missing'] as $m) {
+            $r->missing($m);
+        }
+        if ($a['items']) {
+            $r->table('Entries', ['Entry', 'Location', 'Group', 'MPIS', 'Status', 'Confidence', 'Gross yield', 'Demo', 'Key', 'Image'],
+                collect($a['items'])->map(fn ($x) => [$x['name'], $x['location'], $x['group'], $x['score'], $x['status'], $x['confidence'], $x['yield'], $x['demo'] ? 'yes' : 'no', $x['key'], $x['image']])->all());
+        }
+        if ($a['sources']) {
+            $r->section('Sources', $a['sources']);
+        }
+        $r->period = $a['methodology'] ? 'Methodology v'.$a['methodology'].($a['published_at'] ? ' · published '.$a['published_at'] : '') : null;
+        $r->section('Question', [json_encode(['city' => $a['city'], 'segment' => $a['segment'], 'intent' => $a['intent'], 'size' => $a['size']])]);
+        if ($a['demo']) {
+            $r->limitation(config('meezan.investment.demo_notice'));
         }
 
         return $r;

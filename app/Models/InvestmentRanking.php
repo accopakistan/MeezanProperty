@@ -23,7 +23,7 @@ class InvestmentRanking extends Model
 
     protected function casts(): array
     {
-        return ['factors' => 'array', 'metrics' => 'array', 'score' => 'float', 'confidence_score' => 'float'];
+        return ['factors' => 'array', 'metrics' => 'array', 'score' => 'float', 'confidence_score' => 'float', 'is_demo' => 'boolean'];
     }
 
     protected static function booted(): void

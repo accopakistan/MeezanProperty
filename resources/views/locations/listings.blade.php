@@ -54,6 +54,8 @@
                     There are no {{ strtolower($label) }} in {{ $place }} at the moment.
                 @endif
             </p>
+            <x-search-bar :city="$city" :area="$area?->slug" :purpose="$definition['purpose']" :group="$definition['group']"
+                          :type="count($definition['types'] ?? []) === 1 ? $definition['types'][0] : null" class="mt-6 max-w-5xl" />
             <div class="mt-5 flex flex-wrap gap-2">
                 <a href="{{ $searchUrl }}" class="btn btn-gold"><x-icon name="sliders" class="size-4" /> Refine this search</a>
                 <a href="{{ route('properties.map', array_filter(['city' => $area ? null : $city, 'area' => $area?->slug])) }}" class="btn btn-on-dark"><x-icon name="map" class="size-4" /> Map</a>

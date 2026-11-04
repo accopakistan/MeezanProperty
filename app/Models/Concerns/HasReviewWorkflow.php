@@ -22,6 +22,8 @@ trait HasReviewWorkflow
         'reviewed' => 'Reviewed',
         'verified' => 'Verified',
         'rejected' => 'Rejected',
+        // Demonstration records (is_demo): never reviewed, verified or used in real rankings.
+        'demo' => 'Demo (illustrative)',
     ];
 
     /** action => [from statuses, to status] */

@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Storage;
  *   dealer@meezanproperty.test  – dealer, verification PENDING
  *   buyer@meezanproperty.test   – buyer
  *
- * Every listing is is_demo = true, shows a "Demo listing" badge, is excluded
+ * Every listing is is_demo = true, shows a "Sample listing" badge, is excluded
  * from the sitemap and carries no coordinates. Photos are illustrative crops
  * from the design references, not photos of the listed property. No dealer is
  * marked verified and no inquiries, leads or payments are created.
@@ -46,11 +46,11 @@ class DemoContentSeeder extends Seeder
 
         $admin = $this->user('admin@meezanproperty.test', 'Meezan Admin (Demo)', Role::Admin);
         $buyer = $this->user('buyer@meezanproperty.test', 'Ayesha Buyer (Demo)', Role::Buyer);
-        $dealer = $this->user('dealer@meezanproperty.test', 'Imran Dealer (Demo)', Role::Dealer);
+        $dealer = $this->user('dealer@meezanproperty.test', 'Imran Dealer', Role::Dealer);
 
         $profile = DealerProfile::firstOrNew(['user_id' => $dealer->id]);
         $profile->fill([
-            'agency_name' => 'Demo Realty (Sample Data)',
+            'agency_name' => 'Sample Realty',
             'slug' => 'demo-realty-sample-data',
             'city' => 'Lahore',
             'office_address' => 'Sample address — not a real office',
@@ -75,7 +75,7 @@ class DemoContentSeeder extends Seeder
                 'bedrooms' => $beds,
                 'bathrooms' => $baths,
                 'amenities' => $amenities,
-                'description' => "Demo listing for local development — this is not real inventory.\n\nA {$size} ".$unit->label()." {$type->label()} in {$area}, Lahore, used to preview how listings appear on Meezan Property.",
+                'description' => "Sample listing for platform preview — this is not real inventory.\n\nA {$size} ".$unit->label()." {$type->label()} in {$area}, Lahore, used to preview how listings appear on Meezan Property.",
             ]);
             $property->user_id = $dealer->id;
             $property->status = PropertyStatus::Published;

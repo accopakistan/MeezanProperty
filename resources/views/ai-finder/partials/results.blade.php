@@ -25,7 +25,7 @@
                 <div class="relative">
                     <img src="{{ $p->coverThumbUrl() ?? $p->placeholderUrl() }}" alt="{{ $p->title }}" loading="lazy" class="aspect-[16/10] w-full object-cover">
                     <span class="tag absolute top-2.5 left-2.5 {{ $match->budgetStatus === 'above' ? 'bg-amber-600' : ($match->score >= 85 && ! $match->caveats ? 'bg-emerald-600' : 'bg-brand-600') }}"><x-icon name="sparkles" class="size-3.5" /> {{ $match->score }}% Match</span>
-                    @if ($p->is_demo)<span class="tag absolute bottom-2.5 left-2.5 bg-ink/75 text-[10px]">Demo listing</span>@endif
+                    @if ($p->is_demo)<span class="tag absolute bottom-2.5 left-2.5 bg-ink/75 text-[10px]">Sample listing</span>@endif
                     <x-save-button :property="$p" :saved="\App\Support\Lookup::isSaved($p->id)" class="absolute top-2 right-2" />
                 </div>
                 <div class="flex flex-1 flex-col p-4">

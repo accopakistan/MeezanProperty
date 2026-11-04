@@ -28,7 +28,9 @@ class MarketRecords
     public const MAX_IMPORT_ROWS = 5000;
 
     public const OBSERVATION_COLUMNS = ['kind', 'price_basis', 'city', 'area_slug', 'project_slug', 'asset_class', 'property_type', 'size_value', 'size_unit',
-        'currency', 'average_amount', 'min_amount', 'max_amount', 'observed_on', 'sample_size', 'source_id', 'methodology', 'notes'];
+        'currency', 'average_amount', 'min_amount', 'max_amount', 'observed_on', 'sample_size', 'source_id', 'methodology', 'notes',
+        // Added later; last, so templates made before it keep their column order.
+        'bedrooms'];
 
     public const INDICATOR_COLUMNS = ['city', 'area_slug', 'project_slug', 'asset_class', 'indicator', 'level', 'numeric_value', 'observed_on', 'source_id', 'methodology', 'notes'];
 
@@ -46,6 +48,7 @@ class MarketRecords
             'property_type' => ['required', Rule::enum(PropertyType::class)],
             'size_value' => ['nullable', 'numeric', 'min:0.25', 'max:1000000', 'required_with:size_unit'],
             'size_unit' => ['nullable', Rule::enum(AreaUnit::class), 'required_with:size_value'],
+            'bedrooms' => ['nullable', 'integer', 'min:0', 'max:10'],
             'currency' => ['required', Rule::in(['PKR'])],
             'average_amount' => ['required', 'integer', 'min:1', 'max:999999999999'],
             'min_amount' => ['nullable', 'integer', 'min:1', 'lte:average_amount'],

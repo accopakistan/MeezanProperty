@@ -17,11 +17,13 @@ class Project extends Model
         'completed' => 'Completed',
     ];
 
-    protected $fillable = ['name', 'developer', 'city', 'area_id', 'status', 'min_price', 'max_price', 'description', 'website', 'approval_note'];
+    protected $fillable = ['name', 'developer', 'category', 'city', 'area_id', 'latitude', 'longitude', 'status', 'launched_on', 'min_price', 'max_price',
+        'description', 'specifications', 'website', 'approval_note', 'approval_status'];
 
     protected function casts(): array
     {
-        return ['is_published' => 'boolean', 'min_price' => 'integer', 'max_price' => 'integer'];
+        return ['is_published' => 'boolean', 'is_demo' => 'boolean', 'is_featured' => 'boolean', 'min_price' => 'integer', 'max_price' => 'integer', 'launched_on' => 'date',
+            'specifications' => 'array', 'gallery' => 'array', 'latitude' => 'float', 'longitude' => 'float'];
     }
 
     protected static function booted(): void
@@ -54,6 +56,16 @@ class Project extends Model
         return $query->where('is_published', true);
     }
 
+    public function categoryLabel(): ?string
+    {
+        return $this->category ? (config('meezan.investment.project_categories.'.$this->category.'.label') ?? $this->category) : null;
+    }
+
+    public function hasCoordinates(): bool
+    {
+        return $this->latitude !== null && $this->longitude !== null;
+    }
+
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status] ?? ucfirst($this->status);
@@ -61,7 +73,17 @@ class Project extends Model
 
     public function coverUrl(): string
     {
-        return $this->cover_path ? asset('storage/'.$this->cover_path) : asset('images/placeholders/commercial.svg');
+        return $this->imageUrl($this->cover_path) ?? asset('images/placeholders/commercial.svg');
+    }
+
+    /** Uploaded files live in storage; bundled illustrations (demo data) under public/images. */
+    public function imageUrl(?string $path): ?string
+    {
+        return match (true) {
+            ! $path => null,
+            str_starts_with($path, 'images/') => asset($path),
+            default => asset('storage/'.$path),
+        };
     }
 
     public function priceRange(): ?string

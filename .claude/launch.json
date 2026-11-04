@@ -6,6 +6,12 @@
       "runtimeExecutable": "php",
       "runtimeArgs": ["artisan", "serve", "--port=8000"],
       "port": 8000
+    },
+    {
+      "name": "meezan-8020",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["artisan", "serve", "--port=8020"],
+      "port": 8020
     }
   ]
 }

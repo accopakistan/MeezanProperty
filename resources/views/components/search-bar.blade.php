@@ -1,106 +1,145 @@
-@props(['variant' => 'tabs', 'tab' => 'sale', 'group' => null, 'type' => null, 'area' => null, 'maxPrice' => null, 'beds' => null, 'purpose' => null, 'sizeLabel' => null])
+@props([
+    'variant' => 'tabs', 'tab' => null, 'group' => null, 'type' => null, 'area' => null, 'maxPrice' => null, 'beds' => null, 'purpose' => null,
+    'sizeLabel' => null, 'size' => null, 'city' => null, 'mode' => 'property', 'segment' => null, 'stage' => null, 'minYield' => null, 'q' => null,
+    'layout' => 'row',
+])
 {{--
-    tabs: hero search from the Homepage reference — Buy / Rent / Plots / Commercial tabs
-          over a white panel (location, type, price, beds, Search).
-    bar:  single-row search from the category and search-results references
-          (Lahore | type | price | beds | More filters | Search).
+    The one property search used across the site, always with the same four
+    tabs: Buy | Rent | Plots | Commercial (component: search-tabs).
+
+    variant  tabs: hero panel (tabs over a white panel); bar: one-row bar under the tabs
+    layout   row (default): fields in one row from tablet width; compact: two or three columns (narrow hero columns)
+    mode     property (default): listings; the Commercial tab also offers commercial
+                       investments (malls, plazas, towers …) from Investment Rankings
+             investment: Investment Rankings pages: Buy = residential investments,
+                       Rent = rental income (ranked by yield), Plots = plot rankings,
+                       Commercial = commercial investments
+    Each field is marked with the tabs it belongs to (data-search-for). Fields of the
+    other tabs are hidden and disabled, so they are not sent; the page script swaps
+    them when the tab changes (without JavaScript the starting tab's fields are used).
+    Everything submits to /search, which sends each tab to its results page.
 --}}
 @php
     use App\Enums\PropertyType;
+    use App\Services\Investment\RankingBrowser;
     use App\Support\Lookup;
 
+    $tab ??= match (true) {
+        in_array(request('tab'), ['sale', 'rent', 'plots', 'commercial'], true) && $mode === 'property' => request('tab'),
+        $group === 'plots' => 'plots',
+        $group === 'commercial' => 'commercial',
+        ($purpose ?? null) === 'rent' => 'rent',
+        default => 'sale',
+    };
     $areaModel = $area ? \App\Models\Area::where('slug', $area)->first(['id', 'name', 'slug', 'city']) : null;
-    $cityValue = request('city');
-    $types = $group ? [PropertyType::groupLabel($group) => PropertyType::inGroup($group)] : Lookup::typesByGroup();
-    $pricePurpose = ($purpose ?? $tab) === 'rent' ? 'rent' : 'sale';
-    $tabs = ['sale' => 'Buy', 'rent' => 'Rent', 'plots' => 'Plots', 'commercial' => 'Commercial'];
+    $cityValue = $city ?? request('city');
     $field = 'h-12 w-full rounded-[var(--radius-control)] border border-line bg-white px-3.5 text-sm text-ink focus:border-brand-400 focus:ring-3 focus:ring-brand-100 focus:outline-none';
+    $select = 'input h-12';
+    $id = 'search-'.substr(md5($variant.$mode.$tab.($cityValue ?? '')), 0, 6);
+
+    // A field for some tabs only: hidden and disabled when another tab is selected.
+    $for = function (array $tabs) use ($tab) {
+        $on = in_array($tab, $tabs, true);
+
+        return new \Illuminate\View\ComponentAttributeBag(array_filter(['data-search-for' => implode(' ', $tabs), 'hidden' => ! $on, 'disabled' => ! $on]));
+    };
+
+    $homeTypes = ['Homes' => PropertyType::inGroup('homes')];
+    $typeSets = [
+        'sale rent' => $homeTypes + ['Commercial' => PropertyType::inGroup('commercial')] + ['Plots' => PropertyType::inGroup('plots')],
+        'plots' => ['Plots' => PropertyType::inGroup('plots')],
+        'commercial' => ['Commercial' => array_merge(PropertyType::inGroup('commercial'), [PropertyType::CommercialPlot])],
+    ];
+    $investmentSets = [
+        'sale' => RankingBrowser::segmentsIn('residential'),
+        'rent' => array_intersect_key(RankingBrowser::segments(), array_flip(['apartments', 'houses', 'shopping-malls', 'commercial-plazas', 'office-spaces', 'commercial-shops'])),
+        'plots' => array_intersect_key(RankingBrowser::segments(), array_flip(['plots', 'commercial-plots'])),
+        'commercial' => RankingBrowser::segmentsIn('commercial') + RankingBrowser::segmentsIn('mixed-use'),
+    ];
+    $commercialInvestments = $investmentSets['commercial'];
 @endphp
 
-@if ($variant === 'tabs')
-    <form method="GET" action="{{ route('properties.index') }}" {{ $attributes }} role="search">
-        <div class="flex w-max max-w-full overflow-x-auto rounded-t-lg bg-white scrollbar-none" role="radiogroup" aria-label="Search for">
-            @foreach ($tabs as $value => $label)
-                <label class="cursor-pointer">
-                    <input type="radio" name="tab" value="{{ $value }}" class="peer sr-only" @checked($tab === $value)>
-                    <span class="block border-r border-line px-6 py-3 text-[15px] font-medium text-ink transition last:border-0 peer-checked:bg-brand-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand-300 sm:px-10">{{ $label }}</span>
-                </label>
-            @endforeach
-        </div>
-        <div class="grid gap-2.5 rounded-tr-lg rounded-b-lg bg-white p-3 shadow-lift sm:p-3.5 md:grid-cols-[1.9fr_1fr_1fr_0.8fr_auto]">
-            <div class="relative">
-                <label for="hero-location" class="sr-only">Location</label>
+<form method="GET" action="{{ route('search') }}" {{ $attributes->merge(['class' => $variant === 'bar' ? '' : '']) }} role="search" data-search-form>
+    <input type="hidden" name="mode" value="{{ $mode }}">
+    @if ($cityValue)<input type="hidden" name="city" value="{{ $cityValue }}">@endif
+
+    <x-search-tabs :active="$tab" :name="$id" :compact="$variant === 'bar' || $layout === 'compact'" />
+
+    <div @class(['grid gap-2.5 bg-white p-3 shadow-lift sm:p-3.5', 'rounded-tr-lg rounded-b-lg' => $variant !== 'bar', 'rounded-b-lg rounded-tr-lg' => $variant === 'bar',
+        'md:grid-flow-col md:auto-cols-[minmax(0,1fr)]' => $layout === 'row', 'grid-cols-2 sm:grid-cols-3 [&>button]:col-span-full sm:[&>button]:col-span-1' => $layout === 'compact'])>
+        @if ($mode === 'investment')
+            <div @class(['relative', 'md:col-span-2' => $layout === 'row', 'col-span-full' => $layout === 'compact'])>
+                <label for="{{ $id }}-q" class="sr-only">Search society, project or area</label>
                 <x-icon name="search" class="pointer-events-none absolute top-1/2 left-3.5 z-10 size-5 -translate-y-1/2 text-ink/70" />
-                <x-area-combobox id="hero-location" :value="$areaModel?->name" :slug="$areaModel?->slug" :input-class="$field.' pl-11'" placeholder="Search location, society or property…" />
+                <input id="{{ $id }}-q" name="q" value="{{ $q }}" maxlength="80" class="{{ $field }} pl-11" placeholder="Search society, project or area…">
             </div>
-            <select name="type" class="input h-12" aria-label="Property type">
-                <option value="">Property Type</option>
-                @foreach ($types as $label => $list)
-                    <optgroup label="{{ $label }}">
-                        @foreach ($list as $t)
-                            <option value="{{ $t->value }}" @selected($type === $t->value)>{{ $t->label() }}</option>
-                        @endforeach
-                    </optgroup>
-                @endforeach
+            <label class="sr-only" for="{{ $id }}-city">City</label>
+            <select id="{{ $id }}-city" name="investment_city" class="{{ $select }}">
+                <option value="pakistan">All Pakistan</option>
+                @foreach (\App\Support\Cities::names() as $c)<option value="{{ \App\Support\Cities::slug($c) }}" @selected($cityValue === $c)>{{ $c }}</option>@endforeach
             </select>
-            <select name="max_price" class="input h-12" aria-label="Price range">
-                <option value="">Price Range</option>
-                @foreach (Lookup::priceOptions($pricePurpose) as $value => $label)
-                    <option value="{{ $value }}" @selected((int) $maxPrice === $value)>Up to {{ $label }}</option>
-                @endforeach
+            @foreach ($investmentSets as $t => $set)
+                <select name="segment" class="{{ $select }}" aria-label="Investment type" {{ $for([$t]) }}>
+                    <option value="">{{ ['sale' => 'All residential', 'rent' => 'All rental investments', 'plots' => 'All plots', 'commercial' => 'All commercial'][$t] }}</option>
+                    @foreach ($set as $slug => $s)<option value="{{ $slug }}" @selected($segment === $slug)>{{ $s['label'] }}</option>@endforeach
+                </select>
+            @endforeach
+            <select name="budget" class="{{ $select }}" aria-label="Budget (up to)">
+                <option value="">Any budget</option>
+                @foreach (Lookup::priceOptions('sale') as $value => $label)<option value="{{ $value }}" @selected((int) $maxPrice === $value)>Up to {{ $label }}</option>@endforeach
             </select>
-            <select name="beds" class="input h-12" aria-label="Bedrooms">
+            <select name="size" class="{{ $select }}" aria-label="Plot size" {{ $for(['plots']) }}>
+                <option value="">Any size</option>
+                @foreach (['3 Marla', '5 Marla', '7 Marla', '8 Marla', '10 Marla', '1 Kanal', '2 Kanal'] as $s)<option value="{{ \Illuminate\Support\Str::slug($s) }}" @selected($size === \Illuminate\Support\Str::slug($s))>{{ $s }}</option>@endforeach
+            </select>
+            <select name="min_yield" class="{{ $select }}" aria-label="Expected return (minimum gross yield)" {{ $for(['rent', 'commercial']) }}>
+                <option value="">Any return</option>
+                @foreach ([3, 4, 5, 6, 8] as $y)<option value="{{ $y }}" @selected((float) $minYield === (float) $y)>{{ $y }}%+ yield</option>@endforeach
+            </select>
+            <select name="stage" class="{{ $select }}" aria-label="Development status" {{ $for(['sale', 'commercial']) }}>
+                <option value="">All status</option>
+                @foreach (RankingBrowser::PROJECT_STAGES as $k => $l)<option value="{{ $k }}" @selected($stage === $k)>{{ $l }}</option>@endforeach
+            </select>
+        @else
+            <div class="relative md:col-span-2">
+                <label for="{{ $id }}-location" class="sr-only">Location</label>
+                <x-icon name="{{ $variant === 'bar' ? 'map-pin' : 'search' }}" class="pointer-events-none absolute top-1/2 left-3.5 z-10 size-5 -translate-y-1/2 {{ $variant === 'bar' ? 'text-brand-600' : 'text-ink/70' }}" />
+                <x-area-combobox :id="$id.'-location'" :city="$cityValue" :value="$areaModel?->name ?? ($variant === 'bar' && ! $city ? $cityValue : null)" :slug="$areaModel?->slug" :input-class="$field.' pl-11'"
+                                 :placeholder="$cityValue ? 'Area, society or phase in '.$cityValue : 'Search location, society or property…'" />
+            </div>
+            @foreach ($typeSets as $tabs => $set)
+                <select name="type" class="{{ $select }}" aria-label="Property type" {{ $for(explode(' ', $tabs)) }}>
+                    <option value="">{{ ['sale rent' => 'Property Type', 'plots' => 'Plot Type', 'commercial' => 'Commercial Type'][$tabs] }}</option>
+                    @foreach ($set as $label => $list)
+                        <optgroup label="{{ $label }}">
+                            @foreach ($list as $t)<option value="{{ $t->value }}" @selected($type === $t->value)>{{ $t->label() }}</option>@endforeach
+                        </optgroup>
+                    @endforeach
+                </select>
+            @endforeach
+            <select name="investment" class="{{ $select }}" aria-label="Investment category" {{ $for(['commercial']) }}>
+                <option value="">All commercial property</option>
+                @foreach ($commercialInvestments as $slug => $s)<option value="{{ $slug }}" @selected($segment === $slug)>{{ $s['label'] }} (rankings)</option>@endforeach
+            </select>
+            @foreach (['sale plots commercial' => 'sale', 'rent' => 'rent'] as $tabs => $pricePurpose)
+                <select name="max_price" class="{{ $select }}" aria-label="{{ $pricePurpose === 'rent' ? 'Monthly rent (up to)' : 'Budget (up to)' }}" {{ $for(explode(' ', $tabs)) }}>
+                    <option value="">{{ $pricePurpose === 'rent' ? 'Rent Range' : 'Price Range' }}</option>
+                    @foreach (Lookup::priceOptions($pricePurpose) as $value => $label)<option value="{{ $value }}" @selected((int) $maxPrice === $value)>Up to {{ $label }}{{ $pricePurpose === 'rent' ? '/month' : '' }}</option>@endforeach
+                </select>
+            @endforeach
+            <select name="beds" class="{{ $select }}" aria-label="Bedrooms" {{ $for(['sale', 'rent']) }}>
                 <option value="">Beds</option>
-                @foreach ([1, 2, 3, 4, 5] as $n)
-                    <option value="{{ $n }}" @selected((int) $beds === $n)>{{ $n }}+ Beds</option>
-                @endforeach
+                @foreach ([1, 2, 3, 4, 5] as $n)<option value="{{ $n }}" @selected((int) $beds === $n)>{{ $n }}+ Beds</option>@endforeach
             </select>
-            <button type="submit" class="btn btn-primary h-12 px-10 text-[15px]">Search</button>
-        </div>
-    </form>
-@else
-    <form method="GET" action="{{ route('properties.index') }}" {{ $attributes->merge(['class' => 'rounded-lg bg-white p-3 shadow-lift']) }} role="search">
-        @if ($purpose)<input type="hidden" name="purpose" value="{{ $purpose }}">@endif
-        @if ($group)<input type="hidden" name="group" value="{{ $group }}">@endif
-        <div class="grid grid-cols-[1fr_auto] gap-2.5 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_auto]">
-            <div class="relative">
-                <label for="bar-location" class="sr-only">Location</label>
-                <x-icon name="map-pin" class="pointer-events-none absolute top-1/2 left-3.5 z-10 size-5 -translate-y-1/2 text-brand-600" />
-                <x-area-combobox id="bar-location" :value="$areaModel?->name ?? $cityValue" :slug="$areaModel?->slug" :input-class="$field.' pl-11 font-medium'" placeholder="City or area" />
-            </div>
-            <select name="type" class="input h-12 max-sm:hidden" aria-label="Property type">
-                <option value="">{{ $group ? PropertyType::groupLabel($group) : 'Property Type' }}</option>
-                @foreach ($types as $label => $list)
-                    <optgroup label="{{ $label }}">
-                        @foreach ($list as $t)
-                            <option value="{{ $t->value }}" @selected($type === $t->value)>{{ $t->label() }}</option>
-                        @endforeach
-                    </optgroup>
-                @endforeach
+            <select name="size" class="{{ $select }}" aria-label="{{ $sizeLabel ?? 'Size' }}" {{ $for(['plots', 'commercial']) }}>
+                <option value="">{{ $sizeLabel ?? ($tab === 'plots' ? 'Plot Size' : 'Size') }}</option>
+                @foreach (\App\Services\PropertySearch::SIZES as $value => $s)<option value="{{ $value }}" @selected($size === $value)>{{ $s['label'] }}</option>@endforeach
             </select>
-            <select name="max_price" class="input h-12 max-sm:hidden" aria-label="Price range">
-                <option value="">Price Range</option>
-                @foreach (Lookup::priceOptions($pricePurpose) as $value => $label)
-                    <option value="{{ $value }}" @selected((int) $maxPrice === $value)>Up to {{ $label }}</option>
-                @endforeach
+            <select name="stage" class="{{ $select }}" aria-label="Development status" {{ $for(['commercial']) }}>
+                <option value="">Development Status</option>
+                @foreach (RankingBrowser::PROJECT_STAGES as $k => $l)<option value="{{ $k }}" @selected($stage === $k)>{{ $l }}</option>@endforeach
             </select>
-            @if ($group === 'plots' || $group === 'commercial')
-                <select name="size" class="input h-12 max-sm:hidden" aria-label="{{ $sizeLabel ?? 'Size' }}">
-                    <option value="">{{ $sizeLabel ?? 'Size' }}</option>
-                    @foreach (\App\Services\PropertySearch::SIZES as $value => $s)
-                        <option value="{{ $value }}">{{ $s['label'] }}</option>
-                    @endforeach
-                </select>
-            @else
-                <select name="beds" class="input h-12 max-sm:hidden" aria-label="Bedrooms">
-                    <option value="">Beds</option>
-                    @foreach ([1, 2, 3, 4, 5] as $n)
-                        <option value="{{ $n }}" @selected((int) $beds === $n)>{{ $n }}+ Beds</option>
-                    @endforeach
-                </select>
-            @endif
-            <a href="{{ route('properties.index', array_filter(['purpose' => $purpose, 'group' => $group])) }}#filters" class="input flex h-12 items-center justify-between text-ink max-sm:hidden">More Filters <x-icon name="sliders" class="size-4 text-muted" /></a>
-            <button type="submit" class="btn btn-primary h-12 px-5 text-[15px] sm:px-9">Search</button>
-        </div>
-    </form>
-@endif
+        @endif
+        <button type="submit" class="btn btn-primary h-12 px-8 text-[15px]">Search</button>
+    </div>
+</form>

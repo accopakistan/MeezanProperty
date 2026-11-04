@@ -93,7 +93,7 @@
             </div>
         @endif
         @if ($property->is_demo)
-            <div class="mb-4 rounded-lg border border-line bg-white px-4 py-2.5 text-[13px] text-muted"><strong class="text-ink">Demo listing</strong> — sample data for development. This is not real inventory and the photos are illustrative.</div>
+            <div class="mb-4 rounded-lg border border-line bg-white px-4 py-2.5 text-[13px] text-muted"><strong class="text-ink">Sample listing</strong> — an example for platform preview. This is not real inventory and the photos are illustrative.</div>
         @endif
 
         {{-- Real hierarchy: city → area guide → category in that area → listing. --}}

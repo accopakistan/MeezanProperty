@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\InvestmentCalculation;
 use App\Models\InvestmentMethodology;
+use App\Models\Project;
 use App\Services\AuditLogger;
+use App\Services\Investment\RankingBrowser;
 use App\Services\Investment\RankingCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,26 @@ class InvestmentAdminController extends Controller
             'versions' => InvestmentMethodology::orderByDesc('version')->get(),
             'factors' => config('meezan.investment.factors'),
             'categories' => config('meezan.investment.categories'),
+        ]);
+    }
+
+    /** Ranking categories (config meezan.investment.segments): what feeds each one, and how much data it has. */
+    public function categories(): View
+    {
+        $calc = InvestmentCalculation::current();
+        $rows = $calc ? $calc->rankings()->whereNotNull('segment')->get(['segment', 'status', 'city']) : collect();
+        $projects = Project::query()->toBase()->selectRaw('category, is_published, count(*) as n')->groupBy('category', 'is_published')->get();
+
+        return view('admin.market.categories', [
+            'segments' => collect(RankingBrowser::segments())->map(fn ($seg, $slug) => $seg + [
+                'rows' => $rows->where('segment', $slug)->count(),
+                'ranked' => $rows->where('segment', $slug)->where('status', 'ranked')->count(),
+                'cities' => $rows->where('segment', $slug)->pluck('city')->unique()->count(),
+                'published_projects' => (int) $projects->whereIn('category', $seg['project_types'])->where('is_published', 1)->sum('n'),
+                'hidden_projects' => (int) $projects->whereIn('category', $seg['project_types'])->where('is_published', 0)->sum('n'),
+            ]),
+            'uncategorised' => (int) $projects->whereNull('category')->sum('n'),
+            'calc' => $calc,
         ]);
     }
 

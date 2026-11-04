@@ -4,6 +4,9 @@
         ['Observations', 'admin.market.records.index', ['observations']],
         ['Indicators', 'admin.market.records.index', ['indicators']],
         ['Sources', 'admin.market.sources.index', []],
+        ['Categories', 'admin.market.categories', []],
+        ['Demo Data', 'admin.market.demo', []],
+        ['Projects', 'admin.projects.index', []],
         ['Methodology', 'admin.market.methodologies.index', []],
         ['Calculations', 'admin.market.calculations.index', []],
     ] as [$label, $route, $params])

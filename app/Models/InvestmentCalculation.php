@@ -24,14 +24,26 @@ class InvestmentCalculation extends Model
     protected function casts(): array
     {
         return [
-            'inputs' => 'array', 'summary' => 'array',
+            'inputs' => 'array', 'summary' => 'array', 'includes_demo' => 'boolean',
             'started_at' => 'datetime', 'finished_at' => 'datetime', 'published_at' => 'datetime',
         ];
     }
 
     public static function current(): ?self
     {
-        return static::where('status', 'published')->latest('published_at')->latest('id')->first();
+        // Demo mode prefers the demo snapshot (which also contains any real verified data);
+        // otherwise only a snapshot built from real verified data is shown.
+        return static::where('status', 'published')
+            ->when(static::demoMode(), fn ($q) => $q->orderByDesc('includes_demo'), fn ($q) => $q->where('includes_demo', false))
+            ->latest('published_at')->latest('id')->first();
+    }
+
+    /** INVESTMENT_DEMO_MODE, unless an admin switched it in the Demo Data screen. */
+    public static function demoMode(): bool
+    {
+        $override = AppSetting::get('investment.demo_mode');
+
+        return $override === null ? (bool) config('meezan.investment.demo_mode') : (bool) $override;
     }
 
     public function methodology(): BelongsTo

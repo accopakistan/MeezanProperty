@@ -13,6 +13,7 @@
         <div class="container-page py-10">
             <x-breadcrumbs :items="$trail" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
             <h1 class="mt-5 text-4xl text-white">{{ $area->name }}, {{ $area->city }}</h1>
+            <x-search-bar :city="$area->city" :area="$area->slug" class="mt-6 max-w-5xl" />
             <div class="mt-5 flex flex-wrap gap-2">
                 <a href="{{ route('areas.category', [$area->slug, 'property-for-sale']) }}" class="btn btn-gold">Buy in {{ $area->name }}</a>
                 <a href="{{ route('areas.category', [$area->slug, 'property-for-rent']) }}" class="btn btn-on-dark">Rent in {{ $area->name }}</a>

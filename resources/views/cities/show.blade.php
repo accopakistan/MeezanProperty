@@ -40,16 +40,7 @@
             <h1 class="mt-1 text-4xl text-white sm:text-5xl">Property in {{ $city }}</h1>
             <p class="mt-3 max-w-2xl text-white/85">Search reviewed listings across {{ $city }}’s neighbourhoods, housing societies and commercial areas.</p>
 
-            <form method="GET" action="{{ route('properties.index') }}" class="mt-6 grid max-w-3xl gap-2.5 rounded-lg bg-white p-3 shadow-lift sm:grid-cols-[1fr_auto_auto]" role="search">
-                <input type="hidden" name="city" value="{{ $city }}">
-                <label for="city-location" class="sr-only">Area or society in {{ $city }}</label>
-                <x-area-combobox id="city-location" :city="$city" input-class="input h-12" :placeholder="'Area, society or phase in '.$city" />
-                <select name="purpose" class="input h-12" aria-label="Buy or rent">
-                    <option value="sale">Buy</option>
-                    <option value="rent">Rent</option>
-                </select>
-                <button class="btn btn-primary h-12 px-8">Search</button>
-            </form>
+            <x-search-bar :city="$city" class="mt-6 max-w-5xl" />
 
             <dl class="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-white">
                 <div><dt class="text-xs text-white/70">Published listings</dt><dd class="text-2xl font-bold">{{ number_format($summary['listings']) }}</dd></div>

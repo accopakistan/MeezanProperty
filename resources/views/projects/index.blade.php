@@ -6,6 +6,7 @@
             <x-breadcrumbs :items="[['New Projects', null]]" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
             <h1 class="mt-6 text-4xl text-white sm:text-5xl">New Projects</h1>
             <p class="mt-2 text-white/85">Housing schemes and developments. Details are provided by developers — always confirm approvals with the relevant authority.</p>
+            <x-search-bar class="mt-6 max-w-5xl" />
         </div>
     </section>
 

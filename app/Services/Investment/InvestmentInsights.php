@@ -73,6 +73,13 @@ class InvestmentInsights
             }
         }
 
+        // Demo rows: say so, and never call illustrative figures verified.
+        if ($r->is_demo) {
+            $interpretation = array_map(fn ($line) => str_replace('verified data', 'illustrative data', $line), $interpretation);
+            array_unshift($interpretation, 'These figures are illustrative, not verified market information.');
+            $verified = array_map(fn ($line) => 'Illustrative: '.$line, $verified);
+        }
+
         $scenarios = [];
         if (($s = $m['scenarios'] ?? null) && ! empty($s['available'])) {
             foreach (['conservative' => 'Conservative', 'expected' => 'Expected', 'high' => 'High growth'] as $k => $label) {

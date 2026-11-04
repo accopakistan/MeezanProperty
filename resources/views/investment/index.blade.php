@@ -5,7 +5,7 @@
     $title = ($categories[$f['category']]['label'] ?? 'Investment rankings').(isset($f['city']) ? ' in '.$f['city'] : ' in Pakistan');
 @endphp
 <x-layouts.app :title="$title" description="Transparent, evidence-based property investment rankings for Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar, with data confidence, sources and methodology."
-               :robots="$calc && $rankings->total() ? null : 'noindex, follow'">
+               :robots="$calc && ! $calc->includes_demo && $rankings->total() ? null : 'noindex, follow'">
     <section class="bg-gradient-to-r from-brand-900 to-brand-700">
         <div class="container-page py-10">
             <x-breadcrumbs :items="[['Investment insights', null]]" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
@@ -21,6 +21,7 @@
     </section>
 
     <div class="container-page py-8">
+        @include('investment.partials.demo-notice')
         {{-- Investment goal --}}
         <nav class="flex gap-2 overflow-x-auto pb-1" aria-label="Investment goal">
             @foreach ($categories as $key => $c)

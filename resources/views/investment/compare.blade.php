@@ -13,6 +13,7 @@
     </section>
 
     <div class="container-page py-8">
+        @include('investment.partials.demo-notice')
         @if (! $calc)
             <x-empty-state icon="chart" title="No published rankings yet">There is nothing to compare until verified data has been published.</x-empty-state>
         @else

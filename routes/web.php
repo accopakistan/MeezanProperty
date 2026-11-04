@@ -17,6 +17,7 @@ use App\Http\Controllers\DealerDirectoryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\InvestmentController;
+use App\Http\Controllers\InvestmentRankingsController;
 use App\Http\Controllers\ListingReportController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\LocationListingController;
@@ -27,10 +28,12 @@ use App\Http\Controllers\PricingController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\SavedPropertyController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SellController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
+use App\Support\Cities;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -46,6 +49,8 @@ Route::get('/rent', [CategoryController::class, 'rent'])->name('properties.rent'
 Route::get('/plots', [CategoryController::class, 'plots'])->name('properties.plots');
 Route::get('/commercial', [CategoryController::class, 'commercial'])->name('properties.commercial');
 
+// The shared search bar (Buy | Rent | Plots | Commercial) submits here; it redirects to the results.
+Route::get('/search', SearchController::class)->name('search');
 Route::get('/properties', [PropertyController::class, 'index'])->name('properties.index');
 // Investment intelligence (published ranking snapshots only).
 Route::get('/investment', [InvestmentController::class, 'index'])->name('investment.index');
@@ -53,6 +58,17 @@ Route::get('/investment/compare', [InvestmentController::class, 'compare'])->nam
 Route::get('/investment/methodology', [InvestmentController::class, 'methodology'])->name('investment.methodology');
 Route::get('/investment/rental-yield-calculator', [InvestmentController::class, 'yieldCalculator'])->name('investment.yield');
 Route::get('/investment/{entityType}/{entityId}', [InvestmentController::class, 'show'])->whereIn('entityType', ['city', 'area', 'project'])->whereNumber('entityId')->name('investment.show');
+
+// Investment Rankings: city -> group (residential, commercial, mixed use) -> property-type segment.
+Route::prefix('investment-rankings')->name('rankings.')->controller(InvestmentRankingsController::class)->group(function () {
+    $cities = array_merge(['pakistan'], array_map([Cities::class, 'slug'], Cities::names()));
+    Route::get('/', 'index')->name('index');
+    Route::get('/advisor', 'advisor')->middleware('throttle:30,1')->name('advisor');
+    Route::get('/{city}', 'city')->whereIn('city', $cities)->name('city');
+    Route::get('/{city}/{group}', 'group')->whereIn('city', $cities)->whereIn('group', array_keys(config('meezan.investment.groups')))->name('group');
+    Route::get('/{city}/{group}/{segment}', 'segment')->whereIn('city', $cities)->whereIn('group', array_keys(config('meezan.investment.groups')))->name('segment');
+    Route::get('/{city}/{group}/{segment}/compare', 'compare')->whereIn('city', $cities)->whereIn('group', array_keys(config('meezan.investment.groups')))->name('compare');
+});
 
 Route::get('/map', [MapController::class, 'page'])->name('properties.map');
 Route::middleware('throttle:120,1')->group(function () {
@@ -311,6 +327,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/reports', [Admin\ListingReportController::class, 'index'])->name('reports.index');
     Route::patch('/reports/{report}', [Admin\ListingReportController::class, 'resolve'])->name('reports.resolve');
 
+    Route::get('/projects/import', [Admin\ProjectController::class, 'importForm'])->name('projects.import');
+    Route::post('/projects/import', [Admin\ProjectController::class, 'import'])->middleware('throttle:10,1')->name('projects.import.store');
+    Route::get('/projects/template.csv', [Admin\ProjectController::class, 'template'])->name('projects.template');
     Route::resource('projects', Admin\ProjectController::class)->except(['show', 'destroy']);
 
     Route::get('/areas', [Admin\AreaController::class, 'index'])->name('areas.index');
@@ -331,6 +350,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::prefix('market')->name('market.')->group(function () {
         Route::get('/', Admin\MarketController::class)->name('index');
         Route::resource('sources', Admin\MarketSourceController::class)->except(['show', 'destroy']);
+        Route::get('/categories', [Admin\InvestmentAdminController::class, 'categories'])->name('categories');
+        Route::get('/demo', [Admin\InvestmentDemoController::class, 'index'])->name('demo');
+        Route::post('/demo/run', [Admin\InvestmentDemoController::class, 'run'])->middleware('throttle:5,1')->name('demo.run');
+        Route::post('/demo/mode', [Admin\InvestmentDemoController::class, 'mode'])->name('demo.mode');
+        Route::post('/demo/remove', [Admin\InvestmentDemoController::class, 'remove'])->name('demo.remove');
         Route::get('/methodologies', [Admin\InvestmentAdminController::class, 'methodologies'])->name('methodologies.index');
         Route::post('/methodologies', [Admin\InvestmentAdminController::class, 'createMethodology'])->name('methodologies.store');
         Route::get('/methodologies/{methodology}/edit', [Admin\InvestmentAdminController::class, 'editMethodology'])->name('methodologies.edit');

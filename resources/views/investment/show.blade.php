@@ -32,6 +32,7 @@
     </section>
 
     <div class="container-page py-8">
+        @include('investment.partials.demo-notice')
         @if (! $row)
             <x-empty-state icon="chart" title="Nothing published for this location yet">
                 There is no published ranking for this {{ $entityType }}. Rankings are only published from reviewed, verified market data.

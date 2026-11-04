@@ -9,7 +9,7 @@
     $purpose = $search->get('purpose');
     $group = $search->get('group');
     $tab = $group === 'plots' ? 'plots' : ($group === 'commercial' ? 'commercial' : ($purpose === 'rent' ? 'rent' : 'sale'));
-    $tabs = ['sale' => ['Buy', ['purpose' => 'sale']], 'rent' => ['Rent', ['purpose' => 'rent']], 'plots' => ['Plot', ['group' => 'plots']], 'commercial' => ['Commercial', ['group' => 'commercial']]];
+    $tabs = ['sale' => ['Buy', ['purpose' => 'sale']], 'rent' => ['Rent', ['purpose' => 'rent']], 'plots' => ['Plots', ['group' => 'plots']], 'commercial' => ['Commercial', ['group' => 'commercial']]];
     $activeCity = $search->get('city', $search->area()?->city);
 
     $mapConfig = config('meezan.map');
@@ -45,11 +45,7 @@
         <div class="mx-auto max-w-[1536px] px-4 pt-6 pb-20 sm:px-6 lg:px-[15%]">
             <h1 class="text-3xl text-white sm:text-[40px]">Find Your Dream Property <span class="text-gold-500">on Map</span></h1>
             <p class="mt-2 text-white/90 sm:text-lg">Explore houses, plots, apartments and commercial properties across {{ $activeCity ?? 'Pakistan' }}.</p>
-            <div class="mt-4 inline-flex overflow-hidden rounded-md bg-brand-800/80 backdrop-blur">
-                @foreach ($tabs as $value => [$label, $params])
-                    <a href="{{ route('properties.map', array_merge(array_filter(['city' => $activeCity]), $params)) }}" @class(['px-5 py-2.5 text-[15px] font-medium sm:px-9', 'bg-gold-500 text-brand-900' => $tab === $value, 'text-white hover:bg-white/10' => $tab !== $value]) @if ($tab === $value) aria-current="page" @endif>{{ $label }}</a>
-                @endforeach
-            </div>
+            <x-search-tabs class="mt-4" :active="$tab" :links="collect($tabs)->map(fn ($t) => route('properties.map', array_merge(array_filter(['city' => $activeCity]), $t[1])))->all()" />
         </div>
     </section>
 

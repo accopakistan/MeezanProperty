@@ -30,6 +30,7 @@
                         <x-field name="property_type" type="select" label="Property type" required :value="$record->property_type" placeholder="Choose" :options="collect(\App\Enums\PropertyType::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->all()" />
                         <x-field name="size_value" type="number" label="Size" :value="$record->size_value" step="0.01" />
                         <x-field name="size_unit" type="select" label="Size unit" placeholder="—" :value="$record->size_unit" :options="collect(\App\Enums\AreaUnit::cases())->mapWithKeys(fn ($u) => [$u->value => $u->label()])->all()" />
+                        <x-field name="bedrooms" type="number" label="Bedrooms (apartments; 0 = studio)" :value="$record->bedrooms" min="0" max="10" />
                         <x-field name="average_amount" type="number" label="Average (PKR; rent per month)" required :value="$record->average_amount" min="1" />
                         <x-field name="min_amount" type="number" label="Lowest (optional)" :value="$record->min_amount" min="1" />
                         <x-field name="max_amount" type="number" label="Highest (optional)" :value="$record->max_amount" min="1" />

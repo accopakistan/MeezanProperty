@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Area;
+use App\Models\InvestmentCalculation;
 use App\Models\Property;
 use App\Support\Cities;
 use App\Support\Seo;
@@ -70,7 +71,32 @@ class SitemapController extends Controller
         return collect(['home', 'properties.buy', 'properties.rent', 'properties.plots', 'properties.commercial', 'properties.index',
             'ai-finder', 'areas.index', 'dealers.index', 'projects.index', 'pricing', 'sell', 'pages.about', 'pages.how-it-works', 'pages.contact', 'pages.terms', 'pages.privacy'])
             ->map(fn ($name) => ['loc' => route($name), 'lastmod' => null])
-            ->concat(collect(Cities::names())->map(fn ($city) => ['loc' => route('cities.show', Cities::slug($city)), 'lastmod' => null]));
+            ->concat(collect(Cities::names())->map(fn ($city) => ['loc' => route('cities.show', Cities::slug($city)), 'lastmod' => null]))
+            ->push(['loc' => route('rankings.index'), 'lastmod' => null])
+            ->concat($this->rankings());
+    }
+
+    /**
+     * Investment Rankings pages that have at least one scored entry (pages
+     * without verified data are noindex and stay out of the sitemap).
+     *
+     * @return Collection<int, array{loc: string, lastmod: ?string}>
+     */
+    protected function rankings(): Collection
+    {
+        // Real rankings only: demo snapshots are never offered to search engines.
+        $calc = InvestmentCalculation::where('status', 'published')->where('includes_demo', false)->latest('published_at')->latest('id')->first();
+        if (! $calc) {
+            return collect();
+        }
+        $lastmod = $calc->published_at?->toAtomString();
+        $rows = $calc->rankings()->whereNotNull('segment')->ranked()->toBase()->select('segment', 'city')->distinct()->get();
+        $segments = config('meezan.investment.segments');
+
+        return $rows->pluck('city')->unique()->map(fn ($city) => ['loc' => route('rankings.city', Cities::slug($city)), 'lastmod' => $lastmod])
+            ->concat($rows->pluck('segment')->unique()->map(fn ($s) => ['loc' => route('rankings.segment', ['pakistan', $segments[$s]['group'], $s]), 'lastmod' => $lastmod]))
+            ->concat($rows->map(fn ($r) => ['loc' => route('rankings.segment', [Cities::slug($r->city), $segments[$r->segment]['group'], $r->segment]), 'lastmod' => $lastmod]))
+            ->values();
     }
 
     /** @return Collection<int, array{loc: string, lastmod: ?string}> */

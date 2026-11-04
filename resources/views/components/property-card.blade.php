@@ -32,7 +32,7 @@
                 <span class="tag bg-gold-500 text-[10px] text-brand-900">New</span>
             @endif
             @if ($property->is_demo)
-                <span class="tag bg-ink/75 text-[10px]">Demo listing</span>
+                <span class="tag bg-ink/75 text-[10px]">Sample listing</span>
             @endif
         </div>
         @if ($layout === 'grid')

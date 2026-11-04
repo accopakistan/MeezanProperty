@@ -22,7 +22,7 @@ class MarketIndicator extends Model
     protected function casts(): array
     {
         return [
-            'observed_on' => 'date', 'numeric_value' => 'float',
+            'observed_on' => 'date', 'numeric_value' => 'float', 'is_demo' => 'boolean',
             'submitted_at' => 'datetime', 'reviewed_at' => 'datetime', 'verified_at' => 'datetime',
         ];
     }

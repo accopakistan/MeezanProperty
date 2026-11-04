@@ -38,7 +38,7 @@ class AreaGuideController extends Controller
             'children' => $area->children()->active()->ordered()->get(['id', 'name', 'slug', 'type']),
             'insights' => $insights->for($area),
             'latest' => Property::published()->forCards()->where('area_id', $area->id)->latest('published_at')->take(4)->get(),
-            'projects' => Project::published()->where('area_id', $area->id)->latest()->take(3)->get(),
+            'projects' => Project::published()->where('is_demo', false)->where('area_id', $area->id)->latest()->take(3)->get(),
             'dealerCount' => $area->dealers()->where('verification_status', 'verified')->count(),
         ]);
     }

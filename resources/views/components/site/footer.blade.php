@@ -20,6 +20,7 @@
                 <li><a class="hover:text-white" href="{{ route('properties.commercial') }}">Commercial</a></li>
                 <li><a class="hover:text-white" href="{{ route('properties.map') }}">Map Search</a></li>
                 <li><a class="hover:text-white" href="{{ route('ai-finder') }}">AI Property Finder</a></li>
+                <li><a class="hover:text-white" href="{{ route('rankings.index') }}">Investment Rankings</a></li>
                 <li><a class="hover:text-white" href="{{ route('investment.index') }}">Investment Insights</a></li>
             </ul>
         </div>

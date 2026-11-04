@@ -20,14 +20,14 @@ class MarketObservation extends Model
 
     protected $fillable = [
         'kind', 'price_basis', 'country', 'city', 'area_id', 'project_id', 'asset_class', 'property_type',
-        'size_value', 'size_unit', 'currency', 'average_amount', 'min_amount', 'max_amount', 'observed_on',
+        'size_value', 'size_unit', 'bedrooms', 'currency', 'average_amount', 'min_amount', 'max_amount', 'observed_on',
         'sample_size', 'source_id', 'methodology', 'notes',
     ];
 
     protected function casts(): array
     {
         return [
-            'observed_on' => 'date', 'size_value' => 'float', 'size_sqft' => 'float',
+            'observed_on' => 'date', 'size_value' => 'float', 'size_sqft' => 'float', 'bedrooms' => 'integer', 'is_demo' => 'boolean',
             'average_amount' => 'integer', 'min_amount' => 'integer', 'max_amount' => 'integer', 'sample_size' => 'integer',
             'submitted_at' => 'datetime', 'reviewed_at' => 'datetime', 'verified_at' => 'datetime',
         ];
@@ -55,11 +55,12 @@ class MarketObservation extends Model
         $date = $a['observed_on'] ?? '';
         $date = $date instanceof \DateTimeInterface ? $date->format('Y-m-d') : substr((string) $date, 0, 10);
 
+        // Bedrooms only when recorded, so fingerprints made before the field existed stay the same.
         return hash('sha256', implode('|', [
             $a['kind'] ?? '', $a['price_basis'] ?? '', mb_strtolower((string) ($a['city'] ?? '')), $a['area_id'] ?? '', $a['project_id'] ?? '',
             $a['property_type'] ?? '', $sqft === null ? '' : round($sqft), strtoupper((string) ($a['currency'] ?? '')), $date,
             (int) ($a['average_amount'] ?? 0), $a['source_id'] ?? '',
-        ]));
+        ]).(isset($a['bedrooms']) && $a['bedrooms'] !== '' ? '|bed'.(int) $a['bedrooms'] : ''));
     }
 
     public function sizeLabel(): ?string

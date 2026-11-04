@@ -19,7 +19,7 @@
                :robots="$robots">
     <section class="bg-gradient-to-r from-brand-700 via-brand-600 to-brand-700 py-3">
         <div class="mx-auto max-w-[1240px] px-4 sm:px-6">
-            <x-search-bar variant="bar" :purpose="$search->get('purpose')" :area="$search->get('area')" :type="$search->get('type')" :max-price="$search->get('max_price')" :beds="$search->get('beds')" class="p-2.5" />
+            <x-search-bar variant="bar" :purpose="$search->get('purpose')" :group="$search->get('group')" :size="$search->get('size')" :area="$search->get('area')" :type="$search->get('type')" :max-price="$search->get('max_price')" :beds="$search->get('beds')" class="p-2.5" />
         </div>
     </section>
 

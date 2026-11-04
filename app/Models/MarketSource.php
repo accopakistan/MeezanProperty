@@ -18,7 +18,7 @@ class MarketSource extends Model
 
     protected function casts(): array
     {
-        return ['last_checked_on' => 'date', 'is_active' => 'boolean'];
+        return ['last_checked_on' => 'date', 'is_active' => 'boolean', 'is_demo' => 'boolean'];
     }
 
     public function observations(): HasMany

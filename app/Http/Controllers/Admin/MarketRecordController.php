@@ -33,10 +33,11 @@ class MarketRecordController extends Controller
         $records = $model::query()->with(['source:id,name,type', 'area:id,name', 'project:id,name', 'creator:id,name'])
             ->when($status, fn ($q) => $q->where('status', $status))
             ->when($city, fn ($q) => $q->where('city', $city))
+            ->when(in_array($request->query('origin'), ['demo', 'real'], true), fn ($q) => $q->where('is_demo', $request->query('origin') === 'demo'))
             ->when($type === 'observations' && in_array($request->query('kind'), ['sale', 'rent'], true), fn ($q) => $q->where('kind', $request->query('kind')))
             ->latest('id')->paginate(30)->withQueryString();
 
-        return view('admin.market.records.index', ['type' => $type, 'records' => $records, 'filters' => compact('status', 'city') + ['kind' => $request->query('kind')]]);
+        return view('admin.market.records.index', ['type' => $type, 'records' => $records, 'filters' => compact('status', 'city') + ['kind' => $request->query('kind'), 'origin' => $request->query('origin')]]);
     }
 
     public function create(string $type): View

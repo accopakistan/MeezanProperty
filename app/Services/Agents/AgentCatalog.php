@@ -46,7 +46,7 @@ class AgentCatalog
             'investment-analyst' => ['name' => 'Investment Analyst', 'role' => 'Investment and market intelligence', 'stage' => 'C', 'tier' => 'research', 'class' => Workers\InvestmentAnalystAgent::class,
                 'description' => 'Explains published investment rankings, compares places, calculates yields and reports data gaps from the Investment Intelligence module.',
                 'instructions' => 'Use only published investment snapshots and verified market data. Separate verified data, calculated metrics, interpretation and forward-looking scenarios. Never invent prices, returns or transactions, and never guarantee returns.',
-                'tools' => ['investment.rankings', 'investment.compare', 'investment.yield', 'market_data.quality', 'investment.methodology_change', $kb],
+                'tools' => ['investment.rankings', 'investment.compare', 'investment.yield', 'investment.advisor', 'market_data.quality', 'investment.methodology_change', $kb],
                 'memory' => ['task' => true, 'conversation' => true, 'agent' => true, 'shared' => true]],
             'finance-manager' => ['name' => 'Finance Manager', 'role' => 'Financial reporting (read-only)', 'stage' => 'C', 'tier' => 'extraction', 'class' => Workers\FinanceManagerAgent::class,
                 'description' => 'Reports subscription revenue, outstanding payments, refunds and AI costs from actual records.',

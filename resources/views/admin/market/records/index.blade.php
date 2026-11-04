@@ -9,6 +9,7 @@
         <form method="GET" class="flex flex-wrap items-end gap-3">
             <x-field name="city" type="select" label="City" placeholder="All cities" :value="$filters['city']" :options="array_combine(config('meezan.cities'), config('meezan.cities'))" />
             <x-field name="status" type="select" label="Status" placeholder="All" :value="$filters['status']" :options="\App\Models\MarketObservation::STATUSES" />
+            <x-field name="origin" type="select" label="Data" placeholder="Demo and real" :value="$filters['origin'] ?? null" :options="['real' => 'Real data only', 'demo' => 'Demo data only']" />
             @if ($isObs)<x-field name="kind" type="select" label="Kind" placeholder="Sale and rent" :value="$filters['kind']" :options="\App\Models\MarketObservation::KINDS" />@endif
             <button class="btn btn-secondary">Filter</button>
         </form>

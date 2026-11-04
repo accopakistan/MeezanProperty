@@ -27,6 +27,7 @@ use App\Models\User;
 use App\Services\Billing\Entitlements;
 use App\Services\Crm\CrmStats;
 use App\Services\DuplicateDetector;
+use App\Services\Investment\InvestmentAdvisor;
 use App\Services\Investment\MarketMetrics;
 use App\Services\ListingCompleteness;
 use App\Support\Cities;
@@ -133,6 +134,10 @@ class ToolRegistry
             new ToolDefinition('investment.yield', 'Gross (and net when costs are given) rental yield from a price and monthly rent.', 'read',
                 ['price' => ['required', 'integer', 'min:1'], 'monthly_rent' => ['required', 'integer', 'min:1'], 'annual_costs' => ['nullable', 'integer', 'min:0']],
                 fn (array $i) => $this->yield($i), 'investment'),
+            new ToolDefinition('investment.advisor', 'Answer an investment question from the published rankings by city and property type (societies, plots, malls, towers …), with scores, confidence, sources and what is missing; says when the data is demo data.', 'read',
+                ['question' => ['required', 'string', 'min:3', 'max:300'], 'city' => $city, 'segment' => ['nullable', Rule::in(array_keys(config('meezan.investment.segments')))],
+                    'focus' => ['nullable', Rule::in(['best', 'compare', 'rental', 'risk', 'forecast'])]],
+                fn (array $i) => $this->advisor($i), 'investment'),
             new ToolDefinition('market_data.quality', 'Market Data Centre status: records by status and city, sources by reliability, last calculation.', 'read', [],
                 fn () => $this->marketQuality(), 'investment'),
             new ToolDefinition('locations.coverage', 'Location data coverage per city: areas, centres, boundaries, projects.', 'read', [],
@@ -563,7 +568,18 @@ class ToolRegistry
         $rows = $calc->rankings()->where('category', $i['category'] ?? 'overall')->when($i['city'] ?? null, fn ($q, $c) => $q->where('city', $c))
             ->orderByRaw('case when status = ? then 0 else 1 end', ['ranked'])->orderByDesc('score')->limit((int) ($i['limit'] ?? 10))->get();
 
-        return ['published' => true, 'published_at' => $calc->published_at?->toDateString(), 'methodology_version' => $calc->methodology_version, 'rows' => $rows->map(fn ($r) => $this->rankingRow($r))->all()];
+        return ['published' => true, 'published_at' => $calc->published_at?->toDateString(), 'methodology_version' => $calc->methodology_version,
+            'includes_demo' => (bool) $calc->includes_demo, 'rows' => $rows->map(fn ($r) => $this->rankingRow($r))->all()];
+    }
+
+    protected function advisor(array $i): array
+    {
+        $a = app(InvestmentAdvisor::class)->answer($i['question'], $i['city'] ?? null, $i['segment'] ?? null, $i['focus'] ?? null, reword: false);
+
+        return collect($a)->except('items')->all() + ['items' => collect($a['items'])->map(fn ($x) => [
+            'key' => $x['key'], 'name' => $x['name'], 'location' => $x['location'], 'group' => $x['group_label'], 'score' => $x['score'], 'status' => $x['status_label'],
+            'confidence' => $x['confidence_label'], 'yield' => $x['yield'], 'image' => $x['image'], 'demo' => $x['is_demo'],
+        ])->all()];
     }
 
     protected function rankingRow($r): array
@@ -573,7 +589,7 @@ class ToolRegistry
             'status' => $r->status, 'score' => $r->score, 'confidence' => $r->confidence, 'risk' => $r->risk,
             'change_1y' => $r->metric('change_1y.percent'), 'change_2y' => $r->metric('change_2y.percent'), 'gross_yield' => $r->metric('yield.gross'),
             'latest_price' => $r->metric('current.label'), 'price_basis' => $r->metric('current.basis'), 'legal' => $r->metric('legal.status'),
-            'reason' => $r->factors['reason'] ?? null,
+            'reason' => $r->factors['reason'] ?? null, 'demo' => (bool) $r->is_demo,
         ];
     }
 

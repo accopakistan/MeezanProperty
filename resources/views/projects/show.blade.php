@@ -1,6 +1,13 @@
-<x-layouts.app :title="$project->name.' — '.$project->city" :description="\Illuminate\Support\Str::limit($project->description, 155)">
+<x-layouts.app :title="$project->name.' — '.$project->city" :description="\Illuminate\Support\Str::limit($project->description, 155)" :robots="$project->is_demo ? 'noindex, nofollow' : null">
     <div class="container-page py-8">
+        @if ($project->is_demo)
+            <div class="mb-5 flex items-start gap-3 rounded-xl border-2 border-dashed border-gold-500 bg-gold-50 px-4 py-3 text-sm" role="note" aria-label="Illustrative project notice">
+                <span class="shrink-0 rounded bg-gold-500 px-2 py-0.5 text-[12px] font-extrabold text-brand-900">Illustrative</span>
+                <p><strong>This is a fictional example project.</strong> It does not exist and cannot be bought, rented or contacted. {{ config('meezan.investment.demo_notice') }} Images are illustrations.</p>
+            </div>
+        @endif
         <x-breadcrumbs :items="[['New Projects', route('projects.index')], [$project->name, null]]" />
+        <x-search-bar variant="bar" :city="$project->city" :area="$project->area?->slug" :group="in_array(config('meezan.investment.project_categories.'.$project->category.'.asset_class'), ['commercial', 'mixed'], true) ? 'commercial' : null" class="mt-4" />
         <div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <img src="{{ $project->coverUrl() }}" alt="{{ $project->name }}" class="aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover">
             <div>

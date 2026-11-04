@@ -7,6 +7,7 @@
         ['label' => 'Plots', 'route' => 'properties.plots'],
         ['label' => 'Commercial', 'route' => 'properties.commercial'],
         ['label' => 'Projects', 'route' => 'projects.index'],
+        ['label' => 'Investment Rankings', 'route' => 'rankings.index'],
         ['label' => 'Agents', 'route' => 'dealers.index'],
         ['label' => 'AI Search', 'route' => 'ai-finder'],
     ];
@@ -35,7 +36,7 @@
         <nav class="hidden flex-1 items-center justify-center gap-1 xl:flex" aria-label="Main">
             @foreach ($links as $link)
                 @php $active = request()->routeIs($link['route']); @endphp
-                <a href="{{ route($link['route']) }}" @class(['relative px-3 py-2 text-[15px] font-medium transition', 'text-brand-600 after:absolute after:inset-x-3 after:-bottom-[22px] after:h-0.5 after:bg-brand-600' => $active, 'text-ink hover:text-brand-600' => ! $active])
+                <a href="{{ route($link['route']) }}" @class(['relative px-2 py-2 text-[14px] font-medium whitespace-nowrap transition 2xl:px-3 2xl:text-[15px]', 'text-brand-600 after:absolute after:inset-x-2 after:-bottom-[22px] after:h-0.5 after:bg-brand-600 2xl:after:inset-x-3' => $active, 'text-ink hover:text-brand-600' => ! $active])
                    @if ($active) aria-current="page" @endif>{{ $link['label'] }}</a>
             @endforeach
             <details class="group relative">

@@ -11,7 +11,7 @@
                 @forelse ($calculations as $c)
                     <tr>
                         <td class="px-4 py-3">#{{ $c->id }}<span class="block text-xs text-muted">{{ $c->started_at?->localTime()->format('j M Y, g:i a') }} · {{ $c->trigger }}{{ $c->triggeredBy ? ' · '.$c->triggeredBy->name : '' }}</span></td>
-                        <td class="px-4 py-3">{{ $c->statusLabel() }}</td>
+                        <td class="px-4 py-3">{{ $c->statusLabel() }}@if ($c->includes_demo) <span class="badge bg-gold-500 px-1.5 py-0 text-[10px] font-extrabold text-brand-900">DEMO</span>@endif</td>
                         <td class="px-4 py-3">v{{ $c->methodology_version }}</td>
                         <td class="px-4 py-3 text-[13px]">{{ $c->summary['observations'] ?? 0 }} observations · {{ $c->summary['indicators'] ?? 0 }} indicators</td>
                         <td class="px-4 py-3 text-[13px]">{{ $c->summary['ranked'] ?? 0 }} ranked · {{ $c->summary['insufficient'] ?? 0 }} insufficient{{ $c->error ? ' · '.\Illuminate\Support\Str::limit($c->error, 60) : '' }}</td>

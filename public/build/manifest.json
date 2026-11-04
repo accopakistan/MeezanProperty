@@ -46,7 +46,7 @@
     "src": "node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DRmWZAmJ.css",
+    "file": "assets/app-COEuDmad.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -61,13 +61,14 @@
     "isDynamicEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-DCh4QL_A.js",
+    "file": "assets/app-ETpTPmSh.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "dynamicImports": [
       "resources/js/map.js",
       "resources/js/geo-map/index.js",
+      "resources/js/investment-rankings.js",
       "resources/js/geo-map/boundary-editor.js",
       "resources/js/location-picker.js",
       "resources/js/ai-finder.js"
@@ -89,6 +90,27 @@
     "isDynamicEntry": true,
     "imports": [
       "_common-D46OK8JS.js"
+    ]
+  },
+  "resources/js/investment-map.js": {
+    "file": "assets/investment-map-DmoAwxB9.js",
+    "name": "investment-map",
+    "src": "resources/js/investment-map.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_common-D46OK8JS.js"
+    ]
+  },
+  "resources/js/investment-rankings.js": {
+    "file": "assets/investment-rankings-DqZnEF2C.js",
+    "name": "investment-rankings",
+    "src": "resources/js/investment-rankings.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.js"
+    ],
+    "dynamicImports": [
+      "resources/js/investment-map.js"
     ]
   },
   "resources/js/location-picker.js": {

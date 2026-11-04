@@ -561,7 +561,22 @@ document.querySelectorAll('[data-area-picker]').forEach((root) => {
 });
 
 if (document.querySelector('[data-map]')) import('./map.js');
+// Shared search bar: show (and send) only the fields of the selected tab.
+document.querySelectorAll('[data-search-form]').forEach((form) => {
+    const sync = () => {
+        const tab = form.querySelector('input[name="tab"]:checked')?.value ?? 'sale';
+        form.querySelectorAll('[data-search-for]').forEach((field) => {
+            const on = field.dataset.searchFor.split(' ').includes(tab);
+            field.hidden = !on;
+            field.disabled = !on;
+        });
+    };
+    form.addEventListener('change', (e) => e.target.name === 'tab' && sync());
+    sync();
+});
+
 if (document.querySelector('[data-geo-map]')) import('./geo-map/index.js');
+if (document.querySelector('[data-rankings-page], [data-investment-map], [data-advisor]')) import('./investment-rankings.js');
 if (document.querySelector('[data-boundary-editor]')) import('./geo-map/boundary-editor.js');
 if (document.querySelector('[data-location-picker]')) import('./location-picker.js');
 if (document.querySelector('[data-ai-finder]')) import('./ai-finder.js');

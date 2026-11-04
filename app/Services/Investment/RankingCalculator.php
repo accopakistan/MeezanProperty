@@ -15,6 +15,7 @@ use App\Support\AreaListingCounts;
 use App\Support\Cities;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -33,14 +34,18 @@ class RankingCalculator
         'noc_not_issued' => 'unverified', 'cancelled' => 'unverified', 'declared_illegal' => 'disputed',
     ];
 
-    public function run(?User $user = null, string $trigger = 'manual'): InvestmentCalculation
+    /**
+     * @param  bool  $includeDemo  a demonstration run: demo records (is_demo) plus real verified
+     *                             ones, published as its own snapshot. Real runs never read demo records.
+     */
+    public function run(?User $user = null, string $trigger = 'manual', bool $includeDemo = false): InvestmentCalculation
     {
         $methodology = InvestmentMethodology::active() ?? throw new RuntimeException('No active methodology.');
 
         $calc = new InvestmentCalculation;
         $calc->forceFill([
             'methodology_id' => $methodology->id, 'methodology_version' => $methodology->version, 'scope' => 'all',
-            'status' => 'running', 'trigger' => $trigger, 'triggered_by' => $user?->id, 'started_at' => now(),
+            'status' => 'running', 'includes_demo' => $includeDemo, 'trigger' => $trigger, 'triggered_by' => $user?->id, 'started_at' => now(),
         ])->save();
 
         try {
@@ -62,7 +67,8 @@ class RankingCalculator
         }
 
         DB::transaction(function () use ($calc, $user) {
-            InvestmentCalculation::where('status', 'published')->update(['status' => 'superseded']);
+            // A demo snapshot replaces only the previous demo snapshot, never real rankings (and the reverse).
+            InvestmentCalculation::where('status', 'published')->where('includes_demo', $calc->includes_demo)->update(['status' => 'superseded']);
             $calc->forceFill(['status' => 'published', 'published_by' => $user->id, 'published_at' => now()])->save();
         });
         AuditLogger::record('investment.published', $calc, ['methodology' => $calc->methodology_version], $user->id);
@@ -71,12 +77,15 @@ class RankingCalculator
     protected function calculate(InvestmentCalculation $calc, InvestmentMethodology $m): void
     {
         $cities = Cities::names();
-        $relations = ['source', 'area:id,name,city,approval_status,verification_source_url,verified_on,authority', 'project:id,name,city,status,approval_note'];
-        $observations = MarketObservation::verified()->whereIn('city', $cities)->with($relations)->get();
-        $indicators = MarketIndicator::verified()->whereIn('city', $cities)->with($relations)->get();
+        $relations = ['source', 'area:id,name,city,type,latitude,longitude,approval_status,verification_source_url,verified_on,authority', 'project:id,name,city,status,category,latitude,longitude,approval_note,approval_status,is_demo'];
+        $eligible = fn ($q) => $calc->includes_demo
+            ? $q->where(fn ($w) => $w->where(fn ($v) => $v->verified()->where('is_demo', false))->orWhere(fn ($d) => $d->where('is_demo', true)->where('status', 'demo')))
+            : $q->verified()->where('is_demo', false);
+        $observations = $eligible(MarketObservation::query())->whereIn('city', $cities)->with($relations)->get();
+        $indicators = $eligible(MarketIndicator::query())->whereIn('city', $cities)->with($relations)->get();
 
         $entities = $this->entities($observations, $indicators);
-        $cityListings = Property::published()->toBase()->groupBy('city')->pluck(DB::raw('count(*)'), 'city')->map(fn ($n) => (int) $n);
+        $cityListings = Property::published()->toBase()->selectRaw('city, count(*) as n')->groupBy('city')->pluck('n', 'city')->map(fn ($n) => (int) $n);
         $areaListings = AreaListingCounts::for(collect($entities)->where('type', 'area')->pluck('id')->unique()->values()->all());
 
         $rows = [];
@@ -107,6 +116,9 @@ class RankingCalculator
                     'calculation_id' => $calc->id,
                     'methodology_version' => $m->version,
                     'category' => $category,
+                    'segment' => null,
+                    'size_key' => null,
+                    'is_demo' => $entity['observations']->contains('is_demo', true) || $entity['indicators']->contains('is_demo', true),
                     'entity_type' => $entity['type'],
                     'entity_id' => $entity['id'],
                     'entity_name' => $entity['name'],
@@ -126,15 +138,31 @@ class RankingCalculator
             }
         }
 
-        // Ranks within each category and asset class, by score, then confidence, then name.
+        $rows = array_merge($rows, $this->segmentRows($calc, $m, $observations, $indicators));
+
+        // Ranks within each category and asset class (segments: within segment and size group),
+        // by score, then confidence, then name.
         $ranked = collect($rows)->filter(fn ($r) => $r['status'] === 'ranked')
-            ->groupBy(fn ($r) => $r['category'].'|'.$r['asset_class'])
+            ->groupBy(fn ($r) => implode('|', [$r['category'], $r['asset_class'], $r['segment'] ?? '', $r['size_key'] ?? '']))
             ->flatMap(fn (Collection $g) => $g->sort(fn ($a, $b) => [$b['score'], $b['confidence_score'], $a['entity_name']] <=> [$a['score'], $a['confidence_score'], $b['entity_name']])
                 ->values()->map(fn ($r, $i) => $r + ['rank' => $i + 1]));
         $rows = $ranked->concat(collect($rows)->filter(fn ($r) => $r['status'] !== 'ranked')->map(fn ($r) => $r + ['rank' => null]))->values();
 
-        foreach ($rows->chunk(200) as $chunk) {
-            InvestmentRanking::insert($chunk->all());
+        // Batches stay well under MySQL/MariaDB max_allowed_packet (1 MB by default):
+        // rows carry their price series as JSON, so a fixed row count is not safe.
+        $batch = [];
+        $bytes = 0;
+        foreach ($rows as $row) {
+            $size = strlen($row['metrics']) + strlen($row['factors']) + 512;
+            if ($batch && ($bytes + $size > 512_000 || count($batch) >= 200)) {
+                InvestmentRanking::insert($batch);
+                [$batch, $bytes] = [[], 0];
+            }
+            $batch[] = $row;
+            $bytes += $size;
+        }
+        if ($batch) {
+            InvestmentRanking::insert($batch);
         }
 
         $ids = ['observations' => $observations->pluck('id')->sort()->values()->all(), 'indicators' => $indicators->pluck('id')->sort()->values()->all()];
@@ -148,6 +176,7 @@ class RankingCalculator
                 'entities' => count($entities),
                 'rows' => $rows->count(),
                 'ranked' => $rows->where('status', 'ranked')->count(),
+                'segment_rows' => $rows->whereNotNull('segment')->count(),
                 'insufficient' => $rows->where('status', '!=', 'ranked')->count(),
                 'observations' => $observations->count(),
                 'indicators' => $indicators->count(),
@@ -199,6 +228,138 @@ class RankingCalculator
         return array_values($entities);
     }
 
+    /**
+     * Rows for the property-type views (config meezan.investment.segments):
+     * one per area/project entity and segment (and size or bedroom group),
+     * using only that segment's property types and the weights of an
+     * existing methodology category. Same analysis and scorer as above.
+     */
+    protected function segmentRows(InvestmentCalculation $calc, InvestmentMethodology $m, Collection $observations, Collection $indicators): array
+    {
+        $keyOf = fn ($r) => $r->project_id ? 'project:'.$r->project_id : ($r->area_id ? 'area:'.$r->area_id : '');
+        $obsBy = $observations->groupBy($keyOf);
+        $indBy = $indicators->groupBy($keyOf);
+        $keys = $obsBy->keys()->merge($indBy->keys())->unique()->reject(fn ($k) => $k === '');
+        $categories = config('meezan.investment.categories');
+        $rows = [];
+
+        foreach (RankingBrowser::segments() as $slug => $seg) {
+            foreach ($keys as $key) {
+                [$type] = explode(':', $key);
+                if (! in_array($type, $seg['entities'], true)) {
+                    continue;
+                }
+                $obs = $obsBy->get($key, collect());
+                $ind = $indBy->get($key, collect());
+                $sample = $obs->first() ?? $ind->first();
+                $model = $type === 'project' ? $sample->project : $sample->area;
+                $membership = $model ? $this->segmentMembership($seg, $type, $model) : null;
+                if (! $membership) {
+                    continue;
+                }
+
+                $mixed = $seg['asset_class'] === 'mixed';
+                $obs = $obs->filter(fn ($o) => ($mixed || $o->asset_class === $seg['asset_class']) && ($seg['types'] === null || in_array($o->property_type, $seg['types'], true)))->values();
+                $ind = $ind->filter(fn ($i) => $mixed || $i->asset_class === null || $i->asset_class === $seg['asset_class'])->values();
+                // A property-type view needs observations of that type; a member
+                // (a mall in Shopping Malls) can be listed on indicators alone.
+                if ($obs->isEmpty() && ($membership !== 'member' || ! empty($seg['group_by']))) {
+                    continue;
+                }
+
+                foreach ($this->segmentGroups($seg, $obs) as $sizeKey => [$label, $groupObs]) {
+                    $entity = ['type' => $type, 'id' => (int) $model->id, 'name' => $model->name, 'city' => $model->city, 'asset_class' => $mixed ? 'mixed' : $seg['asset_class'],
+                        'observations' => $groupObs, 'indicators' => $ind, 'model' => $model];
+                    $analysis = $this->analyse($entity, $m);
+                    $definition = $categories[$seg['weights']] ?? ['requires' => []];
+                    $result = InvestmentScorer::score($analysis['factor_scores'], $m->weightsFor($seg['weights']), $definition['requires'] ?? [],
+                        (float) $m->parameter('min_coverage'), (float) $m->parameter('coverage_penalty'));
+
+                    $factors = [];
+                    foreach ($result['factors'] as $factor => $f) {
+                        $factors[$factor] = $f + ['basis' => $analysis['factor_basis'][$factor] ?? 'No verified data.'];
+                    }
+                    $occupancy = $analysis['metrics']['indicators']['occupancy'] ?? null;
+
+                    $rows[] = [
+                        'calculation_id' => $calc->id,
+                        'methodology_version' => $m->version,
+                        'category' => 'segment',
+                        'segment' => $slug,
+                        'size_key' => $sizeKey === 'all' ? null : $sizeKey,
+                        'is_demo' => $groupObs->contains('is_demo', true) || $ind->contains('is_demo', true) || (bool) ($model->is_demo ?? false),
+                        'entity_type' => $type,
+                        'entity_id' => (int) $model->id,
+                        'entity_name' => $model->name,
+                        'country' => 'Pakistan',
+                        'city' => $model->city,
+                        'asset_class' => $entity['asset_class'],
+                        'status' => $result['status'],
+                        'score' => $result['score'],
+                        'confidence' => $result['status'] === 'ranked' ? $analysis['confidence']['level'] : 'insufficient',
+                        'confidence_score' => $analysis['confidence']['score'],
+                        'risk' => $analysis['risk']['level'],
+                        'factors' => json_encode(['items' => $factors, 'coverage' => $result['coverage'], 'reason' => $result['reason'], 'weights_from' => $seg['weights']]),
+                        'metrics' => json_encode($analysis['metrics'] + [
+                            'group_label' => $label,
+                            'occupancy' => $occupancy['value'] ?? null,
+                            'project_category' => $type === 'project' ? $model->category : null,
+                            'area_type' => $type === 'area' ? $model->type : null,
+                            'coordinates' => $model->latitude !== null && $model->longitude !== null ? [(float) $model->latitude, (float) $model->longitude] : null,
+                        ]),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    /** "member" (the entity is that kind of place), "eligible" (it may hold that property type) or null. */
+    protected function segmentMembership(array $seg, string $type, mixed $model): ?string
+    {
+        if ($type === 'project') {
+            return in_array($model->category, $seg['project_types'] ?? [], true) ? 'member' : null;
+        }
+        if (isset($seg['area_types'])) {
+            return in_array($model->type, $seg['area_types'], true) ? 'member' : null;
+        }
+
+        return 'eligible';
+    }
+
+    /**
+     * Comparable groups inside a segment: one per size (plots, houses, shops)
+     * or bedroom count (apartments), so prices are never mixed across sizes.
+     *
+     * @return array<string, array{0: ?string, 1: Collection}>
+     */
+    protected function segmentGroups(array $seg, Collection $obs): array
+    {
+        $by = $seg['group_by'] ?? null;
+        if (! $by || $obs->isEmpty()) {
+            return ['all' => [null, $obs]];
+        }
+
+        return $obs->groupBy(function (MarketObservation $o) use ($by) {
+            if ($by === 'bedrooms') {
+                return $o->bedrooms === null ? 'any' : (string) $o->bedrooms.'-bed';
+            }
+
+            return $o->sizeLabel() ? Str::slug($o->sizeLabel()) : 'any';
+        })->map(function (Collection $g, string $key) use ($by, $seg) {
+            $label = match (true) {
+                $key === 'any' => $by === 'bedrooms' ? 'Bedrooms not recorded' : 'Size not recorded',
+                $by === 'bedrooms' => $seg['bedrooms'][(string) $g->first()->bedrooms] ?? $g->first()->bedrooms.' Bedroom',
+                default => $g->first()->sizeLabel(),
+            };
+
+            return [$label, $g->values()];
+        })->all();
+    }
+
     protected function cityId(string $city): int
     {
         static $ids;
@@ -219,6 +380,7 @@ class RankingCalculator
 
         $one = MarketMetrics::change($series, $p('one_year_window'), 12);
         $two = MarketMetrics::change($series, $p('two_year_window'), 24);
+        $five = MarketMetrics::change($series, $p('five_year_window'), 60);
         $annualised = $one ? MarketMetrics::annualise($one['change'], $one['months']) : ($two ? MarketMetrics::annualise($two['change'], $two['months']) : null);
         $yield = MarketMetrics::grossYield($sales, $rents, (int) $p('yield_max_gap_months'));
 
@@ -273,8 +435,11 @@ class RankingCalculator
 
         $obsInfo = fn ($o) => $o ? [
             'amount' => $o->average_amount, 'label' => $o->amountLabel(), 'date' => $o->observed_on->toDateString(), 'sample' => $o->sample_size,
-            'basis' => $o->price_basis, 'basis_label' => $o->basisLabel(), 'type' => $o->property_type, 'size' => $o->sizeLabel(), 'currency' => $o->currency,
+            // Demo figures are never labelled as verified transactions.
+            'basis' => $o->price_basis, 'basis_label' => $o->is_demo ? ($o->price_basis === 'asking' ? 'Illustrative asking price' : 'Illustrative price') : $o->basisLabel(), 'type' => $o->property_type, 'size' => $o->sizeLabel(), 'currency' => $o->currency,
             'source' => $o->source?->name, 'min' => $o->min_amount, 'max' => $o->max_amount,
+            'size_sqft' => $o->size_sqft !== null ? (float) $o->size_sqft : null, 'bedrooms' => $o->bedrooms,
+            'per_sqft' => $o->size_sqft > 0 ? (int) round($o->average_amount / $o->size_sqft) : null,
         ] : null;
         $change = fn ($c) => $c ? ['percent' => $c['change'], 'months' => $c['months'], 'from' => $obsInfo($c['from']), 'to' => $obsInfo($c['to'])] : null;
 
@@ -294,6 +459,7 @@ class RankingCalculator
                 'series' => $series->map(fn ($o) => ['date' => $o->observed_on->toDateString(), 'amount' => $o->average_amount, 'sample' => $o->sample_size, 'basis' => $o->price_basis])->all(),
                 'change_1y' => $change($one),
                 'change_2y' => $change($two),
+                'change_5y' => $change($five),
                 'annualised' => $annualised,
                 'yield' => $yield ? ['gross' => $yield['yield'], 'rent' => $obsInfo($yield['rent']), 'sale' => $obsInfo($yield['sale'])] : null,
                 'indicators' => $latest->map(fn ($i) => [

@@ -75,7 +75,7 @@ class InvestmentController extends Controller
     public function show(Request $request, string $entityType, int $entityId, InvestmentInsights $insights): View
     {
         $calc = InvestmentCalculation::current();
-        $rows = $calc ? $calc->rankings()->where('entity_type', $entityType)->where('entity_id', $entityId)->get() : collect();
+        $rows = $calc ? $calc->rankings()->where('entity_type', $entityType)->where('entity_id', $entityId)->whereNull('segment')->get() : collect();
 
         $assets = $rows->pluck('asset_class')->unique()->values();
         $asset = in_array($request->query('asset'), $assets->all(), true) ? $request->query('asset') : $assets->first();
