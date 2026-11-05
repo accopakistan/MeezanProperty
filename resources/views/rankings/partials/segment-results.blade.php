@@ -55,7 +55,7 @@
     <form method="GET" action="{{ route('rankings.compare', [$citySlug, $group, $segmentKey]) }}" data-compare-form>
         @if ($items->isEmpty())
             <div class="p-6 text-center text-sm text-muted">
-                <p class="font-semibold text-ink">{{ request()->hasAny(['q', 'size', 'stage', 'risk', 'confidence', 'min_yield', 'budget']) ? 'Nothing matches these filters.' : 'No '.strtolower($seg['label']).' are tracked here yet.' }}</p>
+                <p class="font-semibold text-ink">{{ request()->hasAny(['q', 'size', 'stage', 'risk', 'confidence', 'min_yield', 'budget']) ? 'Nothing matches these filters.' : 'Insufficient Verified Data: no '.strtolower($seg['label']).' are tracked here yet.' }}</p>
                 <p class="mt-1">Rankings appear only when verified market records exist. Nothing is estimated to fill the table.</p>
             </div>
         @else

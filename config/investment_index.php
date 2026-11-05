@@ -163,9 +163,9 @@ return [
             'court_case' => 'Court case', 'regulatory_warning' => 'Regulatory warning', 'restriction' => 'Regulatory restriction', 'regularisation' => 'Regularisation / clearance',
         ],
         'statuses' => [
-            'approved' => 'Approved', 'partially_approved' => 'Partially approved', 'pending' => 'Approval pending',
-            'cancelled' => 'Approval cancelled', 'illegal' => 'Declared illegal / unapproved', 'restricted' => 'Regulatory restriction',
-            'disputed' => 'Under legal dispute', 'warning' => 'Regulatory warning', 'cleared' => 'Cleared',
+            'approved' => 'Verified Approved', 'partially_approved' => 'Partially Approved', 'pending' => 'Approval Pending',
+            'cancelled' => 'Cancelled', 'illegal' => 'Verified Not Approved', 'restricted' => 'Restricted',
+            'disputed' => 'Disputed', 'warning' => 'Under Legal Review', 'cleared' => 'Cleared',
         ],
         'severities' => ['none' => 'None', 'minor' => 'Minor', 'material' => 'Material', 'serious' => 'Serious'],
         'scores' => ['approved' => 100, 'partially_approved' => 65, 'pending' => 20],
@@ -182,6 +182,19 @@ return [
     'source_authority' => [
         'official_record' => 1.0, 'audited_document' => 0.9, 'verified_transactions' => 0.9, 'licensed_data' => 0.8,
         'site_inspection' => 0.75, 'verified_rental' => 0.75, 'authorized_report' => 0.7, 'owner_document' => 0.6, 'admin_research' => 0.4,
+    ],
+
+    /*
+    | Provisional Research Ranking: a separate list, not a lower bar for the real
+    | one. It uses the same scoring, but also counts records staff have not yet
+    | checked, so it is always labelled provisional. Visitors see it only after
+    | the owner switches it on (Admin -> Investment Index -> Research queue).
+    | It needs a legal status that is not adverse and on an authority's list,
+    | at least two scored factors, and this share of the category's weight.
+    */
+    'provisional' => [
+        'min_coverage' => 0.35,
+        'min_factors' => 2,
     ],
 
     'parameters' => [
@@ -248,15 +261,29 @@ return [
     | presets match the LDA site as checked on 4 Nov 2026.
     */
     'collectors' => [
-        'lda-approved' => ['label' => 'LDA — approved private housing schemes', 'driver' => 'inertia', 'url' => 'https://lda.gop.pk/approved-schemes',
+        'cda-housing' => ['label' => 'CDA — private housing schemes', 'driver' => 'cards', 'url' => 'https://www.cda.gov.pk/housing-schemes?letter=all', 'public_record' => true,
+            'authority' => 'CDA', 'city' => 'Islamabad', 'list_type' => 'approved', 'stages' => 'cda', 'category' => 'residential_society',
+            'fields' => ['key' => 'key', 'name' => 'name', 'location' => 'location', 'status' => 'status']],
+        // Land-use schemes, not plazas: kept in the registry, no projects created from them.
+        'cda-commercial' => ['label' => 'CDA — private commercial schemes', 'driver' => 'cards', 'url' => 'https://www.cda.gov.pk/commercial-schemes?letter=all', 'public_record' => true,
+            'authority' => 'CDA', 'city' => 'Islamabad', 'list_type' => 'approved', 'stages' => 'cda', 'discover' => false,
+            'fields' => ['key' => 'key', 'name' => 'name', 'location' => 'location', 'status' => 'status']],
+        'cda-illegal' => ['label' => 'CDA — illegal housing schemes', 'driver' => 'list_items', 'url' => 'https://www.cda.gov.pk/illegal-housing-schemes', 'public_record' => true,
+            'authority' => 'CDA', 'city' => 'Islamabad', 'list_type' => 'illegal',
+            'fields' => ['key' => 'key', 'name' => 'name', 'location' => 'location']],
+        'mda-schemes' => ['label' => 'MDA Multan — housing schemes developed by MDA', 'driver' => 'html_table', 'url' => 'https://mda.punjab.gov.pk/housing-schemes', 'public_record' => true, 'table' => 0,
+            'authority' => 'MDA Multan', 'city' => 'Multan', 'list_type' => 'authority_scheme', 'category' => 'residential_society', 'columns' => ['name' => 'Name of Scheme']],
+        'mda-mit-schemes' => ['label' => 'MDA Multan — MIT housing schemes', 'driver' => 'html_table', 'url' => 'https://mda.punjab.gov.pk/housing-schemes', 'public_record' => true, 'table' => 1,
+            'authority' => 'MDA Multan', 'city' => 'Multan', 'list_type' => 'authority_scheme', 'category' => 'residential_society', 'columns' => ['name' => 'Name of Scheme']],
+        'lda-approved' => ['label' => 'LDA — approved private housing schemes', 'public_record' => true, 'driver' => 'inertia', 'url' => 'https://lda.gop.pk/approved-schemes',
             'prop' => 'schemes', 'paginated' => false, 'authority' => 'LDA', 'city' => 'Lahore', 'list_type' => 'approved', 'stages' => 'lda',
             'fields' => ['key' => 'id', 'name' => 'scheme_name', 'location' => 'location', 'status' => 'approval_stage', 'date' => 'date_of_approval']],
-        'lda-illegal' => ['label' => 'LDA — illegal private housing schemes', 'driver' => 'inertia', 'url' => 'https://lda.gop.pk/illegal-schemes',
+        'lda-illegal' => ['label' => 'LDA — illegal private housing schemes', 'public_record' => true, 'driver' => 'inertia', 'url' => 'https://lda.gop.pk/illegal-schemes',
             'prop' => 'schemes', 'paginated' => true, 'authority' => 'LDA', 'city' => 'Lahore', 'list_type' => 'illegal',
             'fields' => ['key' => 'id', 'name' => 'scheme_name', 'location' => 'location', 'status' => 'illegal_status', 'date' => 'created_at', 'reference' => 'directorate'],
             // Only rows the authority marks active are current listings.
             'active' => ['illegal_status' => 'active']],
-        'lda-regular' => ['label' => 'LDA — schemes developed by LDA', 'driver' => 'inertia', 'url' => 'https://lda.gop.pk/regular-schemes',
+        'lda-regular' => ['label' => 'LDA — schemes developed by LDA', 'public_record' => true, 'driver' => 'inertia', 'url' => 'https://lda.gop.pk/regular-schemes',
             'prop' => 'schemes', 'paginated' => true, 'authority' => 'LDA', 'city' => 'Lahore', 'list_type' => 'authority_scheme',
             'fields' => ['key' => 'id', 'name' => 'scheme_name']],
         // Other authorities' lists published as HTML tables: url, table, columns and list type set per source.

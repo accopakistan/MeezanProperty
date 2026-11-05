@@ -1,5 +1,8 @@
 <?php
 
+// Anything other than "production" stays in Meta's test setup.
+$whatsappMode = env('WHATSAPP_MODE', 'test') === 'production' ? 'production' : 'test';
+
 return [
 
     /*
@@ -75,16 +78,33 @@ return [
     ],
 
     /*
-    | WhatsApp Business Platform (Cloud API). Outbound sending stays off until
-    | WHATSAPP_SEND_ENABLED=true and every credential below is present.
+    | WhatsApp Business Platform (Cloud API). WHATSAPP_MODE keeps Meta's test setup
+    | and production apart: test mode uses the test phone number and may only send
+    | to WHATSAPP_TEST_RECIPIENT; production needs its own number and account ids
+    | and never falls back to the test ones. The older names (WHATSAPP_PHONE_NUMBER_ID,
+    | WHATSAPP_APP_SECRET, WHATSAPP_GRAPH_VERSION, WHATSAPP_SEND_ENABLED) are still read.
     */
     'whatsapp' => [
-        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'mode' => $whatsappMode,
+        // As written in .env, only so a mistyped value can be reported.
+        'mode_setting' => env('WHATSAPP_MODE', 'test'),
+        'test_phone_number_id' => env('WHATSAPP_TEST_PHONE_NUMBER_ID') ?: env('WHATSAPP_PHONE_NUMBER_ID'),
+        'prod_phone_number_id' => env('WHATSAPP_PROD_PHONE_NUMBER_ID'),
+        'prod_business_account_id' => env('WHATSAPP_PROD_WABA_ID'),
+        'phone_number_id' => ($whatsappMode === 'production' ? env('WHATSAPP_PROD_PHONE_NUMBER_ID') : env('WHATSAPP_TEST_PHONE_NUMBER_ID')) ?: env('WHATSAPP_PHONE_NUMBER_ID'),
+        'business_account_id' => $whatsappMode === 'production' ? env('WHATSAPP_PROD_WABA_ID') : env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
+        'test_phone_number' => env('WHATSAPP_TEST_PHONE_NUMBER'),
+        'test_recipient' => preg_replace('/\D+/', '', (string) env('WHATSAPP_TEST_RECIPIENT')),
+        'app_id' => env('META_APP_ID'),
+        'business_portfolio_id' => env('META_BUSINESS_PORTFOLIO_ID'),
         'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
-        'app_secret' => env('WHATSAPP_APP_SECRET'),
+        'app_secret' => env('META_APP_SECRET') ?: env('WHATSAPP_APP_SECRET'),
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
-        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v21.0'),
-        'send_enabled' => (bool) env('WHATSAPP_SEND_ENABLED', false),
+        'graph_version' => env('WHATSAPP_GRAPH_API_VERSION') ?: (env('WHATSAPP_GRAPH_VERSION') ?: 'v25.0'),
+        'base_url' => rtrim((string) (env('WHATSAPP_API_BASE_URL') ?: 'https://graph.facebook.com'), '/'),
+        'webhook_url' => env('WHATSAPP_WEBHOOK_URL'),
+        'timeout' => (int) env('WHATSAPP_TIMEOUT', 30),
+        'send_enabled' => (bool) (env('WHATSAPP_ENABLED') ?? env('WHATSAPP_SEND_ENABLED', false)),
     ],
 
     /*

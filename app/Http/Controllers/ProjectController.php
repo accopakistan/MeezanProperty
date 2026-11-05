@@ -28,7 +28,7 @@ class ProjectController extends Controller
     {
         abort_unless($project->is_published, 404);
         // A demo project's page exists only while demo mode shows the demo rankings that link to it.
-        abort_if($project->is_demo && ! InvestmentCalculation::demoMode(), 404);
+        abort_if($project->is_demo && ! InvestmentCalculation::demoVisible(), 404);
 
         return view('projects.show', [
             'project' => $project->load('area'),

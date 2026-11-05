@@ -2,13 +2,18 @@
 
 namespace App\Services\InvestmentIndex;
 
+use App\Models\AppSetting;
 use App\Models\InvestmentEvidence;
+use App\Models\InvestmentEvidenceSubmission;
+use App\Models\InvestmentException;
 use App\Models\InvestmentIndexChange;
 use App\Models\InvestmentIndexRun;
 use App\Models\InvestmentIndexScore;
 use App\Models\InvestmentLegalRecord;
+use App\Models\MarketObservation;
 use App\Models\MarketSource;
 use App\Models\Project;
+use App\Support\Cities;
 use Illuminate\Support\Collection;
 
 /**
@@ -42,29 +47,118 @@ class IndexBrowser
         return config('investment_index.categories');
     }
 
+    /** Published results of a category, narrowed by city and the page's filters. A query builder; the run must exist. */
+    public function scored(string $category, ?string $city, array $filters = [])
+    {
+        return $this->run()->scores()->where('category', $category)
+            ->when($city || isset($filters['q']) || isset($filters['development']), fn ($q) => $q->whereHas('project', fn ($p) => $p->when($city, fn ($c) => $c->where('city', $city))
+                ->when($filters['development'] ?? null, fn ($c, $d) => $c->where('status', $d))
+                ->when($filters['q'] ?? null, fn ($c, $text) => $c->where(fn ($n) => $n->where('name', 'like', '%'.addcslashes($text, '%_').'%')->orWhere('developer', 'like', '%'.addcslashes($text, '%_').'%')
+                    ->orWhereHas('aliases', fn ($a) => $a->where('alias', 'like', '%'.addcslashes($text, '%_').'%'))))))
+            ->when($filters['legal'] ?? null, fn ($q, $legal) => $q->where('legal_status', $legal))
+            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            ->when($filters['confidence'] ?? null, fn ($q, $level) => $q->where('confidence_level', $level))
+            ->when($filters['risk'] ?? null, fn ($q, $risk) => $q->where('risk_class', $risk));
+    }
+
     /** @return Collection<int, InvestmentIndexScore> ranked projects of a category, best first (optionally one city) */
-    public function leaderboard(string $category, ?string $city = null, ?int $limit = null): Collection
+    public function leaderboard(string $category, ?string $city = null, ?int $limit = null, array $filters = []): Collection
     {
         $run = $this->run();
         if (! $run) {
             return collect();
         }
 
-        return $run->scores()->where('category', $category)->where('status', 'ranked')
-            ->when($city, fn ($q) => $q->whereHas('project', fn ($p) => $p->where('city', $city)))
-            ->with('project:id,name,slug,city,developer,category,cover_path,area_id')->orderBy('category_rank')
+        return $this->scored($category, $city, $filters)->where('status', 'ranked')
+            ->with('project:id,name,slug,city,developer,category,cover_path,area_id', 'project.area:id,name')->orderBy('category_rank')
             ->when($limit, fn ($q) => $q->limit($limit))->get();
     }
 
     /** @return array{assessed: int, ranked: int, not_eligible: int, insufficient: int, excluded: int} */
-    public function counts(?string $category = null): array
+    public function counts(?string $category = null, ?string $city = null): array
     {
         $run = $this->run();
-        $rows = $run ? $run->scores()->when($category, fn ($q) => $q->where('category', $category))->toBase()
+        $rows = $run ? $run->scores()->when($category, fn ($q) => $q->where('category', $category))
+            ->when($city, fn ($q) => $q->whereHas('project', fn ($p) => $p->where('city', $city)))->toBase()
             ->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status') : collect();
 
         return ['assessed' => (int) $rows->sum(), 'ranked' => (int) ($rows['ranked'] ?? 0), 'not_eligible' => (int) ($rows['not_eligible'] ?? 0),
             'insufficient' => (int) ($rows['insufficient'] ?? 0), 'excluded' => (int) ($rows['excluded'] ?? 0)];
+    }
+
+    /** The seven city cards: actual record counts. @return list<array> */
+    public function cityCards(): array
+    {
+        $run = $this->run();
+        $rows = $run ? $run->scores()->join('projects', 'projects.id', '=', 'investment_index_scores.project_id')->toBase()
+            ->selectRaw('projects.city as city, investment_index_scores.status as status, count(*) as n')->groupBy('projects.city', 'investment_index_scores.status')->get()->groupBy('city') : collect();
+
+        return collect(Cities::names())->map(function (string $city) use ($rows) {
+            $c = ($rows[$city] ?? collect())->pluck('n', 'status');
+
+            return ['name' => $city, 'slug' => Cities::slug($city), 'photo' => config('meezan.place_photos.'.$city), 'projects' => (int) $c->sum(), 'ranked' => (int) ($c['ranked'] ?? 0),
+                'review' => (int) ($c['not_eligible'] ?? 0), 'insufficient' => (int) ($c['insufficient'] ?? 0), 'excluded' => (int) ($c['excluded'] ?? 0)];
+        })->all();
+    }
+
+    /** Map markers: an exact project position, else the location directory's centre, marked approximate. Nothing without a known position. */
+    public function markers(string $category, ?string $city): array
+    {
+        $run = $this->run();
+        if (! $run) {
+            return [];
+        }
+
+        return $this->scored($category, $city)->with('project:id,name,slug,city,latitude,longitude,area_id', 'project.area:id,name,latitude,longitude')->limit(500)->get()
+            ->map(function (InvestmentIndexScore $s) {
+                $p = $s->project;
+                $exact = $p?->hasCoordinates();
+                if (! $p || (! $exact && ! $p->area?->hasCoordinates())) {
+                    return null;
+                }
+
+                return ['key' => 'project:'.$p->id, 'lat' => (float) ($exact ? $p->latitude : $p->area->latitude), 'lng' => (float) ($exact ? $p->longitude : $p->area->longitude), 'name' => $p->name,
+                    'location' => $p->area?->name ?? $p->city, 'status' => match ($s->status) {
+                        'ranked' => 'ranked', 'not_eligible' => 'provisional', default => 'insufficient'
+                    }, 'status_label' => $s->statusLabel().' · '.static::legalLabel($s->legal_status),
+                    'score' => $s->status === 'ranked' ? (float) $s->score : null, 'price' => null, 'yield' => $s->verified_yield !== null ? (float) $s->verified_yield : null, 'approximate' => ! $exact, 'demo' => false, 'url' => route('rankings.project', $p)];
+            })->filter()->values()->all();
+    }
+
+    /** The label a visitor sees for a project's legal status. */
+    public static function legalLabel(?string $status): string
+    {
+        return match ($status) {
+            null, 'not_verified' => 'Unknown / Unverified',
+            'excluded' => 'Excluded: legal record',
+            default => config('investment_index.legal.statuses.'.$status, $status),
+        };
+    }
+
+    /** @return array<string, string> the legal statuses a category page can filter by */
+    public static function legalFilters(): array
+    {
+        return collect(['approved', 'partially_approved', 'pending', 'not_verified', 'excluded'])->mapWithKeys(fn ($s) => [$s => static::legalLabel($s)])->all();
+    }
+
+    /**
+     * How well a project's record is verified as a whole. Disputed: official
+     * records disagree. Outdated: nothing verified is recent enough to use.
+     */
+    public function dataStatus(Project $project, ?InvestmentIndexScore $score): string
+    {
+        if (InvestmentException::where('project_id', $project->id)->where('type', 'legal_conflict')->where('status', 'open')->exists()) {
+            return 'Disputed';
+        }
+        $verified = InvestmentLegalRecord::verified()->where('project_id', $project->id)->count() + InvestmentEvidence::verified()->where('project_id', $project->id)->count();
+        if ($verified === 0) {
+            return InvestmentEvidenceSubmission::where('project_id', $project->id)->where('status', 'pending')->exists() ? 'Under Review' : 'Unverified';
+        }
+        if ($score?->last_verified_at && $score->last_verified_at->lt(now()->subMonths((int) config('investment_index.parameters.max_age_months')))) {
+            return 'Outdated';
+        }
+
+        return ($score?->coverage ?? 0) >= (float) config('investment_index.parameters.min_coverage') ? 'Verified' : 'Partially Verified';
     }
 
     /** @return Collection<int, InvestmentIndexScore> the Overall Meezan Investment Index, best first */
@@ -72,7 +166,7 @@ class IndexBrowser
     {
         $run = $this->run();
 
-        return $run ? $run->scores()->whereNotNull('overall_rank')->with('project:id,name,slug,city,developer,category')
+        return $run ? $run->scores()->whereNotNull('overall_rank')->with('project:id,name,slug,city,developer,category,area_id', 'project.area:id,name')
             ->orderBy('overall_rank')->when($limit, fn ($q) => $q->limit($limit))->get() : collect();
     }
 
@@ -95,6 +189,8 @@ class IndexBrowser
         return [
             'score' => $score,
             'category' => $category,
+            'dataStatus' => $this->dataStatus($project, $score),
+            'lastUpdate' => collect([$project->updated_at, InvestmentLegalRecord::where('project_id', $project->id)->max('updated_at'), InvestmentEvidence::where('project_id', $project->id)->max('updated_at')])->filter()->max(),
             'sources' => $score ? $this->sources($score) : collect(),
             'legal' => InvestmentLegalRecord::verified()->where('project_id', $project->id)->with('source:id,name,type,url')
                 ->orderByDesc('issued_on')->orderByDesc('collected_at')->limit(20)->get(),
@@ -103,7 +199,117 @@ class IndexBrowser
                 ->with('run:id,published_at,methodology_version')->orderByDesc('run_id')->limit(12)->get(),
             'changes' => InvestmentIndexChange::where('project_id', $project->id)->latest('id')->limit(15)->get(),
             'evidenceCount' => InvestmentEvidence::verified()->where('project_id', $project->id)->count(),
+        ] + $this->research($project);
+    }
+
+    /**
+     * What the sources say that nobody has checked yet, and every price series,
+     * kept apart so an asking price can never read as a sale.
+     *
+     * @return array<string, mixed>
+     */
+    public function research(Project $project): array
+    {
+        $observations = MarketObservation::where('project_id', $project->id)->where('is_demo', false)->whereIn('status', ['submitted', 'reviewed', 'verified'])
+            ->with('source:id,name,url,type')->orderByDesc('observed_on')->get();
+        $series = fn (string $kind, string $basis) => $observations->where('kind', $kind)->where('price_basis', $basis)->values();
+
+        return [
+            'facts' => collect($project->research_facts ?? []),
+            'reported' => InvestmentEvidence::where('project_id', $project->id)->where('verification_status', 'unverified')->with('source:id,name,url,type')->latest('observed_on')->get(),
+            'pendingLegal' => InvestmentLegalRecord::where('project_id', $project->id)->where('verification_status', 'unverified')->with('source:id,name,url,type')->latest('id')->get(),
+            'priceSeries' => [
+                'Asking prices (advertised, not sales)' => $series('sale', 'asking'),
+                'Verified transaction prices' => $series('sale', 'transaction'),
+                'Rental asking prices (advertised)' => $series('rent', 'asking'),
+                'Verified rental income' => $series('rent', 'transaction'),
+                'Valuations' => $series('sale', 'valuation'),
+                'FBR tax valuations (not market prices)' => $series('sale', 'fbr_tax'),
+            ],
         ];
+    }
+
+    /** Whether visitors see the Provisional Research Ranking. The owner's choice; off until then. */
+    public static function provisionalPublic(): bool
+    {
+        return (bool) AppSetting::get('investment_index.provisional_public', false);
+    }
+
+    /** The provisional list, whether or not it is public: callers decide who sees it. */
+    public function provisional(string $category, ?string $city = null, ?int $limit = null): Collection
+    {
+        if (! $this->run()) {
+            return collect();
+        }
+
+        return $this->scored($category, $city)->whereNotNull('provisional_rank')->with('project:id,name,slug,city,developer,status,area_id', 'project.area:id,name')
+            ->orderBy('provisional_rank')->when($limit, fn ($q, $l) => $q->limit($l))->get();
+    }
+
+    /**
+     * The projects with the most on file, for places with no verified ranking.
+     * Order shows how much is documented. It says nothing about investment merit.
+     */
+    public function mostDocumented(string $category, ?string $city = null, int $limit = 3): Collection
+    {
+        if (! $this->run()) {
+            return collect();
+        }
+
+        return $this->withWaitingLegal($this->scored($category, $city)->whereNotIn('status', ['ranked', 'excluded'])->with('project:id,name,slug,city,developer,status')
+            ->orderByDesc('research_depth')->orderByDesc('coverage')->orderBy('project_id')->limit($limit)->get());
+    }
+
+    /**
+     * Marks rows whose project is on an authority's list but not yet checked by
+     * staff, so a list can say so instead of "Unknown". Never a verified status.
+     *
+     * @template T of \Illuminate\Support\Collection
+     *
+     * @param  T  $rows
+     * @return T
+     */
+    public function withWaitingLegal($rows)
+    {
+        $waiting = InvestmentLegalRecord::where('verification_status', 'unverified')->whereIn('project_id', collect($rows->all())->pluck('project_id'))->whereIn('status', ['approved', 'partially_approved', 'pending'])
+            ->orderByDesc('id')->get(['project_id', 'authority'])->keyBy('project_id');
+        foreach ($rows as $row) {
+            $row->setAttribute('waiting_authority', $waiting[$row->project_id]->authority ?? null);
+        }
+
+        return $rows;
+    }
+
+    /** The legal line for a row in a list: what is on file, in plain words. */
+    public static function legalLine(InvestmentIndexScore $row): string
+    {
+        return $row->legal_status === 'not_verified' && $row->waiting_authority
+            ? "On {$row->waiting_authority}'s list, not yet checked by us"
+            : static::legalLabel($row->legal_status);
+    }
+
+    /** @return array{projects: int, ranked: int, provisional: int, excluded: int, research: int, legal_verified: int, awaiting_check: int, published_at: mixed} */
+    public function researchTotals(?string $city = null): array
+    {
+        $run = $this->run();
+        $inCity = fn ($q) => $q->when($city, fn ($w) => $w->whereHas('project', fn ($p) => $p->where('city', $city)));
+        $counts = $run ? $inCity($run->scores())->toBase()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status') : collect();
+        $projects = (int) $counts->sum();
+
+        return [
+            'projects' => $projects, 'ranked' => (int) ($counts['ranked'] ?? 0), 'excluded' => (int) ($counts['excluded'] ?? 0),
+            'research' => (int) ($counts['insufficient'] ?? 0) + (int) ($counts['not_eligible'] ?? 0),
+            'provisional' => $run ? $inCity($run->scores())->whereNotNull('provisional_rank')->count() : 0,
+            'legal_verified' => $run ? $inCity($run->scores())->whereIn('legal_status', ['approved', 'partially_approved', 'pending', 'excluded'])->count() : 0,
+            'awaiting_check' => InvestmentLegalRecord::where('verification_status', 'unverified')->whereHas('project', fn ($p) => $p->where('is_demo', false)->when($city, fn ($w) => $w->where('city', $city)))->distinct()->count('project_id'),
+            'published_at' => $run?->published_at,
+        ];
+    }
+
+    /** The confidence level in reader's words. */
+    public static function confidenceLabel(?string $level): string
+    {
+        return ['high' => 'High Confidence', 'medium' => 'Moderate Confidence', 'limited' => 'Low Confidence', 'insufficient' => 'Insufficient Evidence'][$level] ?? 'Insufficient Evidence';
     }
 
     /**

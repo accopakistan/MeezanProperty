@@ -12,8 +12,10 @@ class TechnicalOperationsAgent extends Agent
     {
         return [
             'health' => ['health', 'error', 'log', 'queue', 'failed job', 'technical', 'broken', 'performance'],
+            'collection' => ['collection job', 'data collection', 'collection fail', 'source collection'],
             'integrations' => ['integration', 'connector', 'api health'],
             'remediate' => ['fix it', 'restart', 'deploy', 'run command', 'delete', 'clear cache', 'migrate'],
+            'customer_issue' => [], // chosen only by the customer routes, never by keywords
         ];
     }
 
@@ -21,9 +23,41 @@ class TechnicalOperationsAgent extends Agent
     {
         return match ($intent) {
             'integrations' => $this->integrations($ctx),
+            'collection' => $this->collection($ctx),
             'remediate' => $this->remediate($ctx),
+            'customer_issue' => $this->customerIssue($ctx),
             default => $this->health($ctx),
         };
+    }
+
+    /** A customer reports a problem with the site. Shares no diagnostics; tells staff. */
+    protected function customerIssue(AgentContext $ctx): Report
+    {
+        $r = new Report('Technical issue');
+        $r->verbatim = true;
+        $ticket = $this->ticketForCustomer($ctx, $r, 'technical', 'normal', 'Technical issue reported by a customer');
+        $reference = $ticket ? " (reference {$ticket})" : '';
+        $r->finding($this->urdu($ctx->task->request)
+            ? "Shukriya. Maine yeh masla hamari team ko bhej diya hai{$reference}. Aap property ki talash jari rakh sakte hain, ya team se baat ke liye 'human' likhein."
+            : "Thank you. I've passed this to our team{$reference}. You can keep searching here, or reply 'human' to reach our team.");
+
+        return $r;
+    }
+
+    /** Whether official data collection is running, from its own run records. */
+    protected function collection(AgentContext $ctx): Report
+    {
+        $r = new Report('Investment data collection');
+        $c = $this->need($ctx, $r, 'investment_index.coverage');
+        if ($c) {
+            $sources = collect($c['sources']);
+            $r->table('Sources', ['Source', 'Collected automatically', 'Last run', 'Last success'], $sources->map(fn ($s) => [$s['name'], $s['automatically_collected'] ? 'yes' : 'no', $s['last_run_status'] ?? 'never run', $s['last_success'] ?? 'never'])->all());
+            $failing = $sources->whereIn('last_run_status', ['failed', 'blocked', 'partial']);
+            $r->finding($sources->where('automatically_collected', true)->count().' sources are collected automatically; '.$failing->count().' had a problem on their last run.');
+            $failing->isNotEmpty() && $r->recommend('Check Admin → Investment Index → Official sources: '.$failing->pluck('name')->implode(', ').'.');
+        }
+
+        return $r;
     }
 
     protected function health(AgentContext $ctx): Report

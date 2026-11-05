@@ -2,24 +2,83 @@
                description="The Meezan Investment Index ranks housing societies, commercial plazas, apartment buildings, shopping malls and business towers across Pakistan from verified, traceable evidence, with official legal checks and no paid placement."
                :canonical="route('rankings.index')">
     @include('investment-index.partials.hero', [
-        'title' => 'The strongest real estate developments in Pakistan, from verified evidence',
-        'intro' => 'Five Pakistan-wide leaderboards and the Overall Meezan Investment Index. Every score is calculated by Meezan Property\'s engine from official legal records and verified evidence, each with its source and date. Where the evidence is not there, we say so.',
+        'title' => 'Smart Real Estate Investments for a Better Tomorrow',
+        'intro' => 'Discover and compare real estate development projects across Pakistan using traceable market information, transparent investment analysis and verified project data. Where the evidence is not there, we say so.',
         'breadcrumbs' => [['Investment Rankings', null]],
         'run' => $run,
     ])
 
     <div class="container-page py-8">
-        <section aria-labelledby="leaderboards-title">
+        <section aria-labelledby="by-city-title">
+            <h2 id="by-city-title" class="text-xl font-bold">Choose a city</h2>
+            <p class="mt-1 text-[14px] text-muted">Actual records on file. This is what has been collected so far, not every development in each city.</p>
+            <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach ($cityCards as $c)
+                    <a href="{{ route('rankings.city', $c['slug']) }}" class="card group flex min-w-0 flex-col overflow-hidden hover:ring-brand-300">
+                        <span class="relative block h-24 bg-brand-900">
+                            @if ($c['photo'])<img src="{{ asset($c['photo']['file']) }}" alt="" class="absolute inset-0 size-full object-cover opacity-80" style="object-position: {{ $c['photo']['position'] ?? 'center' }}" loading="lazy">@endif
+                            <span class="absolute inset-0 bg-gradient-to-t from-brand-900/85 to-transparent"></span>
+                            <span class="absolute bottom-2 left-3 text-lg font-bold text-white">{{ $c['name'] }}</span>
+                        </span>
+                        <dl class="grid grid-cols-2 gap-x-3 gap-y-1 p-3 text-[13px]">
+                            <div><dt class="text-muted">Projects</dt><dd class="font-bold tabular-nums">{{ number_format($c['projects']) }}</dd></div>
+                            <div><dt class="text-muted">Ranked</dt><dd class="font-bold tabular-nums">{{ number_format($c['ranked']) }}</dd></div>
+                            <div><dt class="text-muted">Under review</dt><dd class="font-bold tabular-nums">{{ number_format($c['review']) }}</dd></div>
+                            <div><dt class="text-muted">Insufficient data</dt><dd class="font-bold tabular-nums">{{ number_format($c['insufficient']) }}</dd></div>
+                        </dl>
+                        <span class="mt-auto border-t border-line px-3 py-2 text-[13px] font-semibold text-brand-700 group-hover:underline">View city rankings →</span>
+                    </a>
+                @endforeach
+                <a href="{{ route('rankings.city', 'pakistan') }}" class="card flex flex-col justify-center gap-1 p-4 hover:ring-brand-300">
+                    <span class="text-lg font-bold">All Pakistan</span>
+                    <span class="text-[13px] text-muted">Dashboards across all seven cities</span>
+                    <span class="mt-2 text-[13px] font-semibold text-brand-700">Open the dashboard →</span>
+                </a>
+            </div>
+
+            <form method="GET" action="{{ route('rankings.index') }}" class="card mt-5 grid gap-3 p-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                <x-field name="q" label="Search projects" placeholder="Project or developer name" />
+                <x-field name="city" type="select" label="City" placeholder="All cities" :options="array_combine(\App\Support\Cities::names(), \App\Support\Cities::names())" />
+                <x-field name="category" type="select" label="Category" required :options="collect($categories)->pluck('label', 'key')->all()" />
+                <button class="btn btn-primary">Search</button>
+            </form>
+        </section>
+
+        <section class="mt-10" aria-labelledby="leaderboards-title">
             <div class="flex flex-wrap items-end justify-between gap-2">
                 <h2 id="leaderboards-title" class="text-xl font-bold">Leaderboards</h2>
                 <p class="text-[13px] text-muted">{{ number_format($counts['assessed']) }} developments assessed · {{ number_format($counts['ranked']) }} ranked</p>
             </div>
+            <dl class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                @foreach (['Genuine projects on file' => $research['projects'], 'Ranked' => $research['ranked'], 'Under research' => $research['research'], 'Official legal status on file' => $research['legal_verified'], 'Awaiting our legal check' => $research['awaiting_check'], 'Excluded on legal grounds' => $research['excluded']] as $label => $value)
+                    <div class="card p-3"><dt class="text-[12px] text-muted">{{ $label }}</dt><dd class="text-xl font-bold tabular-nums">{{ number_format($value) }}</dd></div>
+                @endforeach
+            </dl>
+            @if ($research['published_at'])<p class="mt-2 text-[12px] text-muted">Latest calculation: {{ $research['published_at']->localTime()->format('j M Y') }}.</p>@endif
             <div class="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 @foreach ($categories as $c)
                     <article class="card flex min-w-0 flex-col p-5">
                         <h3 class="text-base font-bold"><a href="{{ route('rankings.category', $c['key']) }}" class="hover:text-brand-700">{{ $c['leaderboard'] }}</a></h3>
                         <p class="mt-0.5 text-[12px] text-muted">{{ $c['counts']['ranked'] }} ranked · {{ $c['counts']['insufficient'] }} insufficient data · {{ $c['counts']['excluded'] }} excluded</p>
-                        @if ($c['top']->isEmpty())
+                        @if ($c['top']->isEmpty() && $c['provisional']->isNotEmpty())
+                            <p class="mt-3 text-[12px] font-semibold text-amber-800">Provisional research ranking: not fully verified, not a recommendation</p>
+                            <ol class="mt-1 divide-y divide-line">
+                                @foreach ($c['provisional'] as $s)
+                                    <li class="flex items-center gap-3 py-2">
+                                        <span class="grid size-7 shrink-0 place-items-center rounded-full bg-amber-50 text-[12px] font-bold text-amber-800">P{{ $s->provisional_rank }}</span>
+                                        <span class="min-w-0 flex-1"><a href="{{ route('rankings.project', $s->project) }}" class="link block truncate font-semibold">{{ $s->project->name }}</a><span class="block truncate text-[12px] text-muted">{{ $s->project->city }} · evidence {{ number_format($s->provisional_coverage * 100, 0) }}% of weight</span></span>
+                                        <span class="text-base font-bold tabular-nums">{{ number_format($s->provisional_score, 1) }}</span>
+                                    </li>
+                                @endforeach
+                            </ol>
+                        @elseif ($c['top']->isEmpty() && $c['documented']->isNotEmpty())
+                            <p class="mt-3 text-[12px] font-semibold text-muted">Most documented so far, not a ranking</p>
+                            <ul class="mt-1 divide-y divide-line">
+                                @foreach ($c['documented'] as $s)
+                                    <li class="py-2"><a href="{{ route('rankings.project', $s->project) }}" class="link block truncate font-semibold">{{ $s->project->name }}</a><span class="block truncate text-[12px] text-muted">{{ $s->project->city }} · {{ \App\Services\InvestmentIndex\IndexBrowser::legalLine($s) }}</span></li>
+                                @endforeach
+                            </ul>
+                        @elseif ($c['top']->isEmpty())
                             <p class="mt-4 rounded-lg bg-surface px-3 py-3 text-[13px]"><span class="font-semibold">Insufficient Verified Data.</span> <span class="text-muted">No {{ mb_strtolower($c['singular']) }} has enough verified evidence to be ranked yet.</span></p>
                         @else
                             <ol class="mt-3 divide-y divide-line">

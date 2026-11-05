@@ -11,6 +11,7 @@ class GlobalDataManagerAgent extends Agent
     public static function intents(): array
     {
         return [
+            'investment_data' => ['investment coverage', 'investment data', 'project coverage', 'project database', 'source freshness', 'data collection', 'real project'],
             'coverage' => ['coverage', 'location data', 'societies', 'boundaries', 'centres', 'location'],
             'quality' => ['market data', 'data quality', 'sources', 'import'],
             'review' => ['inconsistent', 'needs review', 'need review', 'location record', 'flagged', 'review queue', 'duplicate location', 'missing geographic', 'unverified location'],
@@ -24,8 +25,29 @@ class GlobalDataManagerAgent extends Agent
             'quality' => $this->quality($ctx),
             'markets' => $this->markets($ctx),
             'review' => $this->review($ctx),
+            'investment_data' => $this->investmentData($ctx),
             default => $this->coverage($ctx),
         };
+    }
+
+    /** What the real-world project database covers, and what it does not. */
+    protected function investmentData(AgentContext $ctx): Report
+    {
+        $r = new Report('Real-world investment data coverage');
+        $c = $this->need($ctx, $r, 'investment_index.coverage');
+        if ($c) {
+            $t = $c['totals'];
+            $r->finding("{$t['projects']} genuine projects on file; {$t['legal_verified']} have a verified legal status, {$t['ranked']} are ranked, {$t['insufficient']} have insufficient verified data, {$t['excluded']} are excluded on legal grounds.");
+            $r->table('Per city', ['City', 'Projects', 'Legal verified', 'Operations verified', 'Price history', 'Rental data', 'Ranked'], collect($c['cities'])->map(fn ($x, $city) => [$city, $x['projects'], $x['legal_verified'], $x['operational_verified'], $x['history_verified'], $x['rental_verified'], $x['ranked']])->values()->all());
+            $r->table('Sources', ['Source', 'Collected automatically', 'Last success', 'Projects found'], collect($c['sources'])->map(fn ($s) => [$s['name'], $s['automatically_collected'] ? 'yes' : 'no', $s['last_success'] ?? 'never', $s['projects_found']])->all());
+            foreach ($c['limits'] as $limit) {
+                $r->limitation($limit);
+            }
+            $c['pending']['exceptions'] && $r->recommend("{$c['pending']['exceptions']} exceptions and {$c['possible_duplicates']} possible duplicates need a person: Admin → Investment Index.");
+            $t['ranked'] === 0 && $r->recommend('Nothing can rank on legal records alone: verified occupancy, rental, operational or inspection evidence is needed for at least 60% of a category\'s weight.');
+        }
+
+        return $r;
     }
 
     protected function coverage(AgentContext $ctx): Report

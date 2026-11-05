@@ -16,6 +16,7 @@ class FinanceManagerAgent extends Agent
             'reconcile' => ['reconcil', 'mismatch', 'refund analysis'],
             'ai_cost' => ['ai cost', 'ai usage', 'token', 'api cost'],
             'refund' => ['refund', 'transfer money', 'pay out', 'payout'],
+            'customer_payment' => [], // chosen only by the customer routes, never by keywords
         ];
     }
 
@@ -26,8 +27,24 @@ class FinanceManagerAgent extends Agent
             'reconcile' => $this->reconcile($ctx),
             'ai_cost' => $this->aiCost($ctx),
             'refund' => $this->refused($ctx),
+            'customer_payment' => $this->customerPayment($ctx),
             default => $this->revenue($ctx),
         };
+    }
+
+    /** A customer reports a payment problem. Reads no financial record, approves nothing, and passes it to staff. */
+    protected function customerPayment(AgentContext $ctx): Report
+    {
+        $r = new Report('Payment issue');
+        $r->verbatim = true;
+        $r->handoff = 'payment_issue';
+        $ticket = $this->ticketForCustomer($ctx, $r, 'payment', 'high', 'Payment issue from a customer');
+        $reference = $ticket ? " (reference {$ticket})" : '';
+        $r->finding($this->urdu($ctx->task->request)
+            ? "Main yahan payments check, tabdeel ya refund approve nahi kar sakta. Maine yeh hamari team ko bhej diya hai{$reference}; team ka koi member yahin jawab dega."
+            : "I can't check or change payments or approve refunds here. I've passed this to our team{$reference}, and a member of staff will reply here.");
+
+        return $r;
     }
 
     protected function revenue(AgentContext $ctx): Report

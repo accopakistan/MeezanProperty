@@ -128,7 +128,7 @@ it('shows every required fact on a project profile, with sources and ranking cha
 
 it('never shows a score for a project that is not ranked, and refuses demo, unpublished and out-of-scope projects', function () {
     $this->get(route('rankings.project', $this->excluded))->assertOk()->assertSee('Excluded from recommendations')->assertSee('Illegal schemes list')->assertSee('noindex', false);
-    $html = $this->get(route('rankings.project', $this->thin))->assertOk()->assertSee('Insufficient Verified Data')->assertSee('Not verified')->getContent();
+    $html = $this->get(route('rankings.project', $this->thin))->assertOk()->assertSee('Insufficient Verified Data')->assertSee('Unknown / Unverified')->getContent();
     expect($html)->not->toMatch('/Investment score<\/dt><dd[^>]*>\d/');
 
     $this->get(route('rankings.project', pgProject('Pages Demo Mall', 'shopping_mall', ['is_demo' => true])))->assertNotFound();
@@ -142,7 +142,8 @@ it('lists ranked pages in the sitemap and leaves out the rest', function () {
     expect($xml)->toContain(route('rankings.index'))->toContain(route('rankings.methodology'))->toContain(route('rankings.category', 'housing-societies'))
         ->toContain(route('rankings.category', 'shopping-malls'))->toContain(route('rankings.overall'))->toContain(route('rankings.project', $this->a))
         ->not->toContain(route('rankings.category', 'business-towers'))->not->toContain(route('rankings.project', $this->excluded))
-        ->not->toContain(route('rankings.project', $this->thin))->not->toContain('investment-rankings/lahore');
+        ->not->toContain(route('rankings.project', $this->thin))->toContain(route('rankings.city-category', ['lahore', 'housing-societies']))
+        ->not->toContain(route('rankings.city-category', ['lahore', 'business-towers']))->not->toContain('investment-rankings/lahore/commercial');
 });
 
 it('lets admins change weights only through a new version, which recalculates the Index and explains it', function () {

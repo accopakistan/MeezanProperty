@@ -29,7 +29,7 @@ class Registry
         if (in_array($entry->match_status, ['manual', 'rejected'], true)) {
             return $entry->match_status;
         }
-        $candidates ??= $this->candidates($entry->city);
+        $candidates ??= $this->candidates($entry->city, $entry->raw['_category'] ?? null);
         $auto = (float) config('investment_index.collection.match_auto');
         $review = (float) config('investment_index.collection.match_review');
 
@@ -39,6 +39,9 @@ class Registry
 
         if ($sure->count() === 1) {
             $entry->forceFill(['project_id' => $sure[0]['project']->id, 'match_status' => 'matched', 'match_score' => $sure[0]['score']])->save();
+            // A question asked before this project existed has its answer now.
+            InvestmentException::where('registry_entry_id', $entry->id)->where('type', 'ambiguous_match')->where('status', 'open')
+                ->update(['status' => 'resolved', 'resolved_at' => now(), 'resolution' => 'Matched automatically to '.$sure[0]['project']->name.'.']);
             $record && $this->record($entry);
 
             return 'matched';
@@ -96,10 +99,14 @@ class Registry
             return null;
         }
         $entry->loadMissing(['source', 'project']);
-        $type = $entry->list_type === 'illegal' ? 'illegal_listing' : 'approval';
+        $type = match (true) {
+            $entry->list_type === 'illegal' => 'illegal_listing',
+            $entry->status === 'cancelled' => 'cancellation',
+            default => 'approval',
+        };
         $record = new InvestmentLegalRecord([
             'project_id' => $entry->project_id, 'authority' => $entry->authority, 'record_type' => $type, 'status' => $entry->status,
-            'severity' => $type === 'illegal_listing' ? 'serious' : 'none',
+            'severity' => $type === 'approval' ? 'none' : 'serious',
             'reference' => mb_substr($entry->reference ?: $entry->authority.' list entry '.$entry->external_key, 0, 160),
             'title' => mb_substr($entry->scheme_name.($entry->list_type === 'authority_scheme' ? ' (developed by '.$entry->authority.')' : ''), 0, 250),
             'issued_on' => $entry->issued_on, 'source_id' => $entry->source_id, 'source_url' => $entry->source_url, 'collected_at' => $entry->last_seen_at,
@@ -107,7 +114,12 @@ class Registry
             'collector' => $entry->source?->collector, 'verification_method' => 'official_registry',
             'meta' => ['registry_entry_id' => $entry->id, 'raw_status' => $entry->raw_status, 'list_type' => $entry->list_type],
         ]);
-        $record->forceFill(['verification_status' => 'verified']);
+        // Lists read by eye from a scan wait for a person; the rest are copied exactly from the authority's own data.
+        $review = (bool) ($entry->raw['_review'] ?? false);
+        $record->forceFill(['verification_status' => $review ? 'unverified' : 'verified']);
+        if ($review) {
+            $record->verification_method = 'awaiting_staff_review';
+        }
         $fingerprint = (fn () => $this->fingerprintFor())->call($record);
         if (InvestmentLegalRecord::where('fingerprint', $fingerprint)->exists()) {
             return null;
@@ -126,9 +138,9 @@ class Registry
     }
 
     /** @return Collection<int, Project> real projects an official scheme list could describe */
-    protected function candidates(?string $city): Collection
+    protected function candidates(?string $city, ?string $category = null): Collection
     {
-        return Project::where('is_demo', false)->whereIn('category', self::SCHEME_CATEGORIES)
+        return Project::where('is_demo', false)->whereIn('category', $category ? [$category] : self::SCHEME_CATEGORIES)
             ->when($city, fn ($q) => $q->where('city', $city))->get(['id', 'name', 'city', 'category']);
     }
 }

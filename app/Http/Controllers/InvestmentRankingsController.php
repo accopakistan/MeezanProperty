@@ -6,6 +6,7 @@ use App\Services\Investment\AdvisorGateway;
 use App\Services\Investment\InvestmentAdvisor;
 use App\Services\Investment\InvestmentInsights;
 use App\Services\Investment\RankingBrowser;
+use App\Services\InvestmentIndex\IndexBrowser;
 use App\Support\Cities;
 use App\Support\PriceChart;
 use Illuminate\Http\JsonResponse;
@@ -17,11 +18,14 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * Investment Rankings: first a city, then a group (residential, commercial,
- * mixed use), then a property-type segment with its own table, map, charts,
- * comparison and AI advisor. Reads the published snapshot only (RankingBrowser);
- * a request with the X-Rankings-Partial header gets just the results block,
- * so tabs, sorting and pages update in place (links work without JavaScript).
+ * Investment Rankings dashboards: first a city, then a group (residential,
+ * commercial), then one of the five development categories with its own table,
+ * map, charts, comparison and AI advisor. Reads the published verified snapshot
+ * only (RankingBrowser), and shows each city's Meezan Investment Index results.
+ * Individual plots, houses, shops and offices stay in the marketplace: their
+ * former pages redirect to the city dashboard. A request with the
+ * X-Rankings-Partial header gets just the results block, so tabs, sorting and
+ * pages update in place (links work without JavaScript).
  */
 class InvestmentRankingsController extends Controller
 {
@@ -35,7 +39,7 @@ class InvestmentRankingsController extends Controller
         // The hero search form: go to the chosen city / category with the filters.
         if ($request->boolean('go')) {
             $city = in_array($request->query('city'), array_merge(['pakistan'], array_map([Cities::class, 'slug'], Cities::names())), true) ? $request->query('city') : 'pakistan';
-            $segment = RankingBrowser::segment((string) $request->query('segment')) ? $request->query('segment') : null;
+            $segment = RankingBrowser::publicSegment((string) $request->query('segment')) ? $request->query('segment') : null;
             $query = $f + array_filter(['period' => $request->query('period') !== '2y' ? $request->query('period') : null]);
 
             // All of Pakistan without a category: the landing page, or societies when filters were chosen.
@@ -47,12 +51,13 @@ class InvestmentRankingsController extends Controller
                 default => redirect()->route('rankings.city', [$city] + $query),
             };
         }
-        $featured = collect(['societies', 'plots', 'shopping-malls', 'commercial-plazas'])->mapWithKeys(fn ($s) => [$s => $this->browser->items($s, null, ['sort' => 'score'])
+        $featured = collect(array_keys(RankingBrowser::publicSegments()))->mapWithKeys(fn ($s) => [$s => $this->browser->publicItems($s, null, ['sort' => 'score'])
             ->filter(fn ($i) => in_array($i['status'], ['ranked', 'provisional'], true))->take(5)->values()]);
 
         return view('rankings.index', [
             'calc' => $this->browser->calculation(),
             'cities' => $this->browser->cities(),
+            'indexBoards' => $this->indexBoards(null),
             'overview' => $this->browser->overview(null),
             'featured' => $featured,
             'upcoming' => $this->browser->upcoming(null),
@@ -65,12 +70,15 @@ class InvestmentRankingsController extends Controller
     public function city(Request $request, string $city, InvestmentAdvisor $advisor): View|RedirectResponse
     {
         if ($city === 'pakistan') {
-            return redirect()->route('rankings.index');
+            return $this->index($request, $advisor);
         }
         $name = $this->cityOr404($city);
         $f = $this->filters($request);
-        $tab = $request->query('tab', 'all');
-        abort_unless(isset(RankingBrowser::SPECIAL_TABS[$tab]) || RankingBrowser::segment($tab), 404);
+        $tab = is_string($request->query('tab')) ? $request->query('tab') : 'all';
+        if (RankingBrowser::segment($tab) && ! RankingBrowser::publicSegment($tab)) {
+            return redirect()->route('rankings.city', $city, 301);
+        }
+        abort_unless(isset(RankingBrowser::SPECIAL_TABS[$tab]) || RankingBrowser::publicSegment($tab), 404);
 
         [$items, $segmentKey] = $this->tabItems($tab, $name, $f);
         $data = [
@@ -78,6 +86,7 @@ class InvestmentRankingsController extends Controller
             'city' => $name,
             'citySlug' => $city,
             'cities' => $this->browser->cities(),
+            'indexBoards' => $this->indexBoards($name),
             'overview' => $this->browser->overview($name),
             'tab' => $tab,
             'segmentKey' => $segmentKey,
@@ -92,19 +101,18 @@ class InvestmentRankingsController extends Controller
         return $request->hasHeader('X-Rankings-Partial') ? view('rankings.partials.city-results', $data) : view('rankings.city', $data);
     }
 
-    public function group(Request $request, string $city, string $group, InvestmentAdvisor $advisor): View
+    public function group(Request $request, string $city, string $group, InvestmentAdvisor $advisor): View|RedirectResponse
     {
         $name = $this->cityOr404($city);
-        $segments = RankingBrowser::segmentsIn($group);
-        abort_if($segments === [], 404);
-        // A group with one view (mixed use) is that view.
-        if (count($segments) === 1) {
-            return $this->segment($request, $city, $group, array_key_first($segments), $advisor);
+        $segments = RankingBrowser::publicSegmentsIn($group);
+        // Mixed use is outside the five development categories.
+        if ($segments === []) {
+            return redirect()->route('rankings.city', $city, 301);
         }
 
         $previews = collect($segments)->map(fn ($seg, $slug) => [
             'segment' => $seg,
-            'items' => $all = $this->browser->items($slug, $name, ['sort' => 'score']),
+            'items' => $all = $this->browser->publicItems($slug, $name, ['sort' => 'score']),
             'scored' => $all->filter(fn ($i) => in_array($i['status'], ['ranked', 'provisional'], true))->take(3)->values(),
         ]);
 
@@ -122,15 +130,18 @@ class InvestmentRankingsController extends Controller
         ]);
     }
 
-    public function segment(Request $request, string $city, string $group, string $segment, InvestmentAdvisor $advisor): View
+    public function segment(Request $request, string $city, string $group, string $segment, InvestmentAdvisor $advisor): View|RedirectResponse
     {
         $name = $this->cityOr404($city);
         $seg = RankingBrowser::segment($segment);
         abort_unless($seg && $seg['group'] === $group, 404);
+        if (! RankingBrowser::publicSegment($segment)) {
+            return redirect()->route('rankings.city', $city, 301);
+        }
         $f = $this->filters($request);
-        $items = $this->browser->items($segment, $name, $f);
+        $items = $this->browser->publicItems($segment, $name, $f);
         // Unfiltered list for the map, featured cards and the city counts.
-        $all = array_diff_key($f, ['sort' => 1, 'dir' => 1]) === [] ? $items : $this->browser->items($segment, $name, ['sort' => 'score']);
+        $all = array_diff_key($f, ['sort' => 1, 'dir' => 1]) === [] ? $items : $this->browser->publicItems($segment, $name, ['sort' => 'score']);
 
         $selected = $items->firstWhere('key', $request->query('selected'))
             ?? $all->firstWhere('key', $request->query('selected'))
@@ -145,6 +156,7 @@ class InvestmentRankingsController extends Controller
             'group' => $group,
             'segmentKey' => $segment,
             'seg' => $seg,
+            'indexCategory' => IndexBrowser::categoryForSegment($segment),
             'cities' => $this->browser->cities($segment),
             'items' => $this->paginate($items, $request),
             'total' => $items->count(),
@@ -171,14 +183,17 @@ class InvestmentRankingsController extends Controller
         return view('rankings.segment', $data);
     }
 
-    public function compare(Request $request, string $city, string $group, string $segment): View
+    public function compare(Request $request, string $city, string $group, string $segment): View|RedirectResponse
     {
         $name = $this->cityOr404($city);
         $seg = RankingBrowser::segment($segment);
         abort_unless($seg && $seg['group'] === $group, 404);
+        if (! RankingBrowser::publicSegment($segment)) {
+            return redirect()->route('rankings.city', $city, 301);
+        }
         $request->validate(['items' => ['nullable', 'array', 'max:4'], 'items.*' => ['string', 'regex:/^(area|project):\d+(:[a-z0-9-]+)?$/']]);
 
-        $all = $this->browser->items($segment, $name, ['sort' => 'score']);
+        $all = $this->browser->publicItems($segment, $name, ['sort' => 'score']);
         $keys = collect($request->query('items', []))->unique()->values();
         $rows = $keys->map(fn ($k) => $all->firstWhere('key', $k))->filter()->values();
 
@@ -251,19 +266,25 @@ class InvestmentRankingsController extends Controller
         ]), fn ($v) => $v !== null && $v !== '');
     }
 
+    /** The Meezan Investment Index top three of each category, for one city or all of Pakistan. */
+    protected function indexBoards(?string $city): array
+    {
+        return collect(IndexBrowser::categories())->map(fn ($c, $key) => $c + ['key' => $key, 'top' => app(IndexBrowser::class)->leaderboard($key, $city, 3), 'counts' => app(IndexBrowser::class)->counts($key, $city)])->all();
+    }
+
     /** City-page tab → items (and the segment its rows link into). */
     protected function tabItems(string $tab, string $city, array $f): array
     {
-        if (RankingBrowser::segment($tab)) {
-            return [$this->browser->items($tab, $city, $f), $tab];
+        if (RankingBrowser::publicSegment($tab)) {
+            return [$this->browser->publicItems($tab, $city, $f), $tab];
         }
-        $everything = fn () => collect(array_keys(RankingBrowser::segments()))->flatMap(fn ($s) => $this->browser->items($s, $city, $f)->map(fn ($i) => $i + ['segment' => $s]));
+        $everything = fn () => collect(array_keys(RankingBrowser::publicSegments()))->flatMap(fn ($s) => $this->browser->publicItems($s, $city, $f)->map(fn ($i) => $i + ['segment' => $s]));
 
         return match ($tab) {
             'highest-yield' => [$everything()->filter(fn ($i) => $i['yield'] !== null)->sortByDesc('yield')->unique('key')->values(), null],
             'fastest-growing' => [$everything()->filter(fn ($i) => ($i['row']?->metric('annualised')) !== null)->sortByDesc(fn ($i) => $i['row']->metric('annualised'))->unique('key')->values(), null],
             'new-upcoming' => [$everything()->filter(fn ($i) => in_array($i['stage'], ['upcoming', 'under_construction'], true) || ($i['row']?->metric('emerging')))->unique('key')->values(), null],
-            default => [$everything()->unique('key')->sortBy(fn ($i) => [['ranked' => 0, 'provisional' => 1, 'review' => 2, 'insufficient' => 3][$i['status']], -($i['score'] ?? 0), $i['name']])->values(), null],
+            default => [$everything()->unique('key')->sortBy(fn ($i) => [RankingBrowser::STATUS_ORDER[$i['status']], -($i['score'] ?? 0), $i['name']])->values(), null],
         };
     }
 

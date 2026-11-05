@@ -15,6 +15,13 @@ use Throwable;
  */
 class ToolRunner
 {
+    /**
+     * All a customer's message can ever reach, whichever agent it was routed
+     * to: public facts, their own account, and asking staff for help.
+     */
+    public const CUSTOMER_TOOLS = ['knowledge.search', 'properties.search', 'support.create_ticket', 'staff.create_task', 'dealer.self_summary',
+        'investment.rankings', 'investment.compare', 'investment.yield', 'investment.advisor', 'investment_index.leaderboard', 'investment_index.project'];
+
     public function __construct(protected ToolRegistry $registry) {}
 
     /** @return array{ok: bool, status: string, data: mixed, error: ?string} */
@@ -28,6 +35,7 @@ class ToolRunner
             $tool === null => $this->fail('invalid', "Unknown tool \"{$name}\"."),
             $tool->risk === 'prohibited' => $this->fail('prohibited', 'This action is prohibited for AI agents and needs separate human authorisation outside the AI system.'),
             ! $ctx->agent->canUse($name) => $this->fail('denied', "The {$ctx->agent->name} agent is not permitted to use \"{$name}\"."),
+            $ctx->forCustomer() && ! in_array($name, self::CUSTOMER_TOOLS, true) => $this->fail('denied', "\"{$name}\" is not available to customer messages."),
             $ctx->toolCalls >= $limits['max_tool_calls'] => $this->fail('limit', 'Tool-call limit for this task reached ('.$limits['max_tool_calls'].').'),
             $ctx->elapsed() > $limits['max_seconds'] => $this->fail('limit', 'Time limit for this task reached ('.$limits['max_seconds'].' s).'),
             default => null,

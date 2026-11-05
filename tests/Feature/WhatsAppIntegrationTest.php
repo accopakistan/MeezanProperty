@@ -368,7 +368,7 @@ it('applies delivery statuses from the provider only forwards, and records failu
     $status('read');
     $status('sent');
     expect($reply->fresh())->status->toBe('read')->delivered_at->not->toBeNull()->read_at->not->toBeNull()
-        ->and($reply->conversationMessage->fresh()->delivery_status)->toBe('sent');
+        ->and($reply->conversationMessage->fresh()->delivery_status)->toBe('read');
 
     $status('failed', ['errors' => [['code' => 131047, 'title' => 'Re-engagement message']]]);
     expect($reply->fresh())->status->toBe('failed')->last_error->toBe('131047 Re-engagement message');

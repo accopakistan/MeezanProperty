@@ -1,8 +1,12 @@
 <nav class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="Investment Index">
     @foreach ([
         ['Overview', 'admin.investment-index.overview', null],
+        ['Coverage', 'admin.investment-index.coverage', null],
+        ['Research queue', 'admin.investment-index.research', null],
+        ['Verification Centre', 'admin.investment-index.verification', \App\Models\InvestmentLegalRecord::where('verification_status', 'unverified')->count() + \App\Models\InvestmentEvidence::where('verification_status', 'unverified')->count()],
         ['Official sources', 'admin.investment-index.sources', null],
         ['Official registry', 'admin.investment-index.registry', null],
+        ['Data validation', 'admin.investment-index.validation', null],
         ['Exceptions', 'admin.investment-index.exceptions', \App\Models\InvestmentException::where('status', 'open')->count()],
         ['Owner documents', 'admin.investment-index.submissions', \App\Models\InvestmentEvidenceSubmission::where('status', 'pending')->count()],
         ['Methodology', 'admin.investment-index.methodology', null],

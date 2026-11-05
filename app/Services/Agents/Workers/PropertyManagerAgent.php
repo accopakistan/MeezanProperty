@@ -13,11 +13,26 @@ class PropertyManagerAgent extends Agent
         return [
             'inventory' => ['inventory', 'listings report', 'property report', 'distribution', 'how many listings', 'listing growth'],
             'incomplete' => ['incomplete', 'missing information', 'missing fields', 'completeness', 'improve listing'],
+            'project_duplicates' => ['duplicate project', 'project duplicate', 'project record'],
             'duplicates' => ['duplicate', 'same listing', 'copied'],
             'anomalies' => ['anomal', 'price check', 'overpriced', 'underpriced', 'unusual price'],
             'stale' => ['outdated', 'stale', 'expiring', 'old listing', 'pending review', 'waiting for review'],
             'review' => ['review new listing', 'new listing', 'submitted listing', 'moderation'],
+            'customer_listing' => [], // chosen only by the customer routes, never by keywords
         ];
+    }
+
+    /** Investment project records that may be the same development. Merging stays a person's decision. */
+    protected function projectDuplicates(AgentContext $ctx): Report
+    {
+        $r = new Report('Project record quality');
+        $c = $this->need($ctx, $r, 'investment_index.coverage');
+        if ($c) {
+            $r->finding("{$c['possible_duplicates']} possible duplicate project records and {$c['pending']['exceptions']} open data exceptions.");
+            $c['possible_duplicates'] && $r->recommend('Review them in Admin → Investment Index → Coverage. They are never merged automatically.');
+        }
+
+        return $r;
     }
 
     public function handle(AgentContext $ctx, string $intent): Report
@@ -26,12 +41,27 @@ class PropertyManagerAgent extends Agent
 
         return match ($intent) {
             'incomplete' => $this->incomplete($ctx, $city),
+            'project_duplicates' => $this->projectDuplicates($ctx),
             'duplicates' => $this->duplicates($ctx, $city),
             'anomalies' => $this->anomalies($ctx, $city),
             'stale' => $this->stale($ctx, $city),
             'review' => $this->review($ctx),
+            'customer_listing' => $this->customerListing($ctx),
             default => $this->inventory($ctx, $city),
         };
+    }
+
+    /** A customer asks how listings work. Public information only. */
+    protected function customerListing(AgentContext $ctx): Report
+    {
+        $r = new Report('Listing your property');
+        $r->verbatim = true;
+        $this->publicAnswer($ctx, $r, 'list property listing review process', $this->urdu($ctx->task->request)
+            ? 'Aap apni property website par list kar sakte hain. Har listing live hone se pehle review hoti hai.'
+            : 'You can list your property on our website. Every listing is reviewed before it goes live.');
+        $r->finding('Start here: '.route('sell'));
+
+        return $r;
     }
 
     protected function inventory(AgentContext $ctx, ?string $city): Report

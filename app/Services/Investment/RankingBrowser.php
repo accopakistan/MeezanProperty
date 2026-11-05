@@ -5,11 +5,13 @@ namespace App\Services\Investment;
 use App\Enums\PropertyType;
 use App\Models\Area;
 use App\Models\InvestmentCalculation;
+use App\Models\InvestmentIndexRun;
 use App\Models\InvestmentRanking;
 use App\Models\MarketIndicator;
 use App\Models\MarketObservation;
 use App\Models\Project;
 use App\Models\Property;
+use App\Services\InvestmentIndex\IndexBrowser;
 use App\Support\Cities;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -18,17 +20,24 @@ use Illuminate\Support\Collection;
  * Read side of Investment Rankings (city → group → segment). Everything
  * comes from the published ranking snapshot and the live tables: counts are
  * real counts, and published projects with no verified market data are
- * listed as "Insufficient Data" instead of being scored or left out.
+ * listed as "Insufficient Verified Data" instead of being scored or left out.
  *
  * Display status (no new scoring, only how a snapshot row is labelled):
  *   ranked        scored with medium or high data confidence
  *   provisional   scored, but on limited data
  *   review        not scored; market records are waiting for review
  *   insufficient  not enough verified data to score
+ *   excluded      the Investment Index excluded the project on legal grounds
+ *
+ * The public dashboards use publicSegments() and publicItems(): the five
+ * development categories only. The other segments stay in the engine and its
+ * history, for the AI tools and the admin.
  */
 class RankingBrowser
 {
-    public const STATUS_LABELS = ['ranked' => 'Ranked', 'provisional' => 'Provisional', 'review' => 'Under Review', 'insufficient' => 'Insufficient Data'];
+    public const STATUS_LABELS = ['ranked' => 'Ranked', 'provisional' => 'Provisional', 'review' => 'Under Review', 'insufficient' => 'Insufficient Verified Data', 'excluded' => 'Excluded: legal issue'];
+
+    public const STATUS_ORDER = ['ranked' => 0, 'provisional' => 1, 'review' => 2, 'insufficient' => 3, 'excluded' => 4];
 
     public const PROJECT_STAGES = ['completed' => 'Operational', 'under_construction' => 'Under Construction', 'upcoming' => 'Upcoming'];
 
@@ -38,6 +47,9 @@ class RankingBrowser
     protected ?InvestmentCalculation $calc = null;
 
     protected bool $loaded = false;
+
+    /** @var array<int, int>|null project ids the published Investment Index excluded */
+    protected ?array $excluded = null;
 
     public function calculation(): ?InvestmentCalculation
     {
@@ -68,6 +80,29 @@ class RankingBrowser
         return array_filter(static::segments(), fn ($s) => $s['group'] === $group);
     }
 
+    /** @return array<string, array> the segments that are development categories of the Investment Index */
+    public static function publicSegments(): array
+    {
+        return array_filter(static::segments(), fn ($slug) => IndexBrowser::categoryForSegment($slug) !== null, ARRAY_FILTER_USE_KEY);
+    }
+
+    public static function publicSegment(string $slug): ?array
+    {
+        return static::publicSegments()[$slug] ?? null;
+    }
+
+    /** @return array<string, array> public segments of one group */
+    public static function publicSegmentsIn(string $group): array
+    {
+        return array_filter(static::publicSegments(), fn ($s) => $s['group'] === $group);
+    }
+
+    /** @return array<string, array> groups with at least one public segment */
+    public static function publicGroups(): array
+    {
+        return array_filter(config('meezan.investment.groups'), fn ($slug) => static::publicSegmentsIn($slug) !== [], ARRAY_FILTER_USE_KEY);
+    }
+
     /** "lahore" → "Lahore", "pakistan" → null (all cities); false when unknown. */
     public static function cityFromSlug(string $slug): string|false|null
     {
@@ -93,10 +128,10 @@ class RankingBrowser
         return collect(static::segments())->when($group, fn ($c) => $c->where('group', $group))->pluck('project_types')->flatten()->unique()->values()->all();
     }
 
-    /** Published projects; demo projects only while demo mode is on. */
+    /** Published projects; demo projects only in an administrator's preview. */
     public function projects(): Builder
     {
-        return Project::published()->when(! InvestmentCalculation::demoMode(), fn ($q) => $q->where('is_demo', false));
+        return Project::published()->when(! InvestmentCalculation::demoVisible(), fn ($q) => $q->where('is_demo', false));
     }
 
     /** True when the snapshot on show contains demonstration data. */
@@ -142,7 +177,8 @@ class RankingBrowser
         $projects = $this->projects()->when($city, fn ($q) => $q->where('city', $city))->toBase()->selectRaw('category, count(*) as n')->groupBy('category')->pluck('n', 'category');
         $projectCount = fn (array $cats) => (int) collect($cats)->sum(fn ($c) => $projects[$c] ?? 0);
 
-        $rows = $this->snapshotRows($city, 'overall');
+        $excluded = $this->excludedProjects();
+        $rows = $this->snapshotRows($city, 'overall')->reject(fn ($r) => $r->entity_type === 'project' && isset($excluded[$r->entity_id]));
 
         return [
             'listings' => (int) $byType->sum(),
@@ -189,25 +225,68 @@ class RankingBrowser
      */
     public function items(string $segment, ?string $city, array $filters = []): Collection
     {
+        return $this->build($segment, $city, $filters, false);
+    }
+
+    /**
+     * What the public dashboards show: developments of the five Index categories
+     * only, never an area-level unit view, with legally excluded projects marked
+     * and not scored.
+     *
+     * @return Collection<int, array>
+     */
+    public function publicItems(string $segment, ?string $city, array $filters = []): Collection
+    {
+        return $this->build($segment, $city, $filters, true);
+    }
+
+    protected function build(string $segment, ?string $city, array $filters, bool $public): Collection
+    {
         $seg = static::segment($segment);
+        if ($public) {
+            $seg['project_types'] = array_values(array_intersect($seg['project_types'], config('investment_index.categories.'.IndexBrowser::categoryForSegment($segment).'.project_categories')));
+        }
         $rows = $this->snapshotRows($city, segment: $segment);
         $projects = $this->projects()->with('area:id,name,city,latitude,longitude')
             ->when($city, fn ($q) => $q->where('city', $city))
             ->where(fn ($q) => $q->whereIn('category', $seg['project_types'] ?: ['__none__'])->orWhereIn('id', $rows->where('entity_type', 'project')->pluck('entity_id')))
             ->get()->keyBy('id');
+        if ($public) {
+            $rows = $rows->filter(fn (InvestmentRanking $r) => $r->entity_type === 'project'
+                ? in_array($projects->get($r->entity_id)?->category, $seg['project_types'], true)
+                : $segment === 'societies');
+        }
         $areas = Area::whereIn('id', $rows->where('entity_type', 'area')->pluck('entity_id'))->get(['id', 'name', 'city', 'type', 'latitude', 'longitude', 'parent_id'])->keyBy('id');
 
         $items = $rows->map(fn (InvestmentRanking $r) => $this->item($r, $r->entity_type === 'project' ? $projects->get($r->entity_id) : null, $r->entity_type === 'area' ? $areas->get($r->entity_id) : null, $seg));
 
         // Projects in this segment without verified data: listed, never scored.
-        if (empty($seg['group_by'])) {
+        if (empty($seg['group_by']) || $public) {
             $withRow = $rows->where('entity_type', 'project')->pluck('entity_id')->all();
             $pending = $this->pendingProjects();
             $items = $items->concat($projects->filter(fn ($p) => in_array($p->category, $seg['project_types'], true) && ! in_array($p->id, $withRow, true))
                 ->map(fn (Project $p) => $this->item(null, $p, null, $seg, isset($pending[$p->id]))));
         }
 
+        if ($public) {
+            $excluded = $this->excludedProjects();
+            $items = $items->map(fn (array $i) => isset($excluded[$i['project']?->id]) ? $this->excludedItem($i['project'], $seg) : $i)->unique('key');
+        }
+
         return $this->filter($items, $filters, $seg)->values();
+    }
+
+    /** @return array<int, int> project ids the published Investment Index excluded, as keys */
+    protected function excludedProjects(): array
+    {
+        return $this->excluded ??= InvestmentIndexRun::latestPublished()?->scores()->where('status', 'excluded')->pluck('project_id')->flip()->all() ?? [];
+    }
+
+    /** A legally excluded project: named, with no score or figures. */
+    protected function excludedItem(Project $project, array $seg): array
+    {
+        return ['status' => 'excluded', 'status_label' => self::STATUS_LABELS['excluded'], 'reason' => 'Excluded from recommendations by the Meezan Investment Index: see its project profile.']
+            + $this->item(null, $project, null, $seg);
     }
 
     /** One table / card entry. */
@@ -285,7 +364,7 @@ class RankingBrowser
             default => $i['score'],
         };
         $desc = ($f['dir'] ?? ($sort === 'name' || $sort === 'price' ? 'asc' : 'desc')) === 'desc';
-        $order = ['ranked' => 0, 'provisional' => 1, 'review' => 2, 'insufficient' => 3];
+        $order = self::STATUS_ORDER;
 
         // Entries without the value go last whatever the direction; then status, then name.
         return $items->sort(function ($a, $b) use ($value, $desc, $order) {

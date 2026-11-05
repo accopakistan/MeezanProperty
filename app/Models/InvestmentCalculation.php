@@ -31,10 +31,10 @@ class InvestmentCalculation extends Model
 
     public static function current(): ?self
     {
-        // Demo mode prefers the demo snapshot (which also contains any real verified data);
-        // otherwise only a snapshot built from real verified data is shown.
+        // An administrator's demo preview prefers the demo snapshot (which also contains any real
+        // verified data); everyone else only ever gets a snapshot built from real verified data.
         return static::where('status', 'published')
-            ->when(static::demoMode(), fn ($q) => $q->orderByDesc('includes_demo'), fn ($q) => $q->where('includes_demo', false))
+            ->when(static::demoVisible(), fn ($q) => $q->orderByDesc('includes_demo'), fn ($q) => $q->where('includes_demo', false))
             ->latest('published_at')->latest('id')->first();
     }
 
@@ -44,6 +44,12 @@ class InvestmentCalculation extends Model
         $override = AppSetting::get('investment.demo_mode');
 
         return $override === null ? (bool) config('meezan.investment.demo_mode') : (bool) $override;
+    }
+
+    /** Demo data is an internal preview: demo mode on, and a signed-in administrator looking. */
+    public static function demoVisible(): bool
+    {
+        return static::demoMode() && (bool) auth()->user()?->isAdmin();
     }
 
     public function methodology(): BelongsTo

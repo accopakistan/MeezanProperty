@@ -101,6 +101,9 @@ class ProjectAssessor
             'reasons' => array_values(array_merge($reasons, array_map(fn ($r) => 'Confidence: '.$r, $confidence['reasons']))),
             'risks' => $risk['risks'],
             'source_ids' => $used->pluck('source')->filter()->pluck('id')->unique()->sort()->values()->all(),
+            // For the engine's research state only; never stored as these names.
+            '_computed_score' => $score,
+            '_scored_factors' => $scored,
         ];
     }
 

@@ -11,7 +11,7 @@ use Carbon\CarbonInterface;
  */
 class OfficialStatus
 {
-    /** @return ?string approved | partially_approved | illegal, or null when not recognised */
+    /** @return ?string approved | partially_approved | pending | cancelled | illegal, or null when not recognised */
     public static function for(string $listType, ?string $raw, ?string $stages = null): ?string
     {
         if ($listType === 'illegal') {
@@ -19,6 +19,9 @@ class OfficialStatus
         }
         if ($listType === 'authority_scheme') {
             return 'approved';
+        }
+        if ($stages === 'cda') {
+            return static::cda((string) $raw);
         }
         if ($stages !== 'lda') {
             return 'approved'; // a list of approved schemes without stage wording
@@ -35,6 +38,24 @@ class OfficialStatus
             (bool) preg_match('/\bfina?n?l|\bfinally|\bfianl/', $s) => 'approved',
             (bool) preg_match('/technical/', $s) => 'partially_approved',
             (bool) preg_match('/\bap+(r|e)?o+v|\bapprov/', $s) => 'approved',
+            default => null,
+        };
+    }
+
+    /**
+     * CDA's two steps, "LOP: Approved / NOC: Issued": a layout plan, then a
+     * No Objection Certificate. Anything cancelled is cancelled; a layout plan
+     * alone is only partial, and only an issued NOC is approval.
+     */
+    protected static function cda(string $raw): ?string
+    {
+        $s = mb_strtolower($raw);
+
+        return match (true) {
+            str_contains($s, 'cancel') => 'cancelled',
+            (bool) preg_match('/noc:\s*(issued|approved)/', $s) => 'approved',
+            str_contains($s, 'provisional') => 'pending',
+            (bool) preg_match('/lop:\s*approved/', $s) => 'partially_approved',
             default => null,
         };
     }

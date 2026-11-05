@@ -31,7 +31,9 @@
                             <p class="whitespace-pre-line" dir="auto">{{ $m->body ?? '['.$m->type.' message]' }}</p>
                             <p @class(['mt-1 text-[11px]', 'text-white/70' => $assistant, 'text-muted' => ! $assistant])>
                                 {{ $m->created_at->format('j M, g:i a') }}
+                                @if ($m->author() === 'staff') · Staff{{ $m->staff ? ' ('.$m->staff->name.')' : '' }} @elseif ($m->author() === 'ai' && $conversation->channel === 'whatsapp') · AI{{ $m->agent_slug ? ' ('.\App\Services\Agents\AgentCatalog::name($m->agent_slug).')' : '' }} @endif
                                 @if ($m->intent) · {{ str_replace('_', ' ', $m->intent) }} @endif
+                                @if ($assistant && $conversation->channel === 'whatsapp' && isset($outbound[$m->id])) · {{ $outbound[$m->id]->deliveryLabel() }} @endif
                                 @if ($assistant && $conversation->channel === 'whatsapp') · {{ $m->delivery_status === 'not_sent' ? 'not sent (blocked by policy or sending disabled)' : ($m->delivery_status ?? 'not sent') }} @endif
                                 @if (! $assistant && $m->processing_status && $m->processing_status !== 'processed') · {{ ['held' => 'held (auto-reply off)', 'rate_limited' => 'not answered (too many messages)', 'duplicate' => 'not answered (repeat)', 'skipped' => 'for staff', 'failed' => 'processing failed', 'queued' => 'waiting for queue', 'processing' => 'processing'][$m->processing_status] ?? $m->processing_status }} @endif
                             </p>
@@ -65,6 +67,48 @@
                     <p class="font-semibold">Escalated {{ $conversation->escalated_at->diffForHumans() }}</p>
                     <p class="text-[13px]">{{ \App\Notifications\AssistantNeedsAttention::REASONS[$conversation->escalation_reason] ?? $conversation->escalation_reason }}</p>
                 </div>
+            @endif
+            @if ($conversation->channel === 'whatsapp')
+                <section class="card card-body text-sm" aria-labelledby="handoff-title">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 id="handoff-title" class="text-base font-bold">Human handoff</h2>
+                        <x-status-badge :tone="$conversation->hasOpenHandoff() ? 'warning' : 'neutral'" :label="\App\Models\Conversation::HANDOFF_STATUSES[$conversation->handoff_status] ?? 'None'" />
+                    </div>
+                    <dl class="mt-3 space-y-1.5">
+                        <div class="flex justify-between gap-3"><dt class="text-muted">Who answers now</dt><dd class="text-right font-medium">{{ $conversation->mode === 'bot' ? 'AI' : ($conversation->mode === 'human' ? 'Staff' : 'Nobody (closed)') }}</dd></div>
+                        @if ($conversation->assigned_agent)<div class="flex justify-between gap-3"><dt class="text-muted">Last AI agent</dt><dd class="text-right font-medium">{{ \App\Services\Agents\AgentCatalog::name($conversation->assigned_agent) }}</dd></div>@endif
+                        @if ($conversation->assignee)<div class="flex justify-between gap-3"><dt class="text-muted">Assigned to</dt><dd class="text-right font-medium">{{ $conversation->assignee->name }}</dd></div>@endif
+                        @if ($conversation->handoff_reason)<div class="flex justify-between gap-3"><dt class="text-muted">Reason</dt><dd class="text-right font-medium">{{ \App\Notifications\AssistantNeedsAttention::REASONS[$conversation->handoff_reason] ?? str_replace('_', ' ', $conversation->handoff_reason) }}</dd></div>@endif
+                        @if ($conversation->handoff_requested_at)<div class="flex justify-between gap-3"><dt class="text-muted">Requested</dt><dd class="text-right">{{ $conversation->handoff_requested_at->format('j M, g:i a') }}</dd></div>@endif
+                        @if ($conversation->handoff_resolved_at)<div class="flex justify-between gap-3"><dt class="text-muted">Resolved</dt><dd class="text-right">{{ $conversation->handoff_resolved_at->format('j M, g:i a') }}</dd></div>@endif
+                    </dl>
+                    <form method="POST" action="{{ route('admin.conversations.handoff', $conversation) }}" class="mt-4 flex items-end gap-2">
+                        @csrf <input type="hidden" name="action" value="assign">
+                        <span class="flex-1">
+                            <label for="handoff-staff" class="label">Assign to</label>
+                            <select id="handoff-staff" name="staff_id" class="input py-2 text-sm">
+                                @foreach ($staff as $person)<option value="{{ $person->id }}" @selected($conversation->assigned_to === $person->id)>{{ $person->name }}</option>@endforeach
+                            </select>
+                        </span>
+                        <button class="btn btn-secondary btn-sm">Assign</button>
+                    </form>
+                    @if ($conversation->hasOpenHandoff())
+                        <form method="POST" action="{{ route('admin.conversations.handoff', $conversation) }}" class="mt-3 flex flex-wrap gap-2">
+                            @csrf
+                            <button name="action" value="resolve" class="btn btn-secondary btn-sm">Resolve</button>
+                            <button name="action" value="resume" class="btn btn-primary btn-sm">Resolve and resume AI</button>
+                        </form>
+                    @endif
+                </section>
+                <section class="card card-body text-sm" aria-labelledby="note-title">
+                    <h2 id="note-title" class="text-base font-bold">Internal note</h2>
+                    <p class="mt-1 text-xs text-muted">Staff only. Never sent to the customer.</p>
+                    <form method="POST" action="{{ route('admin.conversations.note', $conversation) }}" class="mt-2 space-y-2">
+                        @csrf @method('PATCH')
+                        <textarea name="internal_note" rows="3" maxlength="2000" class="input" aria-label="Internal note">{{ old('internal_note', $conversation->internal_note) }}</textarea>
+                        <button class="btn btn-secondary btn-sm">Save note</button>
+                    </form>
+                </section>
             @endif
             <section class="card card-body">
                 <h2 class="text-base font-bold">What the assistant understood</h2>

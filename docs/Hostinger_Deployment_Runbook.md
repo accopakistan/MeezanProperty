@@ -84,9 +84,25 @@ MEEZAN_REQUIRE_EMAIL_VERIFICATION=true   # only after a test email has arrived
 MEEZAN_CSP_ENABLED=true
 MEEZAN_MAP_TILE_URL=…                    # production tile provider
 MEEZAN_OVERPASS_URL=…                    # or MEEZAN_NEARBY_ENABLED=false
-TRUSTED_PROXIES=                         # "*" only if the site sits behind Cloudflare
+TRUSTED_PROXIES=                         # empty unless a proxy is confirmed; see below
 # Optional, when ready: WHATSAPP_*, MEEZAN_AI_DRIVER=llm + OPENAI_API_KEY
 ```
+
+**`APP_URL` decides which hosts the site answers.** Only its host and the `www` form of that host are accepted, and any other `Host` gets a plain `400 Bad Request`. This protects password-reset links from a faked `Host`. So:
+- set `APP_URL` to the address visitors use. A temporary Hostinger domain needs its own `APP_URL` while you use it, or every page returns 400
+- any other domain pointed at the site must redirect at the server or CDN before it reaches Laravel
+- point uptime monitors at the domain, not the server's IP address
+- run `php artisan optimize` after changing `APP_URL`
+
+**`TRUSTED_PROXIES`: don't use `*`.** It trusts whichever address connects, so anyone who reaches the server directly can fake their IP, which the inquiry and registration limits rely on. Cloudflare alone doesn't stop this: a server's address can be found, and on shared hosting you can't firewall it to accept only Cloudflare. Choose as follows:
+
+| Setup | Setting |
+|---|---|
+| No proxy in front of the site (check first, section 5) | leave empty |
+| Behind Cloudflare | Cloudflare's published ranges, comma-separated, from cloudflare.com/ips. They change occasionally, so recheck them now and then |
+| Behind another proxy or Hostinger's CDN | that provider's published addresses. Use `*` only if the provider confirms the server can't be reached except through it |
+
+Whatever the setting, the app takes only the client IP and HTTPS from a proxy. It ignores `X-Forwarded-Host`, `-Port` and `-Prefix`, so links always use the real `Host`. A proxy must therefore pass the original `Host` through; Cloudflare does.
 
 ---
 
@@ -123,6 +139,21 @@ Then check in a browser:
 3. Dealer: create a draft with a photo and a pin; the photo appears as WebP.
 4. Admin: settings page shows 0 queued or failed emails.
 5. The response headers include `Content-Security-Policy` and `Strict-Transport-Security`.
+
+Then run the host checks from your own computer. **None of these has been run on Hostinger yet**, so don't skip them. Replace `SERVER_IP` with the address from hPanel:
+
+```bash
+curl -sI https://meezanproperty.com/ | grep -iE '^(HTTP|server|cf-ray|x-hcdn|x-cache|via)'
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: evil.example' https://meezanproperty.com/
+curl -s -H 'X-Forwarded-Host: evil.example' https://meezanproperty.com/ | grep -c 'evil.example'
+curl -sk -o /dev/null -w '%{http_code}\n' -H 'Host: evil.example' https://SERVER_IP/
+```
+
+1. **Is there a proxy?** A header such as `cf-ray`, `x-hcdn-*` or `via` in the first result means a proxy is in front. Set `TRUSTED_PROXIES` as in section 3.
+2. **Foreign host:** the second and fourth should print `400`, or another code if Hostinger or the CDN refuses first. They must never print `200`.
+3. **Forwarded host:** the third should print `0`.
+4. **HTTPS:** view the source of the home page. The canonical tag must start with `https://`. If it shows `http://` behind a proxy, `TRUSTED_PROXIES` is wrong or empty.
+5. **Reset link:** request a password reset and check that the email's link is on `https://meezanproperty.com`.
 
 ---
 

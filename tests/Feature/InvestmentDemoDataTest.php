@@ -98,7 +98,9 @@ it('ranks demo data with the normal engine in its own snapshot that never replac
         ->and(InvestmentRanking::where('calculation_id', $demo->id)->where('is_demo', true)->count())->toBeGreaterThan(0)
         ->and(InvestmentRanking::where('calculation_id', $demo->id)->where('entity_name', 'Real Fixture Mall')->where('is_demo', false)->exists())->toBeTrue();
 
-    // Demo mode on → the demo snapshot; off → only the real one.
+    // Demo mode on: public visitors still get the real one; an admin previews the demo snapshot.
+    expect(InvestmentCalculation::current()->id)->toBe($real->id);
+    $this->actingAs($admin);
     expect(InvestmentCalculation::current()->id)->toBe($demo->id);
     AppSetting::put('investment.demo_mode', false);
     expect(InvestmentCalculation::current()->id)->toBe($real->id);
@@ -106,6 +108,7 @@ it('ranks demo data with the normal engine in its own snapshot that never replac
 
 it('fills every property type with scored entries for a city', function () {
     demoSeed(1.0);
+    $this->actingAs(User::factory()->admin()->create());
     $browser = app(RankingBrowser::class);
 
     foreach (array_keys(RankingBrowser::segments()) as $segment) {
@@ -123,11 +126,9 @@ it('discloses demo data where it is previewed, and never puts it in the Investme
     demoSeed();
     $notice = config('meezan.investment.demo_notice');
 
-    // The Investment Insights preview still discloses it and stays out of search engines.
-    $this->get(route('investment.index'))->assertOk()->assertSee('DEMO DATA', false)->assertSee('Illustrative figures for platform preview only', false)->assertSee('noindex', false);
-
-    // The Investment Index (the public rankings) never reads demo records, even with demo mode on.
-    foreach ([route('rankings.index'), route('rankings.category', 'shopping-malls'), route('rankings.overall')] as $url) {
+    // Public visitors never see it, even with demo mode on, on the Index or the dashboards.
+    $this->get(route('investment.index'))->assertOk()->assertDontSee('DEMO DATA');
+    foreach ([route('rankings.index'), route('rankings.category', 'shopping-malls'), route('rankings.overall'), route('rankings.city', 'lahore'), route('rankings.segment', ['lahore', 'commercial', 'shopping-malls'])] as $url) {
         $page = $this->get($url)->assertOk()->assertDontSee('DEMO DATA')->assertSee('Insufficient Verified Data');
         foreach (Project::where('is_demo', true)->where('category', 'shopping_mall')->limit(5)->pluck('name') as $name) {
             $page->assertDontSee($name);
@@ -136,6 +137,13 @@ it('discloses demo data where it is previewed, and never puts it in the Investme
     $demo = Project::where('is_demo', true)->first();
     $this->get(route('rankings.project', $demo))->assertNotFound();
     expect($this->get(route('sitemap.show', 'pages'))->getContent())->not->toContain('investment-rankings/lahore/commercial');
+
+    // An admin's preview discloses it and stays out of search engines; the Index stays free of it.
+    $this->actingAs(User::factory()->admin()->create());
+    $this->get(route('investment.index'))->assertOk()->assertSee('DEMO DATA', false)->assertSee('Illustrative figures for platform preview only', false)->assertSee('noindex', false);
+    $this->get(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->assertOk()->assertSee('DEMO DATA', false)->assertSee('noindex', false);
+    $this->get(route('rankings.index'))->assertOk()->assertDontSee('DEMO DATA');
+    $this->get(route('rankings.project', $demo))->assertNotFound();
 });
 
 it('hides demo data when demo mode is off and says there is not enough verified data', function () {
@@ -149,6 +157,7 @@ it('hides demo data when demo mode is off and says there is not enough verified 
 
 it('answers advisor questions through the Investment Analyst agent and discloses demo data', function () {
     demoSeed();
+    $this->actingAs(User::factory()->admin()->create());
 
     $a = app(AdvisorGateway::class)->ask('Which shopping mall is best for investment in Lahore?', null, null, null, null);
     $task = AiTask::where('uuid', $a['task'])->sole();
@@ -168,6 +177,10 @@ it('answers advisor questions through the Investment Analyst agent and discloses
 
 it('routes chat investment questions to the advisor workflow', function () {
     demoSeed();
+    // Public visitors get the verified answer, never the demo data.
+    $this->postJson(route('ai-finder.match'), ['message' => 'Where should I invest in Lahore?'])->assertOk()
+        ->assertJsonPath('intent', 'agent_investment_analyst')->assertJsonPath('reply', fn ($r) => ! str_contains($r, 'DEMO DATA'));
+    $this->actingAs(User::factory()->admin()->create());
     $this->postJson(route('ai-finder.match'), ['message' => 'Where should I invest in Lahore?'])->assertOk()
         ->assertJsonPath('intent', 'agent_investment_analyst')->assertJsonPath('reply', fn ($r) => str_contains($r, 'DEMO DATA'));
     expect(AiTask::latest('id')->first()->intent)->toBe('advisor');

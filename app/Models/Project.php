@@ -6,6 +6,7 @@ use App\Support\Format;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /** A new housing scheme or development, curated by Meezan Property staff. */
@@ -15,6 +16,8 @@ class Project extends Model
         'upcoming' => 'Upcoming',
         'under_construction' => 'Under construction',
         'completed' => 'Completed',
+        // No source has stated the project's development status.
+        'unverified' => 'Status not verified',
     ];
 
     protected $fillable = ['name', 'developer', 'category', 'city', 'area_id', 'latitude', 'longitude', 'status', 'launched_on', 'min_price', 'max_price',
@@ -23,7 +26,7 @@ class Project extends Model
     protected function casts(): array
     {
         return ['is_published' => 'boolean', 'is_demo' => 'boolean', 'is_featured' => 'boolean', 'min_price' => 'integer', 'max_price' => 'integer', 'launched_on' => 'date',
-            'specifications' => 'array', 'gallery' => 'array', 'latitude' => 'float', 'longitude' => 'float'];
+            'specifications' => 'array', 'research_facts' => 'array', 'gallery' => 'array', 'latitude' => 'float', 'longitude' => 'float', 'discovered_at' => 'datetime'];
     }
 
     protected static function booted(): void
@@ -44,6 +47,26 @@ class Project extends Model
     public function getRouteKeyName(): string
     {
         return 'slug';
+    }
+
+    public function legalRecords(): HasMany
+    {
+        return $this->hasMany(InvestmentLegalRecord::class);
+    }
+
+    public function evidence(): HasMany
+    {
+        return $this->hasMany(InvestmentEvidence::class);
+    }
+
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(ProjectAlias::class);
+    }
+
+    public function discoverySource(): BelongsTo
+    {
+        return $this->belongsTo(MarketSource::class, 'discovery_source_id');
     }
 
     public function area(): BelongsTo

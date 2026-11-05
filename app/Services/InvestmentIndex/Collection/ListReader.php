@@ -12,6 +12,8 @@ use DOMXPath;
  *  inertia     the page data an Inertia site embeds as JSON in data-page;
  *              follows the paginator's pages up to max_pages
  *  html_table  a table on the page; columns are matched by header text
+ *  cards       one page of "society-card" blocks: name, location line, status badges
+ *  list_items  one page of list items whose text is "Name, Location"
  *
  * "complete" is true only when every page was read.
  */
@@ -23,6 +25,8 @@ class ListReader
         return match ($preset['driver']) {
             'inertia' => $this->inertia($preset, $fetcher),
             'html_table' => $this->htmlTable($preset, $fetcher),
+            'cards' => $this->cards($preset, $fetcher),
+            'list_items' => $this->listItems($preset, $fetcher),
             default => throw new CollectionError('format', 'Unknown collector driver '.$preset['driver'].'.'),
         };
     }
@@ -97,6 +101,46 @@ class ListReader
             }
             $row['key'] ??= hash('sha256', mb_strtolower(($row['name'] ?? '').'|'.($row['location'] ?? '')));
             $entries[] = $this->entry($row, ['fields' => array_combine(array_keys($row), array_keys($row))] + $preset, $preset['url']);
+        }
+
+        return ['entries' => array_values(array_filter($entries)), 'complete' => true, 'hash' => hash('sha256', $html)];
+    }
+
+    protected function cards(array $preset, Fetcher $fetcher): array
+    {
+        $html = $fetcher->get($preset['url']);
+        $blocks = array_slice(preg_split('/society-card/', $html), 1);
+        if ($blocks === []) {
+            throw new CollectionError('format', "No scheme cards were found at {$preset['url']}; the site may have changed.");
+        }
+        $text = fn (string $s) => trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($s), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $entries = [];
+        foreach ($blocks as $block) {
+            if (! preg_match('/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/s', $block, $a)) {
+                continue;
+            }
+            preg_match('/<p[^>]*>(.*?)<\/p>/s', $block, $p);
+            preg_match_all('/class="badge[^"]*"[^>]*>(.*?)<\/span>/s', $block, $b);
+            $row = ['key' => basename(parse_url($a[1], PHP_URL_PATH) ?: $text($a[2])), 'name' => $text($a[2]), 'location' => isset($p[1]) ? str_replace(' | ', ', ', $text($p[1])) : null,
+                'status' => implode(' / ', array_map($text, $b[1]))];
+            $entries[] = $this->entry($row, $preset, $preset['url']);
+        }
+
+        return ['entries' => array_values(array_filter($entries)), 'complete' => true, 'hash' => hash('sha256', $html)];
+    }
+
+    protected function listItems(array $preset, Fetcher $fetcher): array
+    {
+        $html = $fetcher->get($preset['url']);
+        if (! preg_match_all('/<li[^>]*list-group-item[^>]*data-name="[^"]*"[^>]*>(.*?)<\/li>/s', $html, $m)) {
+            throw new CollectionError('format', "No list items were found at {$preset['url']}; the site may have changed.");
+        }
+        $entries = [];
+        foreach ($m[1] as $item) {
+            $line = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($item), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            $comma = mb_strrpos($line, ',');
+            $row = ['name' => $comma ? trim(mb_substr($line, 0, $comma)) : $line, 'location' => $comma ? trim(mb_substr($line, $comma + 1)) : null, 'key' => hash('sha256', mb_strtolower($line))];
+            $entries[] = $this->entry($row, $preset, $preset['url']);
         }
 
         return ['entries' => array_values(array_filter($entries)), 'complete' => true, 'hash' => hash('sha256', $html)];

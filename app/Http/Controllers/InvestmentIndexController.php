@@ -16,8 +16,8 @@ use Illuminate\View\View;
  * Public pages of the Meezan Investment Index (/investment-rankings): five
  * Pakistan-wide leaderboards, the Overall Index, project profiles and the
  * methodology. They show only what the engine published; a project without
- * enough verified evidence says "Insufficient Verified Data". The earlier
- * city / group / segment pages redirect here permanently.
+ * enough verified evidence says "Insufficient Verified Data". The MPIS city
+ * and category dashboards sit beside it (InvestmentRankingsController).
  */
 class InvestmentIndexController extends Controller
 {
@@ -26,10 +26,20 @@ class InvestmentIndexController extends Controller
 
     public function __construct(protected IndexBrowser $index) {}
 
-    public function home(): View
+    public function home(Request $request): View|RedirectResponse
     {
+        // The search form: straight to the chosen city and category.
+        $category = $request->query('category');
+        if (is_string($category) && isset(IndexBrowser::categories()[$category])) {
+            $city = in_array($request->query('city'), Cities::names(), true) ? $request->query('city') : null;
+            $search = array_filter(['q' => is_string($request->query('q')) ? trim($request->query('q')) : null]);
+
+            return $city ? redirect()->route('rankings.city-category', [Cities::slug($city), $category] + $search) : redirect()->route('rankings.category', [$category] + $search);
+        }
         $categories = collect(IndexBrowser::categories())->map(fn ($c, $key) => $c + [
             'key' => $key, 'top' => $this->index->leaderboard($key, null, 3), 'counts' => $this->index->counts($key),
+            'provisional' => IndexBrowser::provisionalPublic() ? $this->index->provisional($key, null, 3) : collect(),
+            'documented' => $this->index->mostDocumented($key, null, 3),
         ]);
 
         return view('investment-index.home', [
@@ -37,27 +47,69 @@ class InvestmentIndexController extends Controller
             'categories' => $categories,
             'overall' => $this->index->overall(10),
             'counts' => $this->index->counts(),
+            'cityCards' => $this->index->cityCards(),
+            'research' => $this->index->researchTotals(),
         ]);
     }
 
     public function category(Request $request, string $category): View
     {
+        return $this->categoryPage($request, $category, in_array($request->query('city'), Cities::names(), true) ? $request->query('city') : null);
+    }
+
+    public function cityCategory(Request $request, string $city, string $category): View
+    {
+        return $this->categoryPage($request, $category, Cities::fromSlug($city) ?? abort(404));
+    }
+
+    protected function categoryPage(Request $request, string $category, ?string $city): View
+    {
         $config = IndexBrowser::categories()[$category] ?? abort(404);
-        $city = in_array($request->query('city'), Cities::names(), true) ? $request->query('city') : null;
         $run = $this->index->run();
+        $filters = $this->filters($request);
 
         $m = InvestmentIndexMethodology::current();
 
         return view('investment-index.category', [
             'key' => $category, 'category' => $config, 'city' => $city, 'run' => $run,
             'weights' => $m->weightsFor($category), 'methodologyVersion' => $m->version,
-            'ranked' => $this->index->leaderboard($category, $city, self::PAGE_LIMIT),
-            'counts' => $this->index->counts($category),
+            'ranked' => $this->index->leaderboard($category, $city, self::PAGE_LIMIT, $filters),
+            'counts' => $this->index->counts($category, $city),
+            'filters' => $filters,
             // Assessed but not ranked: shown by name and status, never with a score.
-            'others' => $run ? $run->scores()->where('category', $category)->where('status', '!=', 'ranked')
-                ->when($city, fn ($q) => $q->whereHas('project', fn ($p) => $p->where('city', $city)))
-                ->with('project:id,name,slug,city,developer')->orderByRaw("case status when 'excluded' then 0 when 'not_eligible' then 1 else 2 end")->limit(100)->get() : collect(),
+            'others' => $run ? $this->index->withWaitingLegal($this->index->scored($category, $city, $filters)->where('status', '!=', 'ranked')
+                ->with('project:id,name,slug,city,developer,status')->orderByRaw("case status when 'not_eligible' then 0 when 'insufficient' then 1 else 2 end")
+                ->orderByRaw("case legal_status when 'approved' then 0 when 'partially_approved' then 1 when 'pending' then 2 else 3 end")->orderByDesc('research_depth')->orderBy('project_id')->paginate(40)->withQueryString()) : collect(),
+            'markers' => $this->index->markers($category, $city),
+            'provisional' => IndexBrowser::provisionalPublic() && $filters === [] ? $this->index->provisional($category, $city) : collect(),
         ]);
+    }
+
+    /** Search and filters on a category page. Values outside the lists are ignored. */
+    protected function filters(Request $request): array
+    {
+        $in = fn (string $k, array $allowed) => in_array($request->query($k), $allowed, true) ? $request->query($k) : null;
+
+        return array_filter([
+            'q' => is_string($request->query('q')) ? mb_substr(trim($request->query('q')), 0, 80) : null,
+            'legal' => $in('legal', array_keys(IndexBrowser::legalFilters())),
+            'status' => $in('status', array_keys(config('investment_index.statuses'))),
+            'confidence' => $in('confidence', ['high', 'medium', 'limited', 'insufficient']),
+            'risk' => $in('risk', array_keys(config('investment_index.parameters.risk_classes'))),
+            'development' => $in('development', array_keys(Project::STATUSES)),
+        ]);
+    }
+
+    /** Up to four developments of one category, side by side. */
+    public function compare(Request $request, string $category): View
+    {
+        $config = IndexBrowser::categories()[$category] ?? abort(404);
+        $request->validate(['projects' => ['nullable', 'array', 'max:4'], 'projects.*' => ['string', 'max:255']]);
+        $types = $config['project_categories'];
+        $rows = Project::where('is_demo', false)->where('is_published', true)->whereIn('category', $types)->whereIn('slug', collect($request->query('projects', []))->filter(fn ($s) => is_string($s))->take(4))->get()
+            ->map(fn (Project $p) => ['project' => $p, 'score' => $this->index->score($p)]);
+
+        return view('investment-index.compare', ['key' => $category, 'category' => $config, 'rows' => $rows]);
     }
 
     public function overall(): View
@@ -70,7 +122,7 @@ class InvestmentIndexController extends Controller
     {
         abort_if($project->is_demo || ! $project->is_published || ! isset(IndexEngine::categoryMap()[$project->category]), 404);
 
-        return view('investment-index.project', ['project' => $project->load('area:id,name'), 'run' => $this->index->run(),
+        return view('investment-index.project', ['project' => $project->load(['area:id,name', 'aliases:id,project_id,alias', 'discoverySource:id,name,type,url,publisher']), 'run' => $this->index->run(),
             'canSubmit' => EvidenceSubmissions::accepts($project)] + $this->index->profile($project));
     }
 
@@ -79,27 +131,5 @@ class InvestmentIndexController extends Controller
         $m = InvestmentIndexMethodology::current();
 
         return view('investment-index.methodology', ['methodology' => $m, 'categories' => IndexBrowser::categories(), 'run' => $this->index->run()]);
-    }
-
-    /* The earlier segment rankings (individual plots, houses, shops… and city pages) now redirect. */
-
-    public function legacyCity(string $city): RedirectResponse
-    {
-        return redirect()->route('rankings.index', [], 301);
-    }
-
-    public function legacyGroup(string $city, string $group): RedirectResponse
-    {
-        return redirect()->route('rankings.index', [], 301);
-    }
-
-    public function legacySegment(string $city, string $group, string $segment): RedirectResponse
-    {
-        $category = IndexBrowser::categoryForSegment($segment);
-        $name = Cities::fromSlug($city);
-
-        return $category
-            ? redirect()->route('rankings.category', array_filter(['category' => $category, 'city' => $name]), 301)
-            : redirect()->route('rankings.index', [], 301);
     }
 }

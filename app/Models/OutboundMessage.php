@@ -27,6 +27,8 @@ class OutboundMessage extends Model
         'promotional_disabled' => 'Promotional messages are not enabled',
         'sending_disabled' => 'Sending is not enabled for the WhatsApp provider',
         'provider_unavailable' => 'The selected WhatsApp provider is not available here',
+        'test_recipient_only' => 'Test mode can only send to the verified test recipient',
+        'invalid_recipient' => 'This is not a valid WhatsApp number',
     ];
 
     protected $fillable = [];
@@ -71,6 +73,17 @@ class OutboundMessage extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Mock, real Meta test, or production. Rows from before this was recorded fall back on is_test. */
+    public function deliveryLabel(): string
+    {
+        return match ($this->api_mode ?? ($this->is_test ? 'mock' : null)) {
+            'mock' => 'Mock (not sent)',
+            'meta_test' => 'Real Meta test',
+            'production' => 'Production',
+            default => 'Not sent',
+        };
     }
 
     public function maskedRecipient(): string

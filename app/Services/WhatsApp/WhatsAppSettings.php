@@ -22,7 +22,7 @@ class WhatsAppSettings
     public const SWITCHES = [
         'automation' => ['whatsapp.automation_enabled', true, 'WhatsApp automation'],
         'auto_reply' => ['whatsapp.auto_reply_enabled', true, 'AI auto-reply'],
-        'test_mode' => ['whatsapp.test_mode', false, 'Test mode'],
+        'test_mode' => ['whatsapp.test_mode', false, 'Mock mode'],
     ];
 
     public function automationEnabled(): bool

@@ -30,7 +30,10 @@ class CustomerSupportAgent extends Agent
     {
         $text = $ctx->task->request;
         if (preg_match(self::ESCALATE, $text)) {
-            return $this->escalate($ctx, 'complaint', 'This needs a member of staff.');
+            $report = $this->escalate($ctx, 'complaint', 'This needs a member of staff.');
+            $report->handoff = 'complaint';
+
+            return $report;
         }
 
         return $intent === 'find' ? $this->find($ctx) : $this->faq($ctx);

@@ -110,7 +110,7 @@ verified legal records (official source, row URL, time)   verified evidence (sou
 | Methodology | `/investment-rankings/methodology` |
 
 - **Profile contents:** every field the brief requires, the original sources (official sources linked to their exact row; private documents named, not linked) and the reasons for ranking changes.
-- **Earlier pages:** the former city, group and segment addresses redirect permanently (301).
+- **Earlier pages:** restored on 4 November 2026 beside the Index, with verified data only: `/investment-rankings/pakistan`, city, group, the five categories and compare. Individual plot, house, shop, office and mixed-use pages redirect (301) to the city page. See `Meezan_Property_Investment_Ranking_Recovery_Report.md`.
 - **Search engines:** pages without ranked results are noindex, and the sitemap lists only pages with results.
 
 ## 5. Running it (operations)

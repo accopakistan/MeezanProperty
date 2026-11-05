@@ -49,6 +49,8 @@ The profile also has a score breakdown by factor, the risks found, official lega
 
 ### Earlier pages: permanent redirects (301)
 
+> **Changed on 4 November 2026:** the redirects for city, group, the five categories and compare were replaced by the restored pages. See `Meezan_Property_Investment_Ranking_Recovery_Report.md`.
+
 | Earlier address | Now |
 |---|---|
 | `/investment-rankings/{city}` and `/{city}/{group}` | Index home |

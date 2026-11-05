@@ -38,6 +38,21 @@
         <env name="WHATSAPP_VERIFY_TOKEN" value=""/>
         <env name="WHATSAPP_SEND_ENABLED" value="false"/>
         <env name="WHATSAPP_GRAPH_VERSION" value="v21.0"/>
+        <!-- The suite tests production rules; test-mode cases switch it on themselves. -->
+        <env name="WHATSAPP_MODE" value="production"/>
+        <env name="WHATSAPP_ENABLED" value="false"/>
+        <env name="WHATSAPP_MOCK_MODE" value=""/>
+        <env name="WHATSAPP_GRAPH_API_VERSION" value=""/>
+        <env name="WHATSAPP_PROD_PHONE_NUMBER_ID" value=""/>
+        <env name="WHATSAPP_PROD_WABA_ID" value="test-waba"/>
+        <env name="WHATSAPP_TEST_PHONE_NUMBER_ID" value=""/>
+        <env name="WHATSAPP_TEST_PHONE_NUMBER" value=""/>
+        <env name="WHATSAPP_TEST_RECIPIENT" value=""/>
+        <env name="WHATSAPP_BUSINESS_ACCOUNT_ID" value=""/>
+        <env name="WHATSAPP_WEBHOOK_URL" value=""/>
+        <env name="META_APP_ID" value=""/>
+        <env name="META_BUSINESS_PORTFOLIO_ID" value=""/>
+        <env name="META_APP_SECRET" value=""/>
         <env name="MEEZAN_WHATSAPP_NUMBER" value=""/>
         <env name="MEEZAN_MOCK_PAYMENTS" value="false"/>
         <!-- Real keys in a developer's .env must never be used or billed by a test run. -->

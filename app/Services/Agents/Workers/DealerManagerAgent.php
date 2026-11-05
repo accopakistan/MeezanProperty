@@ -17,6 +17,7 @@ class DealerManagerAgent extends Agent
             'quality' => ['listing quality', 'profile quality', 'dealer quality', 'incomplete profile'],
             'new_dealer' => ['new dealer registered', 'review new dealer'],
             'verify' => ['recommend verification', 'verify dealer', 'approve dealer'],
+            'customer_onboarding' => [], // chosen only by the customer routes, never by keywords
         ];
     }
 
@@ -30,8 +31,31 @@ class DealerManagerAgent extends Agent
             'quality' => $this->quality($ctx, $city),
             'new_dealer' => $this->newDealer($ctx),
             'verify' => $this->propose($ctx, 'dealers.verify', 'Dealer verification request'),
+            'customer_onboarding' => $this->customerOnboarding($ctx),
             default => $this->pending($ctx, $city),
         };
+    }
+
+    /** A customer asks how to become a dealer. Explains, gives the link and tells staff. Approves nothing. */
+    protected function customerOnboarding(AgentContext $ctx): Report
+    {
+        $r = new Report('Dealer registration');
+        $r->verbatim = true;
+        $link = route('dealer.register');
+        $this->publicAnswer($ctx, $r, 'dealer registration register verification',
+            $this->urdu($ctx->task->request)
+                ? 'Aap website par dealer ke taur par register kar sakte hain. Hamari team aap ke documents check karti hai, phir agency verify hoti hai.'
+                : 'You can register as a dealer on our website. Our team checks your documents before your agency is verified.');
+        $r->finding('Register here: '.$link);
+
+        $conversation = $ctx->task->input['conversation_id'] ?? null;
+        if ($conversation) {
+            $this->need($ctx, $r, 'staff.create_task', ['title' => 'Dealer interest from a WhatsApp chat', 'description' => "A contact asked about dealer registration in conversation #{$conversation}.",
+                'category' => 'dealer_interest', 'related_type' => 'conversation', 'related_id' => $conversation, 'due_in_days' => 2]);
+        }
+        $r->finding('Reply "human" if you would like our team to help you.');
+
+        return $r;
     }
 
     protected function pending(AgentContext $ctx, ?string $city): Report

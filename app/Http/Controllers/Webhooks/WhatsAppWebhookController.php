@@ -39,7 +39,7 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Order of checks: configured → signature → shape → duplicate delivery →
+     * Order of checks: configured → size → signature → shape → duplicate delivery →
      * process. Every delivery is recorded in webhook_events; a processing
      * failure is logged, reported to admins and answered with 500 so Meta
      * retries (message ids keep the retry from storing anything twice).
@@ -50,7 +50,14 @@ class WhatsAppWebhookController extends Controller
             return response()->json(['message' => 'WhatsApp integration is not configured.'], 503);
         }
 
+        if ((int) $request->server('CONTENT_LENGTH') > (int) config('meezan.whatsapp.max_webhook_bytes')) {
+            return response()->json(['message' => 'Payload too large.'], 413);
+        }
+
         $raw = $request->getContent();
+        if (strlen($raw) > (int) config('meezan.whatsapp.max_webhook_bytes')) {
+            return response()->json(['message' => 'Payload too large.'], 413);
+        }
         if (! $client->verifySignature($raw, $request->header('X-Hub-Signature-256'))) {
             return response()->json(['message' => 'Invalid signature.'], 401);
         }
@@ -75,7 +82,7 @@ class WhatsAppWebhookController extends Controller
 
         try {
             $stored = $processor->process($payload);
-            $event->update(['status' => 'processed', 'messages' => $stored, 'error' => null]);
+            $event->update(['status' => 'processed', 'messages' => $stored, 'error' => null, 'event_type' => WebhookProcessor::eventType($payload), 'processed_at' => now()]);
         } catch (Throwable $e) {
             $event->update(['status' => 'failed', 'error' => mb_substr($e->getMessage(), 0, 250)]);
             Log::error('WhatsApp webhook processing failed', ['event' => $event->id, 'error' => $e->getMessage()]);

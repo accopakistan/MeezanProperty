@@ -35,7 +35,7 @@ class IntentDetector
 
     protected const PATTERNS = [
         self::STOP => '/^\s*(stop|unsubscribe|opt out|optout|band karo|block)\s*[.!]?\s*$/i',
-        self::HUMAN => '/\b(human|real person|person|insaan|team se baat|customer (care|support)|staff|operator)\b/i',
+        self::HUMAN => '/\b(human|real person|person|insaan|team se baat|customer (care|support)|staff|operator|representative|live agent|human agent|kisi se baat|namainda)\b/i',
         self::RESET => '/\b(start over|new search|naya search|nayi search|reset|clear( search)?|start again)\b/i',
         self::SELL => '/\b(sell my|selling my|want to sell|list my (house|plot|property|flat)|bechna|bechni|farokht karna)\b/i',
         self::DEALER => '/\b(dealer|dealers|agent|agents|contact me|call me|connect me|rabta|baat karwa|baat karao|talk to (a|an) (dealer|agent))\b/i',

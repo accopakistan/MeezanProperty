@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\ConversationMessage;
 use App\Models\User;
 use App\Notifications\AssistantNeedsAttention;
+use App\Services\Agents\AgentChatRouter;
 use App\Services\Assistant\AssistantReply;
 use App\Services\Assistant\ConversationAssistant;
 use App\Services\Assistant\IntentDetector;
@@ -46,7 +47,8 @@ class ProcessInboundWhatsAppMessage implements ShouldQueue
         $inbound = ConversationMessage::with('conversation.user')->findOrFail($this->conversationMessageId);
         $conversation = $inbound->conversation;
 
-        if ($conversation->mode !== 'bot') {
+        // A person is handling the chat, unless this is the contact's STOP.
+        if ($conversation->mode !== 'bot' && ($inbound->body === null || app(IntentDetector::class)->detect($inbound->body) !== IntentDetector::STOP)) {
             $inbound->forceFill(['processing_status' => 'skipped', 'processed_at' => now()])->save();
 
             return;
@@ -58,7 +60,7 @@ class ProcessInboundWhatsAppMessage implements ShouldQueue
                 $reply = $linker->link($conversation, $text);
                 $stored = null;
             } elseif ($text === null) {
-                $reply = new AssistantReply('I can read text messages only for now. Please type what you are looking for, e.g. "10 marla house in DHA Lahore around 4 crore".', 'unsupported_type');
+                $reply = new AssistantReply('I can read text messages only for now. Please type what you are looking for, e.g. "10 marla house in DHA Lahore around 4 crore", or reply "human" to reach our team.', 'unsupported_type');
                 $stored = null;
             } else {
                 $reply = $assistant->respond($conversation, $text, $conversation->user, $inbound);
@@ -67,13 +69,14 @@ class ProcessInboundWhatsAppMessage implements ShouldQueue
             }
 
             $formatted = $formatter->format($reply);
-            $stored ??= $conversation->messages()->create(['direction' => 'outbound', 'role' => 'assistant', 'type' => 'text', 'intent' => $reply->intent]);
+            $stored ??= $conversation->messages()->create(['direction' => 'outbound', 'role' => 'assistant', 'type' => 'text', 'intent' => $reply->intent, 'agent_slug' => AgentChatRouter::agentFor($reply->intent)]);
             $stored->forceFill(['body' => $formatted['body']])->save();
 
             $messenger->queue([
                 'to' => $conversation->external_contact,
                 'body' => $formatted['body'],
                 'buttons' => $formatted['buttons'],
+                'list' => $formatted['list'],
                 'category' => 'transactional',
                 'purpose' => $reply->intent === IntentDetector::STOP ? 'opt_out_confirmation' : 'reply',
                 'dedupe_key' => 'reply:'.$inbound->id,
@@ -89,7 +92,7 @@ class ProcessInboundWhatsAppMessage implements ShouldQueue
             Notification::send(User::activeAdmins(), new AssistantNeedsAttention('processing_failed', $conversation));
 
             $apology = $conversation->messages()->create(['direction' => 'outbound', 'role' => 'assistant', 'type' => 'text', 'intent' => 'error',
-                'body' => 'Sorry, something went wrong while reading your message. Our team has been told and will follow up; you can also try again in a moment.']);
+                'body' => 'Sorry, something went wrong while reading your message. Our team has been told and will follow up; you can also try again in a moment, or reply "human" to reach our team.']);
             $messenger->queue([
                 'to' => $conversation->external_contact, 'body' => $apology->body, 'category' => 'transactional', 'purpose' => 'reply',
                 'dedupe_key' => 'reply:'.$inbound->id, 'conversation_id' => $conversation->id, 'conversation_message_id' => $apology->id,

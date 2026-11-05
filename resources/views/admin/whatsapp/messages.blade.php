@@ -13,7 +13,7 @@
     @else
         <div class="card overflow-hidden"><div class="overflow-x-auto">
             <table class="table">
-                <thead><tr><th>#</th><th>To</th><th>Purpose</th><th>Message</th><th>Status</th><th>Provider</th><th>Time</th><th class="sr-only">Actions</th></tr></thead>
+                <thead><tr><th>#</th><th>To</th><th>Purpose</th><th>Message</th><th>Status</th><th>Kind</th><th>Time</th><th class="sr-only">Actions</th></tr></thead>
                 <tbody>
                     @foreach ($messages as $message)
                         <tr>
@@ -24,7 +24,7 @@
                             <td><x-status-badge :tone="$message->statusTone()" :label="ucfirst($message->status)" />
                                 @if ($message->status === 'blocked')<span class="mt-1 block max-w-48 text-xs text-muted">{{ OutboundMessage::BLOCK_REASONS[$message->blocked_reason] ?? $message->blocked_reason }}</span>
                                 @elseif ($message->last_error)<span class="mt-1 block max-w-48 text-xs text-muted">{{ $message->last_error }}</span>@endif</td>
-                            <td class="text-[13px] whitespace-nowrap">{{ $message->provider }}@if ($message->is_test) <span class="badge bg-amber-50 text-amber-700">Test</span>@endif<span class="block text-xs text-muted">{{ $message->attempts }} {{ \Illuminate\Support\Str::plural('attempt', $message->attempts) }}</span></td>
+                            <td class="text-[13px] whitespace-nowrap"><span @class(['badge', 'bg-amber-50 text-amber-700' => $message->deliveryLabel() === 'Mock (not sent)', 'bg-sky-50 text-sky-700' => $message->deliveryLabel() === 'Real Meta test', 'bg-emerald-50 text-emerald-700' => $message->deliveryLabel() === 'Production', 'bg-page text-muted' => $message->deliveryLabel() === 'Not sent'])>{{ $message->deliveryLabel() }}</span><span class="block text-xs text-muted">{{ $message->provider }} · {{ $message->attempts }} {{ \Illuminate\Support\Str::plural('attempt', $message->attempts) }}</span></td>
                             <td class="text-[13px] whitespace-nowrap text-muted">{{ $message->created_at->format('j M, g:i a') }}@if ($message->delivered_at)<span class="block">delivered {{ $message->delivered_at->format('g:i a') }}</span>@endif @if ($message->read_at)<span class="block">read {{ $message->read_at->format('g:i a') }}</span>@endif</td>
                             <td class="text-right">@if ($message->isRetryable())<form method="POST" action="{{ route('admin.whatsapp.retry', $message) }}">@csrf <button class="btn btn-secondary btn-sm">Retry</button></form>@endif</td>
                         </tr>

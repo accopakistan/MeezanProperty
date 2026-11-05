@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Conversation extends Model
 {
@@ -17,13 +18,18 @@ class Conversation extends Model
         'closed' => 'Closed',
     ];
 
-    protected $fillable = ['channel', 'external_contact', 'session_key', 'contact_name', 'mode', 'status', 'state', 'locale', 'last_message_at', 'escalated_at', 'escalation_reason'];
+    public const HANDOFF_STATUSES = ['pending' => 'Waiting for staff', 'assigned' => 'With staff', 'resolved' => 'Resolved'];
+
+    protected $fillable = ['channel', 'external_contact', 'session_key', 'contact_name', 'mode', 'status', 'state', 'locale', 'last_message_at', 'escalated_at', 'escalation_reason', 'assigned_agent', 'internal_note'];
 
     protected function casts(): array
     {
         return [
             'last_message_at' => 'datetime',
             'escalated_at' => 'datetime',
+            'handoff_requested_at' => 'datetime',
+            'handoff_assigned_at' => 'datetime',
+            'handoff_resolved_at' => 'datetime',
             'state' => 'array',
         ];
     }
@@ -37,6 +43,21 @@ class Conversation extends Model
     public function recentMessages(int $limit = 50)
     {
         return $this->messages()->getQuery()->reorder()->latest('id')->take($limit)->get()->reverse()->values();
+    }
+
+    public function hasOpenHandoff(): bool
+    {
+        return in_array($this->handoff_status, ['pending', 'assigned'], true);
+    }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(ConversationMessage::class)->latestOfMany();
     }
 
     public function requirement(): BelongsTo

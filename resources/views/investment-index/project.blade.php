@@ -1,7 +1,7 @@
 @php
     $s = $score;
     $categoryConfig = $category ? config("investment_index.categories.$category") : null;
-    $legalLabel = $s ? match ($s->legal_status) { 'not_verified' => 'Not verified', 'excluded' => 'Excluded — legal', default => config('investment_index.legal.statuses.'.$s->legal_status, $s->legal_status) } : 'Not verified';
+    $legalLabel = $s ? \App\Services\InvestmentIndex\IndexBrowser::legalLabel($s->legal_status) : 'Not verified';
     $operational = $s?->operational_status ? config('investment_index.context_evidence.operational_status.levels.'.$s->operational_status, $s->operational_status) : null;
     $marketHistory = $s ? ($s->factors['market_performance'] ?? null) : null;
 @endphp
@@ -27,20 +27,52 @@
             <section class="card p-5" aria-labelledby="summary-title">
                 <h2 id="summary-title" class="text-base font-bold">Investment Index summary</h2>
                 @if (! $s)
-                    <p class="mt-3 rounded-lg bg-surface px-4 py-3 text-[14px]"><span class="font-semibold">Insufficient Verified Data.</span> <span class="text-muted">This development has not been assessed in a published run yet.</span></p>
+                    <p class="mt-3 rounded-lg bg-surface px-4 py-3 text-[14px]"><span class="font-semibold">Insufficient Verified Data — Research in Progress.</span> <span class="text-muted">This development has not been assessed in a published run yet.</span></p>
                 @endif
                 <dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <div><dt class="text-[12px] text-muted">Investment score</dt><dd class="text-2xl font-bold tabular-nums">{{ $s && $s->score !== null && $s->status === 'ranked' ? number_format($s->score, 1) : '—' }}</dd>
                         @if ($s && $s->status === 'not_eligible' && $s->score !== null)<dd class="text-[12px] text-muted">Scored {{ number_format($s->score, 1) }}; not ranked</dd>@endif</div>
                     <div><dt class="text-[12px] text-muted">Ranking position</dt><dd class="text-2xl font-bold tabular-nums">{{ $s?->category_rank ? '#'.$s->category_rank : '—' }}</dd>
                         @if ($s?->overall_rank)<dd class="text-[12px] text-muted">Overall Index #{{ $s->overall_rank }}</dd>@endif</div>
-                    <div><dt class="text-[12px] text-muted">Data confidence</dt><dd class="text-2xl font-bold tabular-nums">{{ $s ? number_format($s->confidence_score, 0) : '—' }}</dd><dd class="text-[12px] text-muted">{{ $s ? ucfirst($s->confidence_level) : 'No evidence' }}</dd></div>
+                    <div><dt class="text-[12px] text-muted">Data confidence</dt><dd class="text-2xl font-bold tabular-nums">{{ $s ? number_format($s->confidence_score, 0) : '—' }}</dd><dd class="text-[12px] text-muted">{{ $s ? \App\Services\InvestmentIndex\IndexBrowser::confidenceLabel($s->confidence_level) : 'No evidence' }}</dd>
+                        @if ($s)<dd class="text-[12px] text-muted">Evidence covers {{ number_format(($s->coverage ?? 0) * 100, 0) }}% of the weight</dd>@endif</div>
                     <div><dt class="text-[12px] text-muted">Risk</dt><dd class="text-base font-bold">{{ $s?->riskLabel() ?? '—' }}</dd></div>
                 </dl>
+                @if ($s && $s->provisional_rank && \App\Services\InvestmentIndex\IndexBrowser::provisionalPublic())
+                    <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900"><strong>Provisional research position P{{ $s->provisional_rank }}, score {{ number_format($s->provisional_score, 1) }}.</strong> Not fully verified and not an investment recommendation. Evidence covers {{ number_format($s->provisional_coverage * 100, 0) }}% of the weight, including {{ $s->provisional_unchecked }} {{ \Illuminate\Support\Str::plural('record', (int) $s->provisional_unchecked) }} staff have not yet checked.</p>
+                @endif
                 @if ($s && $s->status !== 'ranked')
-                    <ul class="mt-4 space-y-1 rounded-lg bg-surface px-4 py-3 text-[14px]">
+                    <p class="mt-4 text-[14px]"><span class="font-semibold">Insufficient Verified Data — Research in Progress.</span> <span class="text-muted">An unranked project has not scored low: there is not yet enough verified evidence to compare it.</span></p>
+                    <ul class="mt-3 space-y-1 rounded-lg bg-surface px-4 py-3 text-[14px]">
                         @foreach (collect($s->reasons)->reject(fn ($r) => str_starts_with($r, 'Confidence:'))->take(4) as $reason)<li>{{ $reason }}</li>@endforeach
                     </ul>
+                @endif
+            </section>
+
+            <section class="card p-5" aria-labelledby="data-title">
+                <h2 id="data-title" class="text-base font-bold">Data status and origin</h2>
+                <dl class="mt-3 grid gap-x-6 gap-y-2 text-[14px] sm:grid-cols-[auto_1fr]">
+                    <dt class="text-muted">Data status</dt><dd class="font-semibold">{{ $dataStatus }}</dd>
+                    <dt class="text-muted">Last data update</dt><dd>{{ $lastUpdate ? \Illuminate\Support\Carbon::parse($lastUpdate)->localTime()->format('j M Y') : 'Not recorded' }}</dd>
+                    @if ($project->discoverySource)
+                        <dt class="text-muted">First found in</dt>
+                        <dd>@if (\App\Services\InvestmentIndex\IndexBrowser::safeUrl($project->discovery_url))<a href="{{ $project->discovery_url }}" class="link" target="_blank" rel="noopener nofollow">{{ $project->discoverySource->name }}</a>@else{{ $project->discoverySource->name }}@endif
+                            <span class="block text-[12px] text-muted">{{ $project->discoverySource->typeLabel() }}@if ($project->discovered_at), read {{ $project->discovered_at->format('j M Y') }}@endif</span></dd>
+                    @endif
+                    @if ($project->category_basis === 'inferred')
+                        <dt class="text-muted">Category</dt><dd class="text-[13px]">Inferred from the project's name; the source does not state it. Needs checking.</dd>
+                    @endif
+                    @if ($project->aliases->isNotEmpty())
+                        <dt class="text-muted">Also listed as</dt><dd>{{ $project->aliases->pluck('alias')->implode(', ') }}</dd>
+                    @endif
+                    <dt class="text-muted">Reported development status</dt><dd>{{ $project->statusLabel() }}@if ($project->status !== 'unverified') <span class="text-[12px] text-muted">(as reported by the source, not independently verified)</span>@endif</dd>
+                    @if ($project->website)
+                        <dt class="text-muted">Website</dt><dd><a href="{{ $project->website }}" class="link break-all" target="_blank" rel="noopener nofollow">{{ $project->website }}</a> <span class="text-[12px] text-muted">(developer-reported information)</span></dd>
+                    @endif
+                </dl>
+                @php $missing = $s ? collect($s->factors)->reject(fn ($f) => $f['display_only'] ?? false)->filter(fn ($f) => ($f['score'] ?? null) === null)->pluck('label') : collect(); @endphp
+                @if ($missing->isNotEmpty())
+                    <p class="mt-3 text-[13px] text-muted"><span class="font-semibold text-ink">Missing information:</span> {{ $missing->implode(', ') }}. Each stays missing until verified evidence exists; nothing is estimated.</p>
                 @endif
             </section>
 
@@ -54,9 +86,66 @@
                     <dt class="text-muted">Operational status</dt><dd>{{ $operational ?? 'No verified record' }}</dd>
                     <dt class="text-muted">Development progress</dt><dd>{{ $s?->development_progress !== null && $s ? number_format($s->development_progress, 0).'%' : 'No verified record' }}</dd>
                     <dt class="text-muted">Verified rental yield</dt><dd>{{ $s?->verified_yield !== null && $s ? number_format($s->verified_yield, 2).'% gross' : 'Insufficient Verified Data' }}</dd>
-                    <dt class="text-muted">Historical performance</dt><dd>{{ $marketHistory && $marketHistory['score'] !== null ? $marketHistory['value'].' (verified transactions and valuations)' : 'Insufficient Verified Data' }}</dd>
+                    <dt class="text-muted">Historical performance</dt><dd>{{ $marketHistory && $marketHistory['score'] !== null ? $marketHistory['value'].' (verified transactions and valuations)' : 'Historical performance data unavailable.' }}</dd>
                     <dt class="text-muted">Last verification</dt><dd>{{ $s?->last_verified_at?->localTime()->format('j M Y') ?? 'Never' }}</dd>
                 </dl>
+            </section>
+
+            @if ($facts->isNotEmpty())
+                <section class="card p-5" aria-labelledby="stated-title">
+                    <h2 id="stated-title" class="text-base font-bold">What the sources state</h2>
+                    <p class="mt-1 text-[13px] text-muted">Copied from each source, with its date. These facts describe the project and are not used in any score.</p>
+                    <dl class="mt-3 space-y-3 text-[14px]">
+                        @foreach ($facts as $fact)
+                            <div>
+                                <dt class="text-muted">{{ $fact['label'] }}</dt>
+                                <dd>{{ $fact['value'] }}
+                                    <span class="block text-[12px] text-muted">@if (\App\Services\InvestmentIndex\IndexBrowser::safeUrl($fact['url']))<a href="{{ $fact['url'] }}" class="link" target="_blank" rel="noopener nofollow">{{ $fact['source'] }}</a>@else{{ $fact['source'] }}@endif · {{ $fact['basis'] }} · {{ \Illuminate\Support\Carbon::parse($fact['date'])->format('j M Y') }}</span></dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                </section>
+            @endif
+
+            @if ($reported->isNotEmpty() || $pendingLegal->isNotEmpty())
+                <section class="card p-5" aria-labelledby="reported-title">
+                    <h2 id="reported-title" class="text-base font-bold">Reported, awaiting our check</h2>
+                    <p class="mt-1 text-[13px] text-muted">We have read these from the source named, but staff have not yet confirmed them. They count towards no score and no legal status.</p>
+                    <ul class="mt-3 space-y-3 text-[14px]">
+                        @foreach ($pendingLegal as $r)
+                            <li><span class="font-semibold">{{ $r->authority }}: on its list as {{ mb_strtolower(str_replace('Verified ', '', $r->statusLabel())) }}, not yet checked by us</span>@if ($r->issued_on) · {{ $r->issued_on->format('j M Y') }}@endif
+                                <span class="block text-[12px] text-muted">@if ($link = \App\Services\InvestmentIndex\IndexBrowser::safeUrl($r->source_url))<a href="{{ $link }}" class="link" target="_blank" rel="noopener nofollow">{{ $r->source?->name }}</a>@else{{ $r->source?->name }}@endif</span></li>
+                        @endforeach
+                        @foreach ($reported as $e)
+                            <li><span class="font-semibold">{{ config("investment_index.categories.$category.factors.{$e->factor}.label") ?? \Illuminate\Support\Str::headline($e->factor) }}:</span>
+                                {{ $e->value_numeric !== null ? rtrim(rtrim(number_format($e->value_numeric, 2), '0'), '.').'%' : (config('investment_index.context_evidence.operational_status.levels.'.$e->value_level) ?? \Illuminate\Support\Str::headline((string) $e->value_level)) }}
+                                <span class="block text-[12px] text-muted">{{ $e->excerpt }}</span>
+                                <span class="block text-[12px] text-muted">@if ($link = \App\Services\InvestmentIndex\IndexBrowser::safeUrl($e->source_url))<a href="{{ $link }}" class="link" target="_blank" rel="noopener nofollow">{{ $e->source?->name }}</a>@else{{ $e->source?->name }}@endif · {{ $e->source?->typeLabel() }} · {{ $e->observed_on?->format('j M Y') }}</span></li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
+            <section class="card min-w-0 p-5" aria-labelledby="market-title">
+                <h2 id="market-title" class="text-base font-bold">Price and rental records</h2>
+                @php $anyPrices = collect($priceSeries)->contains(fn ($rows) => $rows->isNotEmpty()); @endphp
+                @if (! $anyPrices)
+                    <p class="mt-2 text-[14px] text-muted">Historical performance data unavailable. No price, rental or valuation record is on file for this project.</p>
+                @else
+                    <p class="mt-1 text-[13px] text-muted">Each kind of price stays in its own list. An asking price is not a sale, and a tax value is not a market price.</p>
+                    @foreach ($priceSeries as $label => $rows)
+                        @if ($rows->isNotEmpty())
+                            <h3 class="mt-4 text-[14px] font-semibold">{{ $label }}</h3>
+                            <ul class="mt-1 divide-y divide-line text-[14px]">
+                                @foreach ($rows as $o)
+                                    <li class="py-2">{{ $o->currency }} {{ number_format($o->average_amount) }} per {{ $o->size_value == 1 ? $o->size_unit : $o->sizeLabel() }} · {{ \Illuminate\Support\Str::headline($o->property_type) }}
+                                        <span class="block text-[12px] text-muted">{{ $o->observed_on?->format('j M Y') }} · @if ($link = \App\Services\InvestmentIndex\IndexBrowser::safeUrl($o->source?->url))<a href="{{ $link }}" class="link" target="_blank" rel="noopener nofollow">{{ $o->source?->name }}</a>@else{{ $o->source?->name }}@endif @if ($o->status !== 'verified') · awaiting our check @endif</span></li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    @endforeach
+                    <p class="mt-3 text-[13px] text-muted">Historical performance is not calculated from these records.@if ($priceSeries['FBR tax valuations (not market prices)']->isNotEmpty()) Each FBR figure comes from the notification named and may since have been replaced by a newer one.@endif</p>
+                @endif
             </section>
 
             @if ($s)
@@ -150,6 +239,7 @@
                 </section>
             @endif
             <p class="text-[12px] text-muted">{{ config('meezan.investment.disclaimer') }}</p>
+            <p class="text-[12px] text-muted">Legal status shows only what official records on file say. "Unknown / Unverified" means no official record has been found here; it does not mean a project is illegal.</p>
         </aside>
     </div>
 </x-layouts.app>

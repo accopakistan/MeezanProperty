@@ -292,7 +292,7 @@ it('shows the admin screens and requires an access review before collecting', fu
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin)->post(route('admin.investment-index.sources.setup'))->assertSessionHas('status');
     $source = MarketSource::firstWhere('collector', 'lda-approved');
-    expect($source->is_active)->toBeFalse()->and($source->isCollectable())->toBeFalse()->and(MarketSource::whereNotNull('collector')->count())->toBe(3);
+    expect($source->is_active)->toBeFalse()->and($source->isCollectable())->toBeFalse()->and(MarketSource::whereNotNull('collector')->count())->toBe(count(array_filter(config('investment_index.collectors'), fn ($p) => ! ($p['configurable'] ?? false))));
 
     foreach (['overview', 'sources', 'registry', 'exceptions', 'submissions'] as $page) {
         $this->get(route('admin.investment-index.'.$page))->assertOk();

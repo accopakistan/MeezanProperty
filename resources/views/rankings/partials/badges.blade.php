@@ -3,7 +3,7 @@
     @if ($item['is_demo'] ?? false)<span class="badge bg-gold-50 px-2 py-0.5 text-[11px] font-semibold text-gold-700 ring-1 ring-gold-200" title="{{ config('meezan.investment.demo_notice') }}">Illustrative data</span>@endif
 @elseif ($badge === 'status')
     <span @class(['badge ring-1', 'bg-emerald-50 text-emerald-700 ring-emerald-200' => $item['status'] === 'ranked', 'bg-amber-50 text-amber-800 ring-amber-200' => $item['status'] === 'provisional',
-        'bg-sky-50 text-sky-800 ring-sky-200' => $item['status'] === 'review', 'bg-page text-muted ring-line' => $item['status'] === 'insufficient'])>{{ $item['status_label'] }}</span>
+        'bg-sky-50 text-sky-800 ring-sky-200' => $item['status'] === 'review', 'bg-page text-muted ring-line' => $item['status'] === 'insufficient', 'bg-red-50 text-red-700 ring-red-200' => $item['status'] === 'excluded'])>{{ $item['status_label'] }}</span>
 @elseif ($item['score'] !== null)
     <span @class(['inline-grid min-w-11 place-items-center rounded-md px-1.5 py-1 text-sm font-bold text-white tabular-nums', 'bg-emerald-600' => $item['score'] >= 80,
         'bg-lime-600' => $item['score'] >= 65 && $item['score'] < 80, 'bg-amber-500' => $item['score'] >= 50 && $item['score'] < 65, 'bg-red-500' => $item['score'] < 50,

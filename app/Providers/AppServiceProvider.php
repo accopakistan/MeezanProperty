@@ -58,6 +58,10 @@ class AppServiceProvider extends ServiceProvider
 
         if ($proxies = config('meezan.security.trusted_proxies')) {
             TrustProxies::at($proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
+
+            // Only the client IP and HTTPS. Clients can pass the forwarded host, port
+            // and prefix through a CDN, and those would all end up in generated links.
+            TrustProxies::withHeaders(Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO);
         }
 
         Paginator::defaultView('components.pagination');

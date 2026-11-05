@@ -22,6 +22,9 @@
     <div class="container-page py-8">
         <x-breadcrumbs :items="[['Investment Rankings', route('rankings.index')], [$place, route('rankings.city', $citySlug)], [$seg['label'], route('rankings.segment', [$citySlug, $group, $segmentKey])], ['Compare', null]]" />
         @include('investment.partials.demo-notice', ['class' => 'mt-4'])
+        @unless ($calc)
+            <div class="mt-4">@include('rankings.partials.insufficient', ['place' => $place])</div>
+        @endunless
         <h1 class="mt-4 text-2xl font-bold">Compare {{ $seg['label'] }} in {{ $place }}</h1>
         <p class="mt-1 max-w-3xl text-sm text-muted">Every figure comes from the same published snapshot and methodology version. A metric is highlighted only when every entry has it.</p>
         @if ($mixedSizes)

@@ -14,11 +14,10 @@
         default => route('rankings.segment', [$citySlug, RankingBrowser::segment($key)['group'], $key]),
     };
     $entries = $mode === 'city'
-        ? ['all' => 'All Investments', 'residential' => 'Residential', 'commercial' => 'Commercial', 'plots' => 'Plots', 'houses' => 'Houses', 'apartments' => 'Apartments',
-            'shopping-malls' => 'Shopping Malls', 'commercial-plazas' => 'Commercial Plazas', 'business-towers' => 'Business Towers', 'office-spaces' => 'Office Spaces',
-            'mixed-use' => 'Mixed-Use', 'highest-yield' => 'Highest Rental Yield', 'fastest-growing' => 'Fastest Growing', 'new-upcoming' => 'New & Upcoming']
-        : collect(RankingBrowser::segmentsIn(RankingBrowser::segment($active)['group'] ?? $active))->map(fn ($s) => $s['label'])->all()
-            + ($active !== 'mixed-use' && (RankingBrowser::segment($active)['group'] ?? $active) !== 'mixed-use' ? ['mixed-use' => 'Mixed Use'] : [])
+        ? ['all' => 'All Investments', 'residential' => 'Residential', 'commercial' => 'Commercial', 'societies' => 'Housing Societies', 'apartments' => 'Apartment Buildings',
+            'shopping-malls' => 'Shopping Malls', 'commercial-plazas' => 'Commercial Plazas', 'business-towers' => 'Business Towers',
+            'highest-yield' => 'Highest Rental Yield', 'fastest-growing' => 'Fastest Growing', 'new-upcoming' => 'New & Upcoming']
+        : collect(RankingBrowser::publicSegmentsIn(RankingBrowser::segment($active)['group'] ?? $active))->map(fn ($s) => $s['label'])->all()
             + ['highest-yield' => 'Highest Rental Yield', 'fastest-growing' => 'Fastest Growing', 'new-upcoming' => 'New & Upcoming'];
 @endphp
 <nav class="container-page mt-5" aria-label="Investment categories">

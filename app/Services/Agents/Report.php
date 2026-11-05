@@ -25,6 +25,12 @@ class Report
 
     public array $limitations = [];
 
+    /** Send the text exactly as written: no model wording (links and references must survive). */
+    public bool $verbatim = false;
+
+    /** Hand the customer's chat to staff, with this reason. */
+    public ?string $handoff = null;
+
     public function __construct(public string $title) {}
 
     public function finding(string $line): static
@@ -89,7 +95,15 @@ class Report
             'data_sources' => array_values(array_unique($this->sources)),
             'narrative' => $this->narrative,
             'generated_at' => now()->toIso8601String(),
-        ];
+        ] + ($this->handoff ? ['handoff' => $this->handoff] : []);
+    }
+
+    /** For a customer: the same text, without internal tool failures. */
+    public static function customerPlain(array $r, int $max = 1000): string
+    {
+        $r['missing'] = array_values(array_filter($r['missing'] ?? [], fn ($m) => ! preg_match('/^[a-z_]+\.[a-z_]+:/', (string) $m)));
+
+        return self::plain($r, $max);
     }
 
     /** Plain text (WhatsApp / chat). */

@@ -6,5 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class WebhookEvent extends Model
 {
-    protected $fillable = ['provider', 'payload_hash', 'status', 'messages', 'error'];
+    protected $fillable = ['provider', 'payload_hash', 'status', 'messages', 'error', 'event_type', 'processed_at'];
+
+    protected function casts(): array
+    {
+        return ['processed_at' => 'datetime'];
+    }
 }

@@ -3,11 +3,11 @@
     $place = $city ?? 'Pakistan';
     $title = $groupLabel.' Investment Rankings in '.$place;
 @endphp
-<x-layouts.app :title="$title" :description="$groupLabel.' investments in '.$place.' by property type, ranked from verified market data with data confidence and sources.'"
+<x-layouts.app :title="$title" :description="$groupLabel.' investments in '.$place.' by development category, ranked from verified market data with data confidence and sources.'"
                :canonical="route('rankings.group', [$citySlug, $group])" :robots="$indexable ? null : 'noindex, follow'">
     @include('rankings.partials.hero', [
         'title' => $groupLabel.' Investments in', 'highlight' => $place,
-        'intro' => 'Each property type has its own ranking, metrics and comparison: choose one to open its dashboard.',
+        'intro' => 'Each development category has its own ranking, metrics and comparison: choose one to open its dashboard.',
         'photo' => config('meezan.place_photos.'.($city ?? 'home')),
         'stats' => [[$previews->sum(fn ($p) => $p['items']->count()), 'Entries tracked', 'layers'], [$previews->sum(fn ($p) => $p['scored']->count()), 'Top scored shown', 'chart'], [7, 'Major Cities', 'map-pin'], ['v'.($calc?->methodology_version ?? \App\Models\InvestmentMethodology::active()?->version ?? '—'), 'Methodology', 'shield']],
         'breadcrumbs' => [['Investment Rankings', route('rankings.index')], [$place, route('rankings.city', $citySlug)], [$groupLabel, null]],
@@ -19,6 +19,9 @@
 
     <div class="container-page py-6">
         @include('investment.partials.demo-notice')
+        @unless ($calc)
+            @include('rankings.partials.insufficient', ['place' => $place])
+        @endunless
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <div class="grid min-w-0 gap-4 md:grid-cols-2">
                 @foreach ($previews as $slug => $p)
@@ -28,7 +31,7 @@
                             <span class="text-[12px] text-muted">{{ $p['items']->count() }} tracked</span>
                         </div>
                         @if ($p['scored']->isEmpty())
-                            <p class="flex-1 p-4 text-[13px] text-muted">No verified ranking yet{{ $p['items']->isNotEmpty() ? ': '.$p['items']->count().' listed with insufficient data' : '' }}.</p>
+                            <p class="flex-1 p-4 text-[13px] text-muted"><span class="font-semibold text-ink">Insufficient Verified Data.</span> Researched projects are listed in the <a href="{{ route('rankings.index') }}" class="link">Investment Index</a>. Nothing is scored here{{ $p['items']->isNotEmpty() ? ': '.$p['items']->count().' listed and undergoing data verification' : '' }}.</p>
                         @else
                             <ol class="flex-1 divide-y divide-line">
                                 @foreach ($p['scored'] as $n => $i)

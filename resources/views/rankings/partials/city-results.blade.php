@@ -16,7 +16,8 @@
     </div>
     @if ($items->isEmpty())
         <div class="p-6 text-center text-sm text-muted">
-            <p class="font-semibold text-ink">No {{ strtolower($label) }} to show in {{ $city }} yet.</p>
+            <p class="font-semibold text-ink">Insufficient Verified Data</p>
+            <p class="mt-1">{{ $tab === 'all' ? 'Nothing' : 'No '.strtolower($label) }} to show in {{ $city }} yet.</p>
             <p class="mt-1">{{ in_array($tab, ['highest-yield', 'fastest-growing'], true) ? 'This list needs verified rent and price history; nothing is estimated.' : 'Entries appear when projects are published or verified market records exist.' }}</p>
         </div>
     @else

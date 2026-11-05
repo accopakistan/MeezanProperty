@@ -2,6 +2,7 @@
 
 namespace App\Services\Investment;
 
+use App\Models\InvestmentCalculation;
 use App\Models\User;
 use App\Services\Agents\CentralAiOrchestrator;
 use Throwable;
@@ -22,6 +23,16 @@ class AdvisorGateway
      */
     public function ask(string $question, ?string $city, ?string $segment, ?string $focus, ?User $user, string $source = 'website'): array
     {
+        // Nothing verified to discuss: answer plainly, without a task or a model request per visitor.
+        if (! InvestmentCalculation::current()) {
+            $a = $this->advisor->answer($question, $city, $segment, $focus);
+            $a['mode'] = 'rules-no-data';
+            $a['task'] = null;
+            $a['missing'][] = 'Insufficient Verified Data: projects are being researched and checked. The Meezan Investment Index shows what is on file for each project, and its leaderboards show every project that has qualified.';
+
+            return $a;
+        }
+
         try {
             $task = $this->brain->submit($question, 'investment-analyst', $user, $source, array_filter(['city' => $city, 'segment' => $segment, 'focus' => $focus]), intent: 'advisor');
         } catch (Throwable $e) {

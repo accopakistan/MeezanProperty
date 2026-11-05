@@ -33,6 +33,12 @@ class AgentContext
         $this->startedAt = microtime(true);
     }
 
+    /** This task answers a customer on a public channel, not staff. */
+    public function forCustomer(): bool
+    {
+        return ($this->task->input['audience'] ?? null) === 'customer';
+    }
+
     /** @return array{ok: bool, status: string, data: mixed, error: ?string} */
     public function tool(string $name, array $input = []): array
     {

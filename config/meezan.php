@@ -140,8 +140,10 @@ return [
 
     'security' => [
         'csp' => (bool) env('MEEZAN_CSP_ENABLED', true),
-        // Behind a proxy or CDN (e.g. Cloudflare): "*" or a comma-separated
-        // list, so HTTPS and client IPs are detected correctly. Empty: none.
+        // Behind a proxy or CDN (e.g. Cloudflare): a comma-separated list of its
+        // IPs or ranges, so HTTPS and client IPs are detected correctly. Empty:
+        // none. "*" lets any client fake its IP, so use it only if the origin
+        // cannot be reached except through the proxy.
         'trusted_proxies' => env('TRUSTED_PROXIES'),
     ],
 
@@ -321,7 +323,9 @@ return [
             'site_inspection' => 'Independent site inspection',
             'audited_document' => 'Audited / certified document (rent roll, safety certificate, accounts)',
             'licensed_data' => 'Licensed data provider',
-            'owner_document' => 'Owner-submitted document (staff-verified)',
+            'owner_document' => 'Owner or manager document',
+            'developer_website' => 'Developer or project website (developer-reported)',
+            'secondary_reference' => 'Secondary public reference (unverified)',
             'demo' => 'Illustrative data (not real)',
         ],
 
@@ -336,7 +340,7 @@ return [
         'demo_notice' => 'DEMO DATA — Illustrative figures for platform preview only. Prices, rental yields, investment scores and forecasts are not verified market information.',
         'reliability' => ['high' => 1.0, 'medium' => 0.6, 'low' => 0.3],
 
-        'price_bases' => ['transaction' => 'Verified transaction', 'asking' => 'Asking (advertised)', 'valuation' => 'Professional valuation'],
+        'price_bases' => ['fbr_tax' => 'FBR tax valuation (not a market price)', 'transaction' => 'Verified transaction', 'asking' => 'Asking (advertised)', 'valuation' => 'Professional valuation'],
 
         // Indicator levels and what each level scores (0-100, higher = better for the investor).
         'indicators' => [
@@ -644,15 +648,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | Meta credentials live in config/services.php ("whatsapp") and .env only.
-    | driver: "meta" (WhatsApp Cloud API; sends only when WHATSAPP_SEND_ENABLED
-    | is true and credentials are set) or "mock" (records messages as tests,
+    | WHATSAPP_MOCK_MODE=true records messages without sending them, and false
+    | uses Meta. When it is not set, MEEZAN_WHATSAPP_DRIVER decides.
+    | driver: "meta" (WhatsApp Cloud API; sends only when WHATSAPP_ENABLED is
+    | true and credentials are set) or "mock" (records messages as tests,
     | sends nothing; only works when APP_ENV is local or testing).
     | Automation, auto-reply and test mode are switched in Admin → WhatsApp.
     |
     */
 
     'whatsapp' => [
-        'driver' => env('MEEZAN_WHATSAPP_DRIVER', 'meta'),
+        'driver' => in_array(env('WHATSAPP_MOCK_MODE'), [null, ''], true) ? env('MEEZAN_WHATSAPP_DRIVER', 'meta') : (env('WHATSAPP_MOCK_MODE') ? 'mock' : 'meta'),
         // Queue for inbound processing and sending (run: php artisan queue:work --queue=whatsapp,default).
         'queue' => env('MEEZAN_WHATSAPP_QUEUE', 'whatsapp'),
         // Reply buttons (View/Change search/Talk to dealer). Off until tested with a live number.
@@ -664,7 +670,11 @@ return [
         'duplicate_window_seconds' => 60,
         'max_outbound_per_recipient_per_hour' => (int) env('MEEZAN_WHATSAPP_MAX_OUTBOUND_PER_HOUR', 15),
         // Sending attempts for temporary provider/network errors.
-        'max_send_attempts' => 3,
+        'max_send_attempts' => (int) env('WHATSAPP_MAX_RETRIES', 3),
+        // Larger webhook bodies are refused before any processing (Meta's own limit is 3 MB).
+        'max_webhook_bytes' => 3 * 1024 * 1024,
+        // Meta's sample template, used only by the owner's connection test.
+        'test_template' => ['name' => 'hello_world', 'language' => 'en_US'],
         // Approved message templates, needed outside the service window (e.g. dealer lead alerts).
         // Create and get them approved in WhatsApp Manager first; see the Phase 10 report.
         'templates' => [

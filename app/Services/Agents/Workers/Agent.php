@@ -40,6 +40,34 @@ abstract class Agent
         return (int) collect(static::intents())->flatten()->sum(fn ($w) => str_contains($text, mb_strtolower($w)) ? 1 + substr_count($w, ' ') : 0);
     }
 
+    /** The customer wrote in Urdu or Roman Urdu. Replies then use Roman Urdu. */
+    protected function urdu(string $text): bool
+    {
+        return (bool) preg_match('/\p{Arabic}/u', $text) || (bool) preg_match('/\b(kaise|kese|kya|hai|hain|karna|karein|mujhe|chahiye|kahan|kyun|nahi|masla|paise|banna)\b/i', $text);
+    }
+
+    /** A customer answer from an approved public article, or the fallback. */
+    protected function publicAnswer(AgentContext $ctx, Report $r, string $query, string $fallback): void
+    {
+        $kb = $this->need($ctx, $r, 'knowledge.search', ['query' => $query, 'limit' => 1]);
+        $doc = $kb['documents'][0] ?? null;
+        $r->finding($doc && $doc['score'] >= 2 ? trim(preg_replace('/^Roman Urdu:.*$/mi', '', $doc['excerpt'])) : $fallback);
+    }
+
+    /**
+     * Pass a customer's problem to staff. The agent looks nothing up and decides
+     * nothing: it opens a ticket and says so.
+     */
+    protected function ticketForCustomer(AgentContext $ctx, Report $r, string $category, string $priority, string $subject): ?string
+    {
+        $t = $ctx->tool('support.create_ticket', [
+            'subject' => mb_substr($subject, 0, 200), 'summary' => mb_substr($ctx->task->request, 0, 2000), 'category' => $category, 'priority' => $priority,
+        ]);
+        $r->source('support.create_ticket');
+
+        return $t['ok'] ? $t['data']['ticket'] : null;
+    }
+
     /** City named in the request, if any. */
     protected function city(string $request): ?string
     {

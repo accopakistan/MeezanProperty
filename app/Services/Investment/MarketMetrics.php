@@ -25,7 +25,9 @@ class MarketMetrics
     {
         $priority = ['transaction' => 3, 'valuation' => 2, 'asking' => 1];
 
-        return $sales->groupBy(fn (MarketObservation $o) => static::seriesKey($o))
+        // FBR values are tax values revised by notification, so they are never a price trend.
+        return $sales->reject(fn (MarketObservation $o) => $o->price_basis === 'fbr_tax')
+            ->groupBy(fn (MarketObservation $o) => static::seriesKey($o))
             ->sortByDesc(fn (Collection $g) => [$g->count(), $priority[$g->first()->price_basis] ?? 0])
             ->first(default: collect())
             ->sortBy(fn ($o) => $o->observed_on->timestamp)

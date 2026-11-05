@@ -49,6 +49,19 @@
             </ul>
         </section>
 
+        <section class="card p-5" aria-labelledby="states-title">
+            <h2 id="states-title" class="text-lg font-bold">How a project is shown</h2>
+            <ul class="mt-3 list-disc space-y-1.5 pl-5 text-[14px] text-muted">
+                <li><span class="font-semibold text-ink">Ranked.</span> Verified evidence meets every rule above. Only these appear on a leaderboard with a rank and a score.</li>
+                @if (\App\Services\InvestmentIndex\IndexBrowser::provisionalPublic())
+                    <li><span class="font-semibold text-ink">Provisional research position.</span> The same scoring, also counting records staff have not yet checked, with less of the methodology covered than a ranking needs. Always labelled provisional, shown with its evidence share and unchecked records, and never a verified rank.</li>
+                @endif
+                <li><span class="font-semibold text-ink">Research in progress.</span> The project is shown with what is on file and what is missing, and no score. "Most documented" lists order projects by how much is on file. That order says nothing about investment merit.</li>
+                <li><span class="font-semibold text-ink">Excluded or restricted.</span> An official record shows a cancellation or another adverse status. A project whose status we could not find is shown as unknown, never as illegal.</li>
+            </ul>
+            <p class="mt-3 text-[14px] text-muted">A missing value is never treated as a good one. It lowers the share of the weight covered, which lowers the score and can keep a project out of the ranking. Advertised prices are labelled as asking prices, tax valuations as tax values, and neither is treated as a sale.</p>
+        </section>
+
         <section class="card p-5" aria-labelledby="legal-title">
             <h2 id="legal-title" class="text-lg font-bold">Legal safety</h2>
             <ul class="mt-2 list-disc space-y-1.5 pl-5 text-[14px]">

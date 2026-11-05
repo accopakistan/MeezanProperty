@@ -31,7 +31,9 @@ function searchTabsOn(string $html): array
 it('gives demo entities natural names and keeps them flagged as demo data', function () {
     AppSetting::put('investment.demo_mode', true); // the admin preview; off by default
     app(DemoDataManager::class)->seed(['Lahore'], 0.2);
-    app(DemoDataManager::class)->recalculate(User::factory()->admin()->create());
+    $admin = User::factory()->admin()->create();
+    app(DemoDataManager::class)->recalculate($admin);
+    $this->actingAs($admin);
 
     expect(Project::where('name', 'like', '%Demo%')->count())->toBe(0)
         ->and(Project::where('is_demo', true)->count())->toBe(Project::count())

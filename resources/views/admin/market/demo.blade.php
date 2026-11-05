@@ -1,4 +1,4 @@
-<x-layouts.dashboard title="Demo data" section="admin" heading="Investment demo data" subheading="An illustrative dataset (fictional projects marked “(Demo)”, invented prices, rents and indicators) that fills the Investment Rankings until real market data is collected. It is never counted as verified and is ranked in its own calculation.">
+<x-layouts.dashboard title="Demo data" section="admin" heading="Investment demo data" subheading="An illustrative dataset (fictional projects marked “(Demo)”, invented prices, rents and indicators) kept for internal testing. It is never counted as verified, is ranked in its own calculation, and is never shown to public visitors.">
     @include('admin.market.partials.nav')
     @php $s = $stats; @endphp
 
@@ -6,7 +6,7 @@
         <section class="card card-body">
             <h2 class="text-sm font-semibold text-muted">Demo mode</h2>
             <p class="mt-1 text-2xl font-bold">{{ $s['demo_mode'] ? 'On' : 'Off' }}</p>
-            <p class="mt-1 text-[13px] text-muted">{{ $s['demo_mode'] ? 'Public dashboards show the demo rankings, with the demo notice on every page.' : 'Public dashboards show real verified data only.' }}
+            <p class="mt-1 text-[13px] text-muted">{{ $s['demo_mode'] ? 'Signed-in administrators see the demo rankings as a preview, with the demo notice on every page. Public visitors still see real verified data only.' : 'All dashboards show real verified data only.' }}
                 {{ $override === null ? 'Set by INVESTMENT_DEMO_MODE ('.($envDefault ? 'true' : 'false').').' : 'Overridden here.' }}</p>
             <form method="POST" action="{{ route('admin.market.demo.mode') }}" class="mt-3 flex flex-wrap gap-2">@csrf
                 <button name="mode" value="{{ $s['demo_mode'] ? 'off' : 'on' }}" class="btn btn-primary btn-sm">Turn {{ $s['demo_mode'] ? 'off' : 'on' }}</button>

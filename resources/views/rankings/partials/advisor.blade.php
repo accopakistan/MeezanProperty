@@ -5,7 +5,7 @@
 --}}
 @php
     $examples ??= ['Which shopping mall is best for investment in '.($city ?? 'Lahore').'?', 'Which residential society has the strongest historical performance?',
-        'Compare 5 Marla plots in '.($city ?? 'Lahore').'.', 'Which commercial projects have verified rental income?', 'What are the risks of investing in this project?'];
+        'Compare apartment buildings in '.($city ?? 'Lahore').'.', 'Which commercial projects have verified rental income?', 'What are the risks of investing in this project?'];
     $focusTabs = ['best' => 'Ask AI', 'compare' => 'Compare', 'rental' => 'Rental Analysis', 'forecast' => 'Forecast'];
     $focus = request('focus', 'best');
 @endphp

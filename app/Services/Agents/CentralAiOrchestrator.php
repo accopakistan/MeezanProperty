@@ -84,7 +84,8 @@ class CentralAiOrchestrator
             $intent = $task->intent ?? $this->intentFor($ctx, $worker);
             $report = app($worker)->handle($ctx, $intent);
             $this->addApprovedNotes($ctx, $report);
-            $mode = ($agent->planning === 'model_tools' ? $this->answerWithTools($ctx, $report) : null) ?? $this->narrate($ctx, $report);
+            // A customer's words never choose tools: the workflow already did, with ToolRunner's customer limits.
+            $mode = ($agent->planning === 'model_tools' && ! $ctx->forCustomer() ? $this->answerWithTools($ctx, $report) : null) ?? $this->narrate($ctx, $report);
             $result = OutputGuard::clean($report->toArray()) + ['trace' => $ctx->trace];
             $task->forceFill([
                 'intent' => $intent,
@@ -115,6 +116,9 @@ class CentralAiOrchestrator
         $rootId = $parent->root_id ?? $parent->id;
         $refuse = fn (string $why) => ['ok' => false, 'report' => null, 'error' => $why, 'task' => null];
 
+        if ($from->forCustomer()) {
+            return $refuse('Customer messages cannot be passed to other agents.');
+        }
         if (! AgentCatalog::canDelegate($from->agent->slug)) {
             return $refuse("{$from->agent->name} is not allowed to delegate tasks.");
         }
@@ -192,6 +196,9 @@ class CentralAiOrchestrator
     /** Approved long-term notes this agent may read, shown with their source. */
     protected function addApprovedNotes(AgentContext $ctx, Report $report): void
     {
+        if ($ctx->forCustomer()) {
+            return; // internal notes are for staff reports
+        }
         $memory = $ctx->memory()->context();
         $notes = $memory['agent']->concat($memory['shared']);
         if ($notes->isNotEmpty()) {
@@ -212,6 +219,9 @@ class CentralAiOrchestrator
     /** Optional model wording of the report, grounded in its data and within budget. Returns the mode used. */
     protected function narrate(AgentContext $ctx, Report $report): string
     {
+        if ($report->verbatim) {
+            return 'rules';
+        }
         if (! config('meezan.agents.use_llm') || ! $this->provider->available()) {
             $report->limitation('Written from data only: the language model is not configured.');
 

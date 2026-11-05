@@ -6,6 +6,7 @@ use App\Models\ContactConsent;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\OutboundMessage;
+use App\Support\WhatsAppNumber;
 
 /**
  * Decides whether a WhatsApp message may be sent, before it is queued and
@@ -19,7 +20,9 @@ use App\Models\OutboundMessage;
  *
  * Free-form messages are only allowed within Meta's customer-service window
  * (24 h since the contact last wrote); outside it an approved template is
- * required. Opt-outs (STOP) are always respected.
+ * required. Opt-outs (STOP) are always respected. In Meta's test mode a real
+ * message can only go to the verified test recipient, and "owner_test" (the
+ * owner's own connection test) is refused outside test mode.
  */
 class MessagePolicy
 {
@@ -36,13 +39,19 @@ class MessagePolicy
         $deny = fn (string $reason) => ['allowed' => false, 'reason' => $reason, 'template' => false];
         $provider = $this->client->provider();
 
+        if (WhatsAppNumber::normalize($contact) === null) {
+            return $deny('invalid_recipient');
+        }
         if (! $provider->canSend()) {
             return $deny($provider->isTest() ? 'provider_unavailable' : 'sending_disabled');
+        }
+        if (! $this->client->allowedInCurrentMode($contact) || ($purpose === 'owner_test' && ! $this->client->isMetaTestMode())) {
+            return $deny('test_recipient_only');
         }
         if ($category === 'promotional' && ! config('meezan.whatsapp.promotional_enabled')) {
             return $deny('promotional_disabled');
         }
-        $staff = $purpose === 'staff_reply';
+        $staff = in_array($purpose, ['staff_reply', 'owner_test'], true);
         if (! $staff && ! $this->settings->automationEnabled()) {
             return $deny('automation_disabled');
         }

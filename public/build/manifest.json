@@ -46,7 +46,7 @@
     "src": "node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BR3SN2nT.css",
+    "file": "assets/app-DGrEzAqZ.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",

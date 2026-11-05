@@ -19,7 +19,7 @@ class MarketSource extends Model
     protected function casts(): array
     {
         return ['last_checked_on' => 'date', 'is_active' => 'boolean', 'is_demo' => 'boolean',
-            'collector_config' => 'array', 'authorized_at' => 'datetime', 'last_collected_at' => 'datetime'];
+            'collector_config' => 'array', 'authorized_at' => 'datetime', 'last_collected_at' => 'datetime', 'last_success_at' => 'datetime', 'data_categories' => 'array'];
     }
 
     /**
@@ -53,6 +53,11 @@ class MarketSource extends Model
     public function indicators(): HasMany
     {
         return $this->hasMany(MarketIndicator::class, 'source_id');
+    }
+
+    public function legalRecords(): HasMany
+    {
+        return $this->hasMany(InvestmentLegalRecord::class, 'source_id');
     }
 
     public function typeLabel(): string

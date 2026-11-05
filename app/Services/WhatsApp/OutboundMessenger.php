@@ -33,7 +33,9 @@ class OutboundMessenger
     /**
      * @param  array{to: string, body: string, category: string, purpose: string, dedupe_key?: ?string,
      *               conversation_id?: ?int, conversation_message_id?: ?int, lead_id?: ?int, user_id?: ?int,
-     *               buttons?: list<array{id: string, title: string}>, template?: ?array{name: string, language: string, parameters: list<string>}}  $message
+     *               buttons?: list<array{id: string, title: string}>, template?: ?array{name: string, language: string, parameters: list<string>},
+     *               force_template?: bool, list?: ?array{button: string, sections: list<array{title?: string, rows: list<array{id: string, title: string, description?: string}>}>},
+     *               media?: ?array{type: string, link?: string, id?: string, filename?: string}}  $message
      */
     public function queue(array $message): OutboundMessage
     {
@@ -44,12 +46,21 @@ class OutboundMessenger
             return $existing;
         }
 
+        $media = $message['media'] ?? null;
+        if ($media && (! in_array($media['type'] ?? null, ['image', 'video', 'audio', 'document'], true)
+            || (empty($media['id']) && ! str_starts_with((string) ($media['link'] ?? ''), 'https://')))) {
+            throw new InvalidArgumentException('Media needs a known type and a Meta media id or an https link.');
+        }
+
         $template = $message['template'] ?? null;
         $decision = $this->policy->check($message['to'], $message['category'], $message['purpose'], (bool) ($template['name'] ?? null));
         $provider = $this->client->provider();
         $buttons = $message['buttons'] ?? [];
+        $list = $message['list'] ?? null;
         $type = match (true) {
-            $decision['template'] => 'template',
+            $decision['template'] || (($message['force_template'] ?? false) && $template) => 'template',
+            (bool) $media => $media['type'],
+            $list && config('meezan.whatsapp.interactive_buttons') && mb_strlen($message['body']) <= 1024 => 'list',
             $buttons && config('meezan.whatsapp.interactive_buttons') && mb_strlen($message['body']) <= 1024 => 'interactive',
             default => 'text',
         };
@@ -71,12 +82,15 @@ class OutboundMessenger
             'payload' => match ($type) {
                 'template' => ['template' => $template['name'], 'language' => $template['language'] ?? 'en', 'parameters' => $template['parameters'] ?? []],
                 'interactive' => ['buttons' => array_slice($buttons, 0, 3)],
+                'list' => $list,
+                'image', 'video', 'audio', 'document' => array_filter(['id' => $media['id'] ?? null, 'link' => $media['link'] ?? null, 'filename' => $media['filename'] ?? null]),
                 default => null,
             },
             'status' => $decision['allowed'] ? 'queued' : 'blocked',
             'blocked_reason' => $decision['reason'],
             'dedupe_key' => $message['dedupe_key'] ?? null,
             'is_test' => $provider->isTest(),
+            'api_mode' => ($mode = $this->client->deliveryMode()) === 'off' ? null : $mode,
         ]);
 
         try {
@@ -128,7 +142,7 @@ class OutboundMessenger
         if ($result->sent) {
             $outbound->forceFill([
                 'status' => 'sent', 'provider' => $provider->key(), 'provider_message_id' => $result->providerMessageId,
-                'sent_at' => now(), 'last_error' => null, 'is_test' => $outbound->is_test || $provider->isTest(),
+                'sent_at' => now(), 'last_error' => null, 'is_test' => $outbound->is_test || $provider->isTest(), 'api_mode' => $this->client->deliveryMode(),
             ])->save();
             $this->syncConversationMessage($outbound);
 
@@ -152,6 +166,29 @@ class OutboundMessenger
         }
 
         return $retry ? 'retry' : 'failed';
+    }
+
+    /**
+     * The owner's own connection test: Meta's sample template to the verified
+     * test recipient, sent straight away so the result can be shown. Only ever
+     * called by a person (the admin button or meezan:whatsapp-test-send).
+     */
+    public function ownerTest(): OutboundMessage
+    {
+        $template = config('meezan.whatsapp.test_template');
+        $outbound = $this->queue([
+            'to' => (string) config('services.whatsapp.test_recipient'),
+            'body' => 'Connection test: template '.$template['name'],
+            'category' => 'transactional',
+            'purpose' => 'owner_test',
+            'template' => ['name' => $template['name'], 'language' => $template['language'], 'parameters' => []],
+            'force_template' => true,
+        ]);
+        if ($outbound->status === 'queued') {
+            $this->deliver($outbound->id);
+        }
+
+        return $outbound->fresh();
     }
 
     /** Staff retry a failed message; the policy is checked again (it may now be outside the 24 h window). */
@@ -180,15 +217,19 @@ class OutboundMessenger
     /**
      * Apply a status update from the provider's webhook. Progress only moves
      * forward (sent → delivered → read); "failed" is recorded with its code.
+     * Returns false when no outbound row has this id.
      *
      * @param  array<string, mixed>  $status  Meta's statuses[] entry
      */
-    public function applyStatus(array $status): void
+    public function applyStatus(array $status): bool
     {
         $outbound = OutboundMessage::where('provider_message_id', $status['id'] ?? '')->first();
         $state = $status['status'] ?? null;
-        if (! $outbound || ! in_array($state, ['sent', 'delivered', 'read', 'failed'], true)) {
-            return;
+        if (! $outbound) {
+            return false;
+        }
+        if (! in_array($state, ['sent', 'delivered', 'read', 'failed'], true)) {
+            return true;
         }
 
         if ($state === 'failed') {
@@ -197,6 +238,9 @@ class OutboundMessenger
         } elseif ((OutboundMessage::PROGRESS[$state] ?? 0) > (OutboundMessage::PROGRESS[$outbound->status] ?? 0)) {
             $outbound->forceFill(['status' => $state, $state.'_at' => now()])->save();
         }
+        $this->syncConversationMessage($outbound);
+
+        return true;
     }
 
     /** The assistant's stored message shows the same delivery state (and id) as its outbound row. */

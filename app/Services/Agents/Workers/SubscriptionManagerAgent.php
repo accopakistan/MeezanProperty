@@ -16,6 +16,7 @@ class SubscriptionManagerAgent extends Agent
             'summary' => ['subscription', 'package', 'plan', 'status'],
             'my_plan' => ['my subscription', 'my package', 'my plan', 'mera package', 'meri subscription'],
             'change' => ['change package', 'change subscription', 'downgrade', 'extend subscription'],
+            'customer_plans' => [], // chosen only by the customer routes, never by keywords
         ];
     }
 
@@ -26,8 +27,23 @@ class SubscriptionManagerAgent extends Agent
             'utilization' => $this->utilization($ctx),
             'my_plan' => $this->myPlan($ctx),
             'change' => $this->propose($ctx, 'subscriptions.change', 'Subscription change request'),
+            'customer_plans' => $this->customerPlans($ctx),
             default => $this->summary($ctx),
         };
+    }
+
+    /** A customer asks about dealer packages. Public pricing only; changes nothing. */
+    protected function customerPlans(AgentContext $ctx): Report
+    {
+        $r = new Report('Dealer packages');
+        $r->verbatim = true;
+        $this->publicAnswer($ctx, $r, 'dealer packages subscription pricing', $this->urdu($ctx->task->request)
+            ? 'Dealer packages aur un ki qeemat hamari pricing page par hain.'
+            : 'Our dealer packages and their prices are on the pricing page.');
+        $r->finding('Pricing: '.route('pricing'));
+        $r->finding('Reply "human" if you need help choosing or changing a package.');
+
+        return $r;
     }
 
     protected function summary(AgentContext $ctx): Report

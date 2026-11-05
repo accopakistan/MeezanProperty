@@ -14,6 +14,8 @@ class AssistantNeedsAttention extends QueuedMailNotification
 {
     public const REASONS = [
         'human' => 'A buyer asked to speak to a person',
+        'payment_issue' => 'A customer reported a payment issue',
+        'complaint' => 'A customer made a complaint',
         'not_understood' => 'Several messages in a row were not understood',
         'suspicious' => 'Unusually many messages in a short time',
         'webhook_failed' => 'A WhatsApp webhook delivery failed',

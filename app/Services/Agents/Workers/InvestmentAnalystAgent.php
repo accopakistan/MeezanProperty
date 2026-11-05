@@ -2,8 +2,11 @@
 
 namespace App\Services\Agents\Workers;
 
+use App\Models\Project;
 use App\Services\Agents\AgentContext;
 use App\Services\Agents\Report;
+use App\Services\InvestmentIndex\Collection\SchemeNames;
+use App\Services\InvestmentIndex\IndexBrowser;
 
 /**
  * Investment Analyst: works only from the published Investment Intelligence
@@ -22,7 +25,16 @@ class InvestmentAnalystAgent extends Agent
             'data_status' => ['market data', 'data quality', 'data confidence'],
             'methodology' => ['methodology change', 'change weights', 'new weights', 'propose weights'],
             'advisor' => ['investment advisor'],
+            'customer_index' => [], // chosen only by the customer routes, never by keywords
         ];
+    }
+
+    /** A question with no recognised words ("Tell me about X") gets the Index report, not a comparison. */
+    public static function intentFor(string $request): string
+    {
+        $text = mb_strtolower($request);
+
+        return collect(static::intents())->flatten()->contains(fn ($word) => str_contains($text, $word)) ? parent::intentFor($request) : 'rankings';
     }
 
     public function handle(AgentContext $ctx, string $intent): Report
@@ -33,8 +45,20 @@ class InvestmentAnalystAgent extends Agent
             'data_status' => $this->dataStatus($ctx),
             'methodology' => $this->propose($ctx, 'investment.methodology_change', 'Ranking methodology change request'),
             'advisor' => $this->advisor($ctx),
+            'customer_index' => $this->customerIndex($ctx),
             default => $this->rankings($ctx),
         };
+    }
+
+    /** A customer asks about the Index: what it is, then the published position from the same leaderboards as the website. */
+    protected function customerIndex(AgentContext $ctx): Report
+    {
+        $r = $this->rankings($ctx);
+        $r->verbatim = true;
+        array_unshift($r->summary, 'The Meezan Investment Index ranks housing societies, commercial plazas, apartment buildings, shopping malls and business towers, using verified, traceable evidence only. A project without enough evidence shows "Insufficient Verified Data". It is not a promise of returns.');
+        $r->finding('Details: '.route('rankings.index'));
+
+        return $r;
     }
 
     /** Index categories by the words people use for them. */
@@ -46,6 +70,54 @@ class InvestmentAnalystAgent extends Agent
         'business-towers' => ['business tower', 'tower', 'office building'],
     ];
 
+    /** A real project the question names, by its name without phase or scheme words. Very short names are too ambiguous to guess from. */
+    protected function namedProject(string $request): ?string
+    {
+        $words = ' '.SchemeNames::normalize($request).' ';
+        foreach (Project::where('is_demo', false)->where('is_published', true)->orderByRaw('length(name)')->pluck('name') as $name) {
+            $base = trim(preg_replace('/phase \d+/', '', SchemeNames::normalize($name)));
+            if (mb_strlen($base) >= 8 && str_contains($words, " {$base} ")) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    /** One project's stored evidence, its sources, and what is missing. The score appears only for a ranked project. */
+    protected function projectProfile(AgentContext $ctx, string $name): Report
+    {
+        $r = new Report("Meezan Investment Index — {$name}");
+        $p = $this->need($ctx, $r, 'investment_index.project', ['name' => $name]);
+        if (! $p) {
+            return $r;
+        }
+        if (! $p['found']) {
+            foreach ($p['missing'] as $missing) {
+                $r->limitation($missing);
+            }
+
+            return $r;
+        }
+        $ranked = $p['category_rank'] !== null;
+        $r->finding("{$p['name']} ({$p['category']}, {$p['city']}): {$p['status']}. Legal status: ".IndexBrowser::legalLabel($p['legal_status']).". Data confidence {$p['confidence']} ({$p['confidence_level']}). Risk: {$p['risk']}.".($ranked ? " Score {$p['score']}, rank {$p['category_rank']} in its category." : ' It has no published score.'));
+        $r->table('Evidence by factor', ['Factor', 'Weight', 'Verified value', 'Score'], collect($p['factors'])->map(fn ($f) => [$f['label'], $f['weight'].'%', $f['value'] ?? 'Insufficient Verified Data', $f['score'] ?? '—'])->all());
+        $p['legal_records'] && $r->table('Official legal records', ['Authority', 'Status', 'Date', 'Source'], collect($p['legal_records'])->map(fn ($l) => [$l['authority'], $l['status'], $l['date'] ?? 'not stated', $l['source_url']])->all());
+        foreach (collect($p['risks'] ?? [])->take(5) as $risk) {
+            $r->finding('Risk: '.$risk);
+        }
+        foreach ($p['changes'] as $change) {
+            $r->finding('Ranking change: '.$change);
+        }
+        $missing = collect($p['factors'])->filter(fn ($f) => $f['score'] === null)->pluck('label');
+        $missing->isNotEmpty() && $r->limitation('No verified evidence yet for: '.$missing->implode(', ').'. Nothing is estimated for them.');
+        $p['first_found_in'] && $r->limitation('Project record first found in: '.$p['first_found_in'].'.');
+        $p['stated_facts'] && $r->table('What the sources state (not used in any score)', ['Item', 'Value', 'Source', 'Date'], collect($p['stated_facts'])->map(fn ($f) => [$f['label'], $f['value'], $f['source'], $f['date']])->all());
+        $p['awaiting_staff_check'] && $r->table('Read from a source, awaiting a staff check (not verified, in no score)', ['Factor', 'Value', 'Date', 'Source'], collect($p['awaiting_staff_check'])->map(fn ($e) => [$e['factor'], $e['value'], $e['date'], $e['source']])->all());
+
+        return $r;
+    }
+
     /**
      * The Meezan Investment Index first: the category asked about, or all
      * five leaderboards. Scores come only from the Index engine; a category
@@ -54,6 +126,9 @@ class InvestmentAnalystAgent extends Agent
      */
     protected function rankings(AgentContext $ctx): Report
     {
+        if ($project = $this->namedProject($ctx->task->request)) {
+            return $this->projectProfile($ctx, $project);
+        }
         $text = mb_strtolower($ctx->task->request);
         $asked = collect(self::INDEX_CATEGORIES)->filter(fn ($words) => collect($words)->contains(fn ($w) => str_contains($text, $w)))->keys()->first();
         $r = new Report('Meezan Investment Index'.($asked ? ' — '.config("investment_index.categories.$asked.label") : ''));

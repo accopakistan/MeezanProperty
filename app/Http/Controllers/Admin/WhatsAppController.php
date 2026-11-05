@@ -37,9 +37,6 @@ class WhatsAppController extends Controller
         $provider = $client->provider();
         $whatsapp = fn () => Conversation::where('channel', 'whatsapp');
         $inbound = fn () => ConversationMessage::where('direction', 'inbound')->whereHas('conversation', fn ($q) => $q->where('channel', 'whatsapp'));
-        $appUrl = (string) config('app.url');
-        $host = (string) parse_url($appUrl, PHP_URL_HOST);
-        $isLocalHost = in_array($host, ['localhost', '127.0.0.1', '::1'], true) || str_ends_with($host, '.test') || str_ends_with($host, '.localhost');
 
         return view('admin.whatsapp.index', [
             'provider' => $provider,
@@ -50,14 +47,25 @@ class WhatsAppController extends Controller
                 : $provider->configurationChecks(),
             'receiving' => $client->isConfigured(),
             'isLive' => $client->isLive(),
-            'webhookUrl' => route('webhooks.whatsapp'),
-            'publicUrl' => ! $isLocalHost && str_starts_with($appUrl, 'https://'),
+            'webhookUrl' => config('services.whatsapp.webhook_url') ?: route('api.whatsapp.webhook'),
+            'publicUrl' => $client->inboundStatus()['public'],
+            'delivery' => $client->deliveryMode(),
+            'mock' => $client->mockStatus(),
+            'metaTest' => $client->metaTestStatus(),
+            'production' => $client->productionStatus(),
+            'inbound' => $client->inboundStatus(),
+            'formatProblems' => $client->formatProblems(),
+            'meta' => $client->details(),
+            'warnings' => $client->configurationWarnings(),
+            'lastInbound' => $inbound()->latest('id')->value('created_at'),
+            'lastSent' => OutboundMessage::where('is_test', false)->max('sent_at'),
             'verifiedAt' => AppSetting::get('whatsapp.webhook_verified_at'),
             'lastWebhook' => WebhookEvent::where('provider', 'whatsapp')->latest('id')->first(),
             'lastTest' => AppSetting::get('whatsapp.last_connection_test'),
             'counts' => [
                 'conversations' => $whatsapp()->count(),
                 'active' => $whatsapp()->where('last_message_at', '>=', now()->subDay())->count(),
+                'handoffs' => $whatsapp()->where('handoff_status', 'pending')->count(),
                 'incoming' => $inbound()->count(),
                 'outgoing' => OutboundMessage::count(),
                 'failed' => OutboundMessage::where('status', 'failed')->count(),
@@ -102,13 +110,43 @@ class WhatsAppController extends Controller
         return back()->with('status', WhatsAppSettings::SWITCHES[$request->input('switch')][2].' turned '.($request->boolean('on') ? 'on' : 'off').'.');
     }
 
-    public function testConnection(Request $request, WhatsAppClient $client): RedirectResponse
+    /** Asks Meta about the phone number. Read-only: it sends no message and works while mock mode is on. */
+    public function testConnection(Request $request, MetaCloudProvider $meta): RedirectResponse
     {
-        $result = $client->provider()->testConnection();
-        AppSetting::put('whatsapp.last_connection_test', $result + ['at' => now()->toIso8601String(), 'provider' => $client->provider()->key()], $request->user()->id);
-        AuditLogger::record('whatsapp.connection_tested', $request->user(), ['provider' => $client->provider()->key(), 'ok' => $result['ok']], $request->user()->id);
+        $result = $meta->testConnection();
+        AppSetting::put('whatsapp.last_connection_test', $result + ['at' => now()->toIso8601String(), 'provider' => $meta->key()], $request->user()->id);
+        AuditLogger::record('whatsapp.connection_tested', $request->user(), ['provider' => $meta->key(), 'ok' => $result['ok']], $request->user()->id);
 
         return back()->with($result['ok'] ? 'status' : 'error', $result['detail']);
+    }
+
+    /**
+     * The owner's own live test: one Meta sample template to the verified test
+     * recipient. Runs only when a person ticks the approval and presses the
+     * button, only in test mode, and never while mock mode is on.
+     */
+    public function testSend(Request $request, WhatsAppClient $client, OutboundMessenger $messenger): RedirectResponse
+    {
+        if (! $client->isMetaTestMode()) {
+            return back()->with('error', 'The test message is only available in test mode.');
+        }
+        if ($client->mockStatus()['on']) {
+            return back()->with('error', 'Mock mode is on, so nothing would reach a phone. Turn it off first; nothing was sent.');
+        }
+        if (! ($status = $client->metaTestStatus())['ready']) {
+            return back()->with('error', 'Not sent: '.$status['missing'][0]);
+        }
+        if (! $request->boolean('approved')) {
+            return back()->with('error', 'Tick the approval box to send the test message. Nothing was sent.');
+        }
+        $outbound = $messenger->ownerTest();
+        AuditLogger::record('whatsapp.test_sent', $request->user(), ['outbound_id' => $outbound->id, 'status' => $outbound->status, 'provider' => $outbound->provider], $request->user()->id);
+
+        return match (true) {
+            $outbound->status === 'blocked' => back()->with('error', 'Not sent: '.(OutboundMessage::BLOCK_REASONS[$outbound->blocked_reason] ?? $outbound->blocked_reason).'.'),
+            $outbound->status === 'sent' => back()->with('status', 'Meta accepted the message. Delivery shows on the phone; delivery updates here need the public webhook.'),
+            default => back()->with('error', 'Not sent: '.$outbound->last_error),
+        };
     }
 
     public function retry(Request $request, OutboundMessage $message, OutboundMessenger $messenger): RedirectResponse

@@ -61,24 +61,28 @@ Route::get('/investment/methodology', [InvestmentController::class, 'methodology
 Route::get('/investment/rental-yield-calculator', [InvestmentController::class, 'yieldCalculator'])->name('investment.yield');
 Route::get('/investment/{entityType}/{entityId}', [InvestmentController::class, 'show'])->whereIn('entityType', ['city', 'area', 'project'])->whereNumber('entityId')->name('investment.show');
 
-// Investment Rankings = the Meezan Investment Index: five Pakistan-wide leaderboards, the Overall
-// Index, project profiles and the methodology. The earlier city / group / segment pages redirect here.
+// Investment Rankings. The Meezan Investment Index: five Pakistan-wide leaderboards, the Overall Index,
+// project profiles and the methodology. The MPIS dashboards keep their addresses beside it: all of
+// Pakistan (/pakistan), cities, groups, the five development categories and compare, verified data only.
 Route::prefix('investment-rankings')->name('rankings.')->group(function () {
     $cities = array_merge(['pakistan'], array_map([Cities::class, 'slug'], Cities::names()));
     $groups = array_keys(config('meezan.investment.groups'));
-    Route::controller(InvestmentIndexController::class)->group(function () use ($cities, $groups) {
+    Route::controller(InvestmentIndexController::class)->group(function () {
         Route::get('/', 'home')->name('index');
         Route::get('/overall', 'overall')->name('overall');
         Route::get('/methodology', 'methodology')->name('methodology');
         Route::get('/projects/{project}', 'project')->name('project');
         Route::get('/{category}', 'category')->whereIn('category', array_keys(config('investment_index.categories')))->name('category');
-        Route::get('/{city}', 'legacyCity')->whereIn('city', $cities)->name('city');
-        Route::get('/{city}/{group}', 'legacyGroup')->whereIn('city', $cities)->whereIn('group', $groups)->name('group');
-        Route::get('/{city}/{group}/{segment}', 'legacySegment')->whereIn('city', $cities)->whereIn('group', $groups)->name('segment');
-        Route::get('/{city}/{group}/{segment}/compare', 'legacySegment')->whereIn('city', $cities)->whereIn('group', $groups)->name('compare');
+        Route::get('/{category}/compare', 'compare')->whereIn('category', array_keys(config('investment_index.categories')))->name('category-compare');
+        Route::get('/{city}/{category}', 'cityCategory')->whereIn('city', array_map([Cities::class, 'slug'], Cities::names()))->whereIn('category', array_keys(config('investment_index.categories')))->name('city-category');
     });
-    // The earlier rankings advisor (JSON), still used by the AI tools for the earlier MPIS snapshot.
-    Route::get('/advisor', [InvestmentRankingsController::class, 'advisor'])->middleware('throttle:30,1')->name('advisor');
+    Route::controller(InvestmentRankingsController::class)->group(function () use ($cities, $groups) {
+        Route::get('/advisor', 'advisor')->middleware('throttle:30,1')->name('advisor');
+        Route::get('/{city}', 'city')->whereIn('city', $cities)->name('city');
+        Route::get('/{city}/{group}', 'group')->whereIn('city', $cities)->whereIn('group', $groups)->name('group');
+        Route::get('/{city}/{group}/{segment}', 'segment')->whereIn('city', $cities)->whereIn('group', $groups)->name('segment');
+        Route::get('/{city}/{group}/{segment}/compare', 'compare')->whereIn('city', $cities)->whereIn('group', $groups)->name('compare');
+    });
 });
 
 Route::get('/map', [MapController::class, 'page'])->name('properties.map');
@@ -332,11 +336,14 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/conversations/{conversation}/resolve', [Admin\ConversationController::class, 'resolve'])->name('conversations.resolve');
     Route::post('/conversations/{conversation}/reveal', [Admin\ConversationController::class, 'revealContact'])->name('conversations.reveal');
     Route::post('/conversations/{conversation}/reply', [Admin\ConversationController::class, 'reply'])->middleware('throttle:30,1')->name('conversations.reply');
+    Route::post('/conversations/{conversation}/handoff', [Admin\ConversationController::class, 'handoff'])->name('conversations.handoff');
+    Route::patch('/conversations/{conversation}/note', [Admin\ConversationController::class, 'note'])->name('conversations.note');
 
     Route::get('/whatsapp', [Admin\WhatsAppController::class, 'index'])->name('whatsapp');
     Route::get('/whatsapp/messages', [Admin\WhatsAppController::class, 'messages'])->name('whatsapp.messages');
     Route::patch('/whatsapp/settings', [Admin\WhatsAppController::class, 'updateSettings'])->name('whatsapp.settings');
     Route::post('/whatsapp/connection-test', [Admin\WhatsAppController::class, 'testConnection'])->middleware('throttle:10,1')->name('whatsapp.test');
+    Route::post('/whatsapp/test-send', [Admin\WhatsAppController::class, 'testSend'])->middleware('throttle:5,1')->name('whatsapp.test-send');
     Route::post('/whatsapp/messages/{message}/retry', [Admin\WhatsAppController::class, 'retry'])->name('whatsapp.retry');
     Route::post('/whatsapp/simulate', [Admin\WhatsAppController::class, 'simulate'])->middleware('throttle:60,1')->name('whatsapp.simulate');
 
@@ -413,6 +420,20 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::post('/methodology', 'createDraft')->name('methodology.draft');
         Route::patch('/methodology/{methodology}', 'updateDraft')->name('methodology.update');
         Route::post('/methodology/{methodology}/activate', 'activate')->name('methodology.activate');
+    });
+
+    Route::prefix('investment-index')->name('investment-index.')->controller(Admin\InvestmentCoverageController::class)->group(function () {
+        Route::get('/coverage', 'coverage')->name('coverage');
+        Route::get('/verification', 'verification')->name('verification');
+        Route::post('/verification/legal', 'storeLegal')->name('legal.store');
+        Route::post('/verification/import', 'import')->middleware('throttle:10,1')->name('import');
+        Route::post('/verification/source/{source}', 'reviewSource')->whereNumber('source')->middleware('throttle:10,1')->name('review-source');
+        Route::post('/verification/{kind}/{id}', 'review')->whereIn('kind', ['legal', 'evidence'])->whereNumber('id')->name('review');
+        Route::get('/validation', 'validation')->name('validation');
+        Route::get('/research', 'research')->name('research');
+        Route::post('/research/{project}/request', 'requestResearch')->whereNumber('project')->middleware('throttle:60,1')->name('research.request');
+        Route::patch('/research/provisional', 'provisionalSwitch')->name('research.provisional');
+        Route::post('/validation/alias', 'storeAlias')->name('alias.store');
     });
 
     // AI Command Center (Central AI Brain and agent workforce)

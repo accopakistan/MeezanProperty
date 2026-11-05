@@ -78,9 +78,9 @@ it('registers all 16 agents with identity, tools, a version and an implemented w
         expect($agent->status)->toBe('active')
             ->and($agent->instructions)->not->toBeEmpty()
             ->and($agent->tools)->not->toBeEmpty()
-            // Version 1 from the catalog, version 2 the move to Google Gemini.
-            ->and($agent->versions()->count())->toBe(2)
-            ->and($agent->versions()->latest('version')->value('change_note'))->toStartWith('Moved to Google Gemini')
+            // Version 1 from the catalog, then the move to Google Gemini; five data agents gained the coverage tool after that.
+            ->and($agent->versions()->count())->toBe(in_array($agent->slug, ['ceo', 'property-manager', 'investment-analyst', 'global-data-manager', 'technical-operations'], true) ? 3 : 2)
+            ->and($agent->versions()->where('change_note', 'like', 'Moved to Google Gemini%')->exists())->toBeTrue()
             ->and(AgentCatalog::worker($agent->slug))->not->toBeNull();
     }
     expect(collect(AgentCatalog::all())->filter(fn ($a) => $a['delegate'] ?? false)->keys()->all())->toBe(['ceo']);

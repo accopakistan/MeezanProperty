@@ -7,7 +7,7 @@
     $subtitle = $seg['group'] === 'residential' ? 'Price History, Rental Yields and Transparent Scores' : 'Rental Yields, Occupancy and Transparent Investment Scores';
     $itemUrl = fn ($i) => request()->fullUrlWithQuery(['selected' => $i['key'], 'page' => null]).'#performance';
     $breadcrumbs = [['Investment Rankings', route('rankings.index')], [$place, route('rankings.city', $citySlug)]];
-    if (count(RankingBrowser::segmentsIn($group)) > 1) {
+    if (count(RankingBrowser::publicSegmentsIn($group)) > 1) {
         $breadcrumbs[] = [config('meezan.investment.groups.'.$group.'.label'), route('rankings.group', [$citySlug, $group])];
     }
     $breadcrumbs[] = [$seg['label'], null];
@@ -38,11 +38,10 @@
     <div class="container-page py-6" data-rankings-page>
         @include('investment.partials.demo-notice')
         @unless ($calc)
-            <p class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-                <strong>No rankings are published yet.</strong> Entries below are listed without scores until verified market records are reviewed and an administrator publishes a calculation.
-                <a href="{{ route('investment.methodology') }}" class="link">How rankings work</a>
-            </p>
+            @include('rankings.partials.insufficient', ['place' => $place])
         @endunless
+        <p class="mb-5 text-[13px] text-muted">The Meezan Investment Index ranks {{ strtolower($seg['label']) }} on legal approval and verified evidence:
+            <a href="{{ route('rankings.category', array_filter(['category' => $indexCategory, 'city' => $city])) }}" class="link font-semibold">see the {{ $place }} leaderboard</a>.</p>
 
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,0.8fr)]">
             <section class="card min-w-0 overflow-hidden" aria-labelledby="table-title">

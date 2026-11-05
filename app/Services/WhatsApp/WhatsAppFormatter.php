@@ -23,11 +23,12 @@ class WhatsAppFormatter
     ];
 
     /**
-     * @return array{body: string, buttons: list<array{id: string, title: string}>}
+     * @return array{body: string, buttons: list<array{id: string, title: string}>, list: ?array<string, mixed>}
      */
     public function format(AssistantReply $reply): array
     {
         $lines = [];
+        $list = $this->choiceList($reply);
 
         if ($reply->result && ! $reply->result->isEmpty()) {
             $count = $reply->result->matches->count();
@@ -45,7 +46,8 @@ class WhatsAppFormatter
             $lines[] = $reply->text;
         }
 
-        foreach ($reply->choices as $i => $choice) {
+        // With a list on screen the numbered copy would only repeat it.
+        foreach ($list ? [] : $reply->choices as $i => $choice) {
             $lines[] = sprintf('%d. %s', $i + 1, $choice['label']);
         }
         if ($reply->followUp) {
@@ -62,13 +64,36 @@ class WhatsAppFormatter
 
         $body = trim(preg_replace("/\n{3,}/", "\n\n", implode("\n", $lines)));
 
-        return ['body' => mb_strlen($body) > self::MAX_LENGTH ? mb_substr($body, 0, self::MAX_LENGTH - 1).'…' : $body, 'buttons' => $buttons];
+        return ['body' => mb_strlen($body) > self::MAX_LENGTH ? mb_substr($body, 0, self::MAX_LENGTH - 1).'…' : $body, 'buttons' => $buttons, 'list' => $list];
     }
 
-    /** Map a tapped button back to text the assistant understands. */
+    /** Map a tapped button or list row back to text the assistant understands. */
     public static function buttonText(string $id, ?string $title): ?string
     {
+        if (str_starts_with($id, 'choice:')) {
+            return substr($id, 7);
+        }
+
         return self::BUTTONS[$id][1] ?? $title;
+    }
+
+    /**
+     * More choices than three reply buttons can hold, shown as a WhatsApp list
+     * (for example the seven cities). Only when interactive messages are on.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function choiceList(AssistantReply $reply): ?array
+    {
+        $count = count($reply->choices);
+        if (! config('meezan.whatsapp.interactive_buttons') || $count < 4 || $count > 10) {
+            return null;
+        }
+
+        return ['button' => 'Choose', 'sections' => [['rows' => array_map(
+            fn ($c) => ['id' => 'choice:'.$c['value'], 'title' => $c['label']],
+            $reply->choices,
+        )]]];
     }
 
     /** @return list<string> */

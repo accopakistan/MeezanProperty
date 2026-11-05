@@ -12,7 +12,10 @@ use App\Models\Area;
 use App\Models\AreaBoundary;
 use App\Models\DealerProfile;
 use App\Models\InvestmentCalculation;
+use App\Models\InvestmentEvidence;
+use App\Models\InvestmentIndexChange;
 use App\Models\InvestmentIndexRun;
+use App\Models\InvestmentLegalRecord;
 use App\Models\Invoice;
 use App\Models\LeadFollowUp;
 use App\Models\MarketIndicator;
@@ -30,6 +33,7 @@ use App\Services\Crm\CrmStats;
 use App\Services\DuplicateDetector;
 use App\Services\Investment\InvestmentAdvisor;
 use App\Services\Investment\MarketMetrics;
+use App\Services\InvestmentIndex\Coverage;
 use App\Services\ListingCompleteness;
 use App\Support\Cities;
 use App\Support\Format;
@@ -145,6 +149,8 @@ class ToolRegistry
             new ToolDefinition('investment_index.project', 'One development\'s Meezan Investment Index profile: status (ranked, not eligible, Insufficient Verified Data, excluded), score, ranks, each factor with its verified value or why it is missing, risks, legal status and reasons.', 'read',
                 ['name' => ['required', 'string', 'min:2', 'max:120']],
                 fn (array $i) => $this->indexProject($i['name']), 'investment'),
+            new ToolDefinition('investment_index.coverage', 'Real-world investment data coverage: genuine projects per city and category, verified legal, operational, price and rental coverage, the source registry, collection status, records waiting for staff, possible duplicate projects. Actual counts only.', 'read', [],
+                fn () => app(Coverage::class)->forAgents(), 'investment'),
             new ToolDefinition('market_data.quality', 'Market Data Centre status: records by status and city, sources by reliability, last calculation.', 'read', [],
                 fn () => $this->marketQuality(), 'investment'),
             new ToolDefinition('locations.coverage', 'Location data coverage per city: areas, centres, boundaries, projects.', 'read', [],
@@ -170,11 +176,11 @@ class ToolRegistry
                 fn () => $this->staffDirectory(), 'staff'),
             new ToolDefinition('knowledge.search', 'Search approved knowledge-base documents this agent may read.', 'read',
                 ['query' => ['required', 'string', 'max:300'], 'category' => ['nullable', Rule::in(array_keys(AiKnowledgeDocument::CATEGORIES))], 'limit' => ['nullable', 'integer', 'between:1,5']],
-                fn (array $i, AgentContext $ctx) => app(KnowledgeBase::class)->search($i['query'], $ctx->agent->slug, $i['category'] ?? null, (int) ($i['limit'] ?? 3), $ctx->agent->slug === 'customer-support' ? AiKnowledgeDocument::PUBLIC_CATEGORIES : null), 'knowledge'),
+                fn (array $i, AgentContext $ctx) => app(KnowledgeBase::class)->search($i['query'], $ctx->agent->slug, $i['category'] ?? null, (int) ($i['limit'] ?? 3), $ctx->agent->slug === 'customer-support' || $ctx->forCustomer() ? AiKnowledgeDocument::PUBLIC_CATEGORIES : null), 'knowledge'),
 
             /* Low-risk actions ---------------------------------------------------- */
             new ToolDefinition('support.create_ticket', 'Open a support ticket for staff follow-up.', 'low',
-                ['subject' => ['required', 'string', 'max:200'], 'summary' => ['required', 'string', 'max:2000'], 'category' => ['required', 'in:account,listing,dealer,subscription,complaint,other'], 'priority' => ['nullable', 'in:low,normal,high']],
+                ['subject' => ['required', 'string', 'max:200'], 'summary' => ['required', 'string', 'max:2000'], 'category' => ['required', 'in:account,listing,dealer,subscription,complaint,payment,technical,other'], 'priority' => ['nullable', 'in:low,normal,high']],
                 fn (array $i, AgentContext $ctx) => $this->ticket($i, $ctx), 'support'),
             new ToolDefinition('staff.create_task', 'Create an internal task for staff (no action is taken by the AI).', 'low',
                 ['title' => ['required', 'string', 'max:200'], 'description' => ['required', 'string', 'max:2000'], 'category' => ['required', 'string', 'max:30'], 'due_in_days' => ['nullable', 'integer', 'between:0,60'],
@@ -627,7 +633,15 @@ class ToolRegistry
             'verified_yield' => $score->verified_yield, 'development_progress' => $score->development_progress, 'last_verified' => $score->last_verified_at?->toDateString(),
             'factors' => collect($score->factors)->map(fn ($f) => ['label' => $f['label'], 'weight' => $f['weight'], 'score' => $f['score'], 'value' => $f['value'], 'missing' => $f['missing']])->values()->all(),
             'reasons' => array_values(array_filter($score->reasons ?? [], fn ($r) => ! str_starts_with($r, 'Confidence:'))),
-            'published_at' => $run->published_at?->toDateString()];
+            'published_at' => $run->published_at?->toDateString(),
+            'legal_records' => InvestmentLegalRecord::verified()->where('project_id', $project->id)->orderByDesc('issued_on')->limit(10)->get()
+                ->map(fn ($l) => ['authority' => $l->authority, 'status' => $l->statusLabel(), 'date' => $l->issued_on?->toDateString(), 'reference' => $l->reference, 'source_url' => $l->source_url])->all(),
+            'first_found_in' => $project->discoverySource?->name, 'first_found_url' => $project->discovery_url,
+            // Read from a source but not yet checked by staff: never a fact, and in no score.
+            'awaiting_staff_check' => InvestmentEvidence::where('project_id', $project->id)->where('verification_status', 'unverified')->with('source:id,name')->limit(10)->get()
+                ->map(fn ($e) => ['factor' => $e->factor, 'value' => $e->value_numeric ?? $e->value_level, 'date' => $e->observed_on?->toDateString(), 'source' => $e->source?->name])->values()->all(),
+            'stated_facts' => collect($project->research_facts ?? [])->take(10)->map(fn ($f) => ['label' => $f['label'], 'value' => $f['value'], 'source' => $f['source'], 'date' => $f['date']])->values()->all(),
+            'changes' => InvestmentIndexChange::where('project_id', $project->id)->latest('id')->limit(5)->get()->flatMap(fn ($c) => $c->reasons ?? [])->values()->all()];
     }
 
     protected function rankingRow($r): array
@@ -848,6 +862,10 @@ class ToolRegistry
 
     protected function staffTask(array $i, AgentContext $ctx): array
     {
+        // One open task per chat, however many times the customer asks.
+        if (($i['category'] ?? null) === 'dealer_interest' && ($open = StaffTask::where('category', 'dealer_interest')->where('related_type', $i['related_type'] ?? null)->where('related_id', $i['related_id'] ?? null)->where('status', 'open')->first())) {
+            return ['staff_task_id' => $open->id, 'status' => 'open'];
+        }
         $task = StaffTask::create([
             'title' => $i['title'], 'description' => $i['description'], 'category' => $i['category'], 'related_type' => $i['related_type'] ?? null, 'related_id' => $i['related_id'] ?? null,
             'due_on' => isset($i['due_in_days']) ? now()->addDays($i['due_in_days'])->toDateString() : null, 'status' => 'open', 'agent_id' => $ctx->agent->id,

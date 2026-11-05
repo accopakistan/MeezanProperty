@@ -6,7 +6,9 @@ namespace App\Services\InvestmentIndex\Collection;
  * Scheme names as official lists write them ("“Green Palms” Housing
  * Scheme", "AL GHANI GARDEN PHASE-II", "Abdalians Cooperative Housing
  * Society phase-I") compared with project names. Phases must agree: a
- * Phase II listing never matches a Phase I project.
+ * Phase II listing never matches a Phase I project. The same goes for any
+ * other part of a name that tells one section from another (Block-B, Sector
+ * C & D, Colony-2, 3rd Part, Extension).
  */
 class SchemeNames
 {
@@ -61,11 +63,40 @@ class SchemeNames
         }
         $baseA = trim(preg_replace('/phase \d+/', '', $a));
         $baseB = trim(preg_replace('/phase \d+/', '', $b));
+        $marksA = static::marks($baseA);
+        $marksB = static::marks($baseB);
+        if ($marksA && $marksB && $marksA !== $marksB) {
+            return 0.0;
+        }
         $score = $baseA === $baseB ? 1.0 : 1 - levenshtein(mb_substr($baseA, 0, 255), mb_substr($baseB, 0, 255)) / max(strlen($baseA), strlen($baseB), 1);
-        if (($pa[1] xor $pb[1]) && $score > 0) {
+        if ((($pa[1] xor $pb[1]) || ($marksA xor $marksB)) && $score > 0) {
             $score = min($score, (float) config('investment_index.collection.match_auto') - 0.01);
         }
 
         return round(max(0.0, $score), 3);
+    }
+
+    /** What tells one section of a scheme from another: numbers, roman numerals, single letters, codes such as V2, "extension". @return list<int|string> */
+    protected static function marks(string $normalized): array
+    {
+        $marks = [];
+        foreach (explode(' ', $normalized) as $word) {
+            $mark = match (true) {
+                isset(self::ROMAN[$word]) => self::ROMAN[$word],
+                (bool) preg_match('/^(\d+)(st|nd|rd|th|rth)?$/', $word, $m) => (int) $m[1],
+                mb_strlen($word) === 1 => $word,
+                // "V2" and "V3", or "A1" and "A2", are different places however alike they look.
+                (bool) preg_match('/^(?=.*\p{L})(?=.*\p{N})[\p{L}\p{N}]+$/u', $word) => $word,
+                in_array($word, ['ext', 'extension'], true) => 'extension',
+                default => null,
+            };
+            if ($mark !== null) {
+                $marks[] = $mark;
+            }
+        }
+        $marks = array_values(array_unique($marks));
+        sort($marks);
+
+        return $marks;
     }
 }

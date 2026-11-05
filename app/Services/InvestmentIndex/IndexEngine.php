@@ -35,7 +35,7 @@ class IndexEngine
             'triggered_by' => $user?->id, 'started_at' => now()])->save();
 
         try {
-            $rows = $this->rank($this->assessAll($m), $m);
+            $rows = $this->withResearchState($this->rank($this->assessAll($m), $m), $m);
             $hash = hash('sha256', json_encode([$m->version, $rows]));
             $previous = InvestmentIndexRun::latestPublished();
             $summary = $this->summary($rows);
@@ -101,9 +101,68 @@ class IndexEngine
 
         $assessor = new ProjectAssessor($m, $today);
 
-        return $projects->map(fn (Project $p) => $assessor->assess($p, $map[$p->category],
+        return $projects->map(fn (Project $p) => array_diff_key($assessor->assess($p, $map[$p->category],
             $evidence->get($p->id, collect()), $legal->get($p->id, collect()), $observations->get($p->id, collect()),
-            ($deliveries[static::developerKey($p->developer)] ?? collect())->where('project_id', '!=', $p->id)->values()))->all();
+            ($deliveries[static::developerKey($p->developer)] ?? collect())->where('project_id', '!=', $p->id)->values()), ['_computed_score' => 1, '_scored_factors' => 1]))->all();
+    }
+
+    /**
+     * How much is on file for each project, and a separate provisional score
+     * that also counts records awaiting a staff check. A project with a verified
+     * rank, or excluded on legal grounds, gets no provisional figure. Verified
+     * scores and ranks are never touched here.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    protected function withResearchState(array $rows, InvestmentIndexMethodology $m): array
+    {
+        $blank = ['provisional_score' => null, 'provisional_rank' => null, 'provisional_coverage' => null, 'provisional_confidence' => null, 'provisional_unchecked' => null];
+        if ($rows === []) {
+            return [];
+        }
+        $ids = array_column($rows, 'project_id');
+        $projects = Project::whereIn('id', $ids)->get()->keyBy('id');
+        $notRejected = ['verified', 'unverified'];
+        $evidence = InvestmentEvidence::whereIn('verification_status', $notRejected)->whereIn('project_id', $ids)->with('source')->get()->groupBy('project_id');
+        $legal = InvestmentLegalRecord::whereIn('verification_status', $notRejected)->whereIn('project_id', $ids)->with('source')->get()->groupBy('project_id');
+        $observations = MarketObservation::where('is_demo', false)->whereIn('project_id', $ids)->pluck('project_id')->countBy();
+        $deliveries = $this->deliveriesByDeveloper();
+        $today = now()->startOfDay();
+        $assessor = new ProjectAssessor($m, $today);
+        $rules = config('investment_index.provisional');
+
+        $rows = array_map(function (array $row) use ($blank, $projects, $evidence, $legal, $observations, $deliveries, $assessor, $rules) {
+            $id = $row['project_id'];
+            $project = $projects[$id];
+            $e = $evidence->get($id, collect());
+            $l = $legal->get($id, collect());
+            $row += $blank;
+            $row['research_depth'] = 3 * $l->count() + 2 * $e->count() + (int) ($observations[$id] ?? 0) + min(5, count($project->research_facts ?? []));
+            if (in_array($row['status'], ['ranked', 'excluded'], true) || ($e->isEmpty() && $l->isEmpty())) {
+                return $row;
+            }
+            $trial = $assessor->assess($project, $row['category'], $e, $l, collect(), ($deliveries[static::developerKey($project->developer)] ?? collect())->where('project_id', '!=', $id)->values());
+            if (in_array($trial['legal_status'], ['approved', 'partially_approved'], true) && $trial['status'] !== 'excluded'
+                && $trial['_computed_score'] !== null && $trial['_scored_factors'] >= (int) $rules['min_factors'] && (float) $trial['coverage'] >= (float) $rules['min_coverage']) {
+                $row['provisional_score'] = $trial['_computed_score'];
+                $row['provisional_coverage'] = $trial['coverage'];
+                $row['provisional_confidence'] = $trial['confidence_score'];
+                $row['provisional_unchecked'] = $e->where('verification_status', 'unverified')->count() + $l->where('verification_status', 'unverified')->count();
+            }
+
+            return $row;
+        }, $rows);
+
+        $eligible = collect($rows)->filter(fn ($r) => $r['provisional_score'] !== null)->groupBy('category');
+        $ranks = [];
+        foreach ($eligible as $group) {
+            foreach ($group->sortBy([['provisional_score', 'desc'], ['provisional_coverage', 'desc'], ['project_id', 'asc']])->values() as $i => $r) {
+                $ranks[$r['project_id']] = $i + 1;
+            }
+        }
+
+        return array_map(fn ($r) => ['provisional_rank' => $ranks[$r['project_id']] ?? null] + $r, $rows);
     }
 
     /** The newest verified delivery status of every real project, grouped by developer. */

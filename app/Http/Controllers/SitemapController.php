@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Area;
+use App\Models\InvestmentCalculation;
 use App\Models\InvestmentIndexRun;
 use App\Models\Property;
+use App\Services\Investment\RankingBrowser;
 use App\Support\Cities;
 use App\Support\Seo;
 use Illuminate\Http\Response;
@@ -73,7 +75,8 @@ class SitemapController extends Controller
             ->map(fn ($name) => ['loc' => route($name), 'lastmod' => null])
             ->concat(collect(Cities::names())->map(fn ($city) => ['loc' => route('cities.show', Cities::slug($city)), 'lastmod' => null]))
             ->push(['loc' => route('rankings.index'), 'lastmod' => null])
-            ->concat($this->rankings());
+            ->concat($this->rankings())
+            ->concat($this->rankingDashboards());
     }
 
     /**
@@ -91,13 +94,36 @@ class SitemapController extends Controller
             return $urls;
         }
         $lastmod = $run->published_at?->toAtomString();
-        $ranked = $run->scores()->where('status', 'ranked')->with('project:id,slug,is_demo,is_published')->get()
+        $ranked = $run->scores()->where('status', 'ranked')->with('project:id,slug,city,is_demo,is_published')->get()
             ->filter(fn ($s) => $s->project && ! $s->project->is_demo && $s->project->is_published);
 
         return $urls
             ->concat($ranked->pluck('category')->unique()->map(fn ($c) => ['loc' => route('rankings.category', $c), 'lastmod' => $lastmod]))
+            ->concat($ranked->map(fn ($s) => ['loc' => route('rankings.city-category', [Cities::slug($s->project->city), $s->category]), 'lastmod' => $lastmod])->unique('loc'))
             ->concat($ranked->whereNotNull('overall_rank')->isNotEmpty() ? [['loc' => route('rankings.overall'), 'lastmod' => $lastmod]] : [])
             ->concat($ranked->map(fn ($s) => ['loc' => route('rankings.project', $s->project), 'lastmod' => $lastmod]))
+            ->values();
+    }
+
+    /**
+     * MPIS dashboards with a scored entry in a real verified snapshot. Demo
+     * snapshots and pages without verified data are never offered to search engines.
+     *
+     * @return Collection<int, array{loc: string, lastmod: ?string}>
+     */
+    protected function rankingDashboards(): Collection
+    {
+        $calc = InvestmentCalculation::where('status', 'published')->where('includes_demo', false)->latest('published_at')->latest('id')->first();
+        if (! $calc) {
+            return collect();
+        }
+        $lastmod = $calc->published_at?->toAtomString();
+        $segments = RankingBrowser::publicSegments();
+        $rows = $calc->rankings()->whereIn('segment', array_keys($segments))->ranked()->toBase()->select('segment', 'city')->distinct()->get();
+
+        return $rows->pluck('city')->unique()->map(fn ($city) => ['loc' => route('rankings.city', Cities::slug($city)), 'lastmod' => $lastmod])
+            ->concat($rows->pluck('segment')->unique()->map(fn ($s) => ['loc' => route('rankings.segment', ['pakistan', $segments[$s]['group'], $s]), 'lastmod' => $lastmod]))
+            ->concat($rows->map(fn ($r) => ['loc' => route('rankings.segment', [Cities::slug($r->city), $segments[$r->segment]['group'], $r->segment]), 'lastmod' => $lastmod]))
             ->values();
     }
 

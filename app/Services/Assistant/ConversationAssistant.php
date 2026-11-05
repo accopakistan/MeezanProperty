@@ -15,6 +15,7 @@ use App\Services\AuditLogger;
 use App\Services\Matching\MatchCriteria;
 use App\Services\Matching\MatchResult;
 use App\Services\Matching\PropertyMatcher;
+use App\Services\WhatsApp\HumanHandoff;
 use App\Support\LocationResolver;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -81,11 +82,16 @@ class ConversationAssistant
         $userMessage->forceFill(['role' => 'user', 'intent' => $intent, 'extracted' => $state->only() ?: null])->save();
         $conversation->forceFill(['state' => $state->data ?: null, 'last_message_at' => now(), 'user_id' => $conversation->user_id ?? $user?->id])->save();
 
+        if ($conversation->channel === 'whatsapp') {
+            $conversation->forceFill(['assigned_agent' => AgentChatRouter::agentFor($reply->intent)])->save();
+        }
+
         $this->lastMessage = $conversation->messages()->create([
             'direction' => 'outbound',
             'role' => 'assistant',
             'type' => 'text',
             'intent' => $reply->intent,
+            'agent_slug' => $conversation->channel === 'whatsapp' ? AgentChatRouter::agentFor($reply->intent) : null,
             // WhatsApp keeps exactly what was sent; the website shows listings as cards instead.
             'body' => $conversation->channel === 'whatsapp' ? $reply->toPlainText() : trim($reply->text."\n".$reply->followUp),
             'extracted' => array_filter(['summary' => $reply->summary, 'matches' => $reply->result?->matches->map(fn ($m) => $m->property->id)->all()]) ?: null,
@@ -102,6 +108,21 @@ class ConversationAssistant
             report($e);
 
             return null; // never let an agent failure break the chat
+        }
+    }
+
+    /** WhatsApp only: a message that is not a property search may still be for an agent (the model picks, within budget). */
+    protected function classifiedAgentReply(Conversation $conversation, string $text, ?User $user): ?AssistantReply
+    {
+        if ($conversation->channel !== 'whatsapp' || ! ($message = $conversation->messages()->getQuery()->reorder()->where('direction', 'inbound')->latest('id')->first())) {
+            return null;
+        }
+        try {
+            return app(AgentChatRouter::class)->classifiedReply($conversation, $text, $user, $message);
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
         }
     }
 
@@ -136,7 +157,7 @@ class ConversationAssistant
         $changed = $state->absorb($criteria) || $resolved;
 
         if (! $changed && $state->isEmpty()) {
-            return $this->notUnderstood($conversation, $state);
+            return $this->classifiedAgentReply($conversation, $text, $user) ?? $this->notUnderstood($conversation, $state);
         }
         $state->set('failures', null);
 
@@ -252,7 +273,8 @@ class ConversationAssistant
         }
 
         return new AssistantReply(
-            'Tell me a little more — for example the city, area, property type and your budget, like "10 marla house in DHA Lahore around 4 crore" or "Mujhe Karachi mein flat kiraye par chahiye".',
+            'Tell me a little more — for example the city, area, property type and your budget, like "10 marla house in DHA Lahore around 4 crore" or "Mujhe Karachi mein flat kiraye par chahiye".'
+                .($conversation->channel === 'whatsapp' ? ' You can also reply "human" to reach our team.' : ''),
             'not_understood',
             choices: [],
         );
@@ -363,6 +385,9 @@ class ConversationAssistant
             ContactConsent::revokeAll('whatsapp', $conversation->external_contact);
         }
         $conversation->forceFill(['mode' => 'closed', 'status' => 'closed']);
+        if ($conversation->hasOpenHandoff()) {
+            $conversation->forceFill(['handoff_status' => 'resolved', 'handoff_resolved_at' => now()]);
+        }
         AuditLogger::record('conversation.opted_out', $conversation, ['channel' => $conversation->channel]);
 
         return new AssistantReply('You have been unsubscribed and will not receive further messages from Meezan Property here. Send a new message any time to start again.', IntentDetector::STOP);
@@ -372,7 +397,7 @@ class ConversationAssistant
     {
         $this->escalate($conversation, 'human');
         if ($conversation->channel === 'whatsapp') {
-            $conversation->mode = 'human';
+            app(HumanHandoff::class)->open($conversation, 'human');
 
             return new AssistantReply('Thank you. A member of the Meezan Property team will reply here shortly.', IntentDetector::HUMAN);
         }

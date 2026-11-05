@@ -6,9 +6,9 @@
             @if (! $configured)
                 integration pending. Cloud API credentials are not configured, so no WhatsApp messages are received or sent. The website assistant works without them. See <a href="{{ route('admin.settings') }}" class="link">Settings</a>.
             @elseif (! $canSend)
-                receiving only. Webhooks are verified and stored; replies are prepared but not sent until <code>WHATSAPP_SEND_ENABLED=true</code>.
+                credentials are set. Replies are prepared but not sent until <code>WHATSAPP_ENABLED=true</code>.
             @else
-                live. Bot replies are sent while a conversation is in bot mode.
+                {{ \App\Services\WhatsApp\WhatsAppClient::DELIVERY[$delivery] }}. See <a href="{{ route('admin.whatsapp') }}" class="link">WhatsApp Control</a>.
             @endif
             <span class="text-muted">· Parser: {{ config('meezan.ai.driver') === 'llm' && app(\App\Services\Agents\AiProvider::class)->available() ? 'LLM with rules fallback' : 'rules engine' }}</span>
         </p>
@@ -23,6 +23,7 @@
     </div>
 
     <form method="GET" class="mb-5 flex flex-wrap gap-2" role="search">
+        <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" class="input w-auto py-2 text-sm" placeholder="Name or last digits" aria-label="Search by name or the last digits of the number" maxlength="60">
         <select name="channel" class="input w-auto py-2 text-sm" aria-label="Channel" data-autosubmit>
             <option value="">All channels</option>
             @foreach (['website' => 'Website', 'whatsapp' => 'WhatsApp'] as $value => $label)<option value="{{ $value }}" @selected(($filters['channel'] ?? null) === $value)>{{ $label }}</option>@endforeach
@@ -35,7 +36,15 @@
             <option value="">Bot or human</option>
             @foreach (['bot' => 'Bot', 'human' => 'Human', 'closed' => 'Closed'] as $value => $label)<option value="{{ $value }}" @selected($mode === $value)>{{ $label }}</option>@endforeach
         </select>
-        <noscript><button class="btn btn-secondary btn-sm">Filter</button></noscript>
+        <select name="handoff" class="input w-auto py-2 text-sm" aria-label="Handoff" data-autosubmit>
+            <option value="">Any handoff</option>
+            @foreach (\App\Models\Conversation::HANDOFF_STATUSES as $value => $label)<option value="{{ $value }}" @selected(($filters['handoff'] ?? null) === $value)>{{ $label }}</option>@endforeach
+        </select>
+        <select name="agent" class="input w-auto py-2 text-sm" aria-label="Agent" data-autosubmit>
+            <option value="">Any agent</option>
+            @foreach (\App\Services\Agents\AgentChatRouter::CUSTOMER_ROUTES + ['sales-manager' => ''] as $slug => $unused)<option value="{{ $slug }}" @selected(($filters['agent'] ?? null) === $slug)>{{ \App\Services\Agents\AgentCatalog::name($slug) }}</option>@endforeach
+        </select>
+        <button class="btn btn-secondary btn-sm">Filter</button>
     </form>
 
     @if ($conversations->isEmpty())
@@ -50,7 +59,12 @@
                         <span class="block truncate text-xs text-muted">
                             {{ $c->requirement?->summary() ?? 'No saved requirement' }} · {{ $c->messages_count }} messages
                         </span>
+                        <span class="block truncate text-xs text-muted" dir="auto">{{ \Illuminate\Support\Str::limit($c->latestMessage?->body ?? ($c->latestMessage ? '['.$c->latestMessage->type.' message]' : ''), 90) }}</span>
+                        @if ($c->assigned_agent || $c->assignee)
+                            <span class="block truncate text-xs text-muted">{{ $c->assigned_agent ? \App\Services\Agents\AgentCatalog::name($c->assigned_agent) : '' }}{{ $c->assignee ? ' · with '.$c->assignee->name : '' }}</span>
+                        @endif
                     </span>
+                    @if ($c->hasOpenHandoff())<x-status-badge tone="warning" :label="\App\Models\Conversation::HANDOFF_STATUSES[$c->handoff_status]" />@endif
                     @if ($c->lead)<x-status-badge tone="success" label="Lead · {{ $c->lead->status->label() }}" />@endif
                     <x-status-badge :tone="['escalated' => 'warning', 'failed' => 'danger', 'lead' => 'success', 'qualified' => 'brand', 'closed' => 'muted'][$c->status] ?? 'neutral'" :label="\App\Models\Conversation::STATUSES[$c->status] ?? $c->status" />
                     <span class="hidden text-xs text-muted sm:block">{{ $c->last_message_at?->diffForHumans() }}</span>

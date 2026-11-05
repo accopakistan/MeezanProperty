@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp;
 use App\Jobs\ProcessInboundWhatsAppMessage;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
+use App\Services\Assistant\IntentDetector;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -73,8 +74,10 @@ class WebhookProcessor
                     if (! is_array($status)) {
                         continue;
                     }
-                    ConversationMessage::where('external_id', $status['id'] ?? '')->whereNotNull('external_id')->update(['delivery_status' => $status['status'] ?? null]);
-                    $this->messenger->applyStatus($status);
+                    // Older messages have no outbound row; everything else moves only forward, there.
+                    if (! $this->messenger->applyStatus($status) && in_array($status['status'] ?? null, ['sent', 'delivered', 'read', 'failed'], true)) {
+                        ConversationMessage::where('external_id', $status['id'] ?? '')->whereNotNull('external_id')->update(['delivery_status' => $status['status']]);
+                    }
                 }
             }
         }
@@ -83,8 +86,28 @@ class WebhookProcessor
     }
 
     /**
-     * Text the assistant should read: typed text, or the meaning of a tapped
-     * button. Null for media, locations and other types (stored, not parsed).
+     * What a delivery contained, for webhook_events (no content).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public static function eventType(array $payload): string
+    {
+        $values = collect($payload['entry'] ?? [])->flatMap(fn ($e) => $e['changes'] ?? [])->map(fn ($c) => $c['value'] ?? []);
+        $messages = $values->contains(fn ($v) => ! empty($v['messages']));
+        $statuses = $values->contains(fn ($v) => ! empty($v['statuses']));
+
+        return match (true) {
+            $messages && $statuses => 'mixed',
+            $messages => 'messages',
+            $statuses => 'statuses',
+            default => 'other',
+        };
+    }
+
+    /**
+     * Text the assistant should read: typed text, the meaning of a tapped
+     * button or list row, or a media caption. Null for media without a caption,
+     * locations and other types (stored, not parsed).
      *
      * @param  array<string, mixed>  $message
      */
@@ -97,6 +120,7 @@ class WebhookProcessor
                 $message['interactive']['button_reply']['title'] ?? $message['interactive']['list_reply']['title'] ?? null,
             ),
             'button' => $message['button']['text'] ?? null,
+            'image', 'video', 'document' => $message[$message['type']]['caption'] ?? null,
             default => null,
         };
 
@@ -139,8 +163,8 @@ class WebhookProcessor
                 'external_id' => $externalId,
                 'type' => $message['type'] ?? 'text',
                 'body' => $text,
-                // Only the message envelope is kept; no profile, media or device data.
-                'payload' => array_intersect_key($message, array_flip(['id', 'from', 'timestamp', 'type'])),
+                // Only the envelope and a reference to any media are kept; no profile or device data. Files are not downloaded.
+                'payload' => array_intersect_key($message, array_flip(['id', 'from', 'timestamp', 'type'])) + self::mediaReference($message),
             ]);
             $inbound->forceFill(['processing_status' => $this->decide($conversation, $inbound)])->save();
 
@@ -158,10 +182,32 @@ class WebhookProcessor
         return true;
     }
 
+    /**
+     * @param  array<string, mixed>  $message
+     * @return array{media?: array<string, string>}
+     */
+    protected static function mediaReference(array $message): array
+    {
+        $type = $message['type'] ?? null;
+        if (! in_array($type, ['image', 'video', 'audio', 'document', 'sticker'], true) || ! is_array($message[$type] ?? null)) {
+            return [];
+        }
+
+        return ['media' => array_filter(array_intersect_key($message[$type], array_flip(['id', 'mime_type', 'filename'])), 'is_string')];
+    }
+
     /** Should the assistant answer this message? */
     protected function decide(Conversation $conversation, ConversationMessage $inbound): string
     {
+        // STOP always works, even while a person is handling the chat.
+        if ($inbound->body !== null && app(IntentDetector::class)->detect($inbound->body) === IntentDetector::STOP) {
+            return 'queued';
+        }
         if ($conversation->mode !== 'bot') {
+            return 'skipped';
+        }
+        // A reaction or a WhatsApp system notice is kept, but needs no answer.
+        if (in_array($inbound->type, ['reaction', 'system'], true)) {
             return 'skipped';
         }
         if (! $this->settings->autoReplyEnabled()) {
