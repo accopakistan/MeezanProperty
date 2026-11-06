@@ -34,14 +34,14 @@ class SubscriptionController extends Controller
             'openInvoices' => $dealer->invoices()->whereIn('status', ['pending', 'failed'])->with('payments')->get(),
             'invoices' => $dealer->invoices()->paginate(10, ['*'], 'invoices')->withQueryString(),
             'payments' => $dealer->payments()->with('invoice:id,number')->paginate(10, ['*'], 'payments')->withQueryString(),
-            'packages' => Package::active()->ordered()->get(),
+            'packages' => Package::offered()->ordered()->get(),
         ]);
     }
 
     public function packages(Request $request, Entitlements $entitlements, SubscriptionManager $subscriptions): View
     {
         return view('dealer.billing.packages', [
-            'packages' => Package::active()->ordered()->get(),
+            'packages' => Package::offered()->ordered()->get(),
             'current' => $subscriptions->current($request->user()),
             'plan' => $entitlements->plan($request->user()),
             'usage' => $entitlements->usage($request->user()),
@@ -50,7 +50,7 @@ class SubscriptionController extends Controller
 
     public function checkout(Request $request, Package $package, SubscriptionManager $subscriptions, GatewayManager $gateways, Entitlements $entitlements): View|RedirectResponse
     {
-        abort_unless($package->is_active, 404);
+        abort_unless($package->isOffered(), 404);
         $dealer = $request->user();
 
         return view('dealer.billing.checkout', [
@@ -67,6 +67,8 @@ class SubscriptionController extends Controller
 
     public function choose(Request $request, Package $package, SubscriptionManager $subscriptions, GatewayManager $gateways): RedirectResponse
     {
+        // A draft package can never be bought; an inactive one gets the usual message below.
+        abort_if($package->is_demo, 404);
         $data = $request->validate(['gateway' => ['nullable', 'string', 'max:30']]);
 
         try {

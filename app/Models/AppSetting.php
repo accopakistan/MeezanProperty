@@ -26,14 +26,16 @@ class AppSetting extends Model
 
     public static function get(string $key, mixed $default = null): mixed
     {
-        $stored = Cache::remember('app-setting:'.$key, 60, fn () => static::find($key)?->value);
+        // Wrapped, so a missing setting is cached too: Cache::remember never stores a bare null.
+        $stored = Cache::remember('app-setting:v2:'.$key, 60, fn () => ['row' => static::find($key)?->value]);
 
-        return $stored['v'] ?? $default;
+        return $stored['row']['v'] ?? $default;
     }
 
     public static function put(string $key, mixed $value, ?int $userId = null): void
     {
         static::updateOrCreate(['key' => $key], ['value' => ['v' => $value], 'updated_by' => $userId]);
         Cache::forget('app-setting:'.$key);
+        Cache::forget('app-setting:v2:'.$key);
     }
 }

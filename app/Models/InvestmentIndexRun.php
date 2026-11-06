@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\InvestmentIndex\IndexBrowser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,6 +17,12 @@ class InvestmentIndexRun extends Model
     protected function casts(): array
     {
         return ['summary' => 'array', 'started_at' => 'datetime', 'finished_at' => 'datetime', 'published_at' => 'datetime'];
+    }
+
+    protected static function booted(): void
+    {
+        // A newly published run must be seen at once by the per-request Index browser.
+        static::saved(fn () => app()->forgetInstance(IndexBrowser::class));
     }
 
     public static function latestPublished(): ?self

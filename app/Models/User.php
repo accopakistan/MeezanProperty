@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\DealerStatus;
 use App\Enums\Role;
 use App\Notifications\VerifyEmailAddress;
 use Database\Factories\UserFactory;
@@ -181,7 +180,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isVerifiedDealer(): bool
     {
-        return $this->isDealer() && $this->dealerProfile?->verification_status === DealerStatus::Verified;
+        return $this->isDealer() && (bool) $this->dealerProfile?->isVerified();
     }
 
     public function hasSaved(Property $property): bool

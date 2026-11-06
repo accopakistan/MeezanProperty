@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rules\PhoneNumber;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class RegisteredUserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'string', 'lowercase', 'email:rfc', 'max:190', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'],
+            'phone' => ['nullable', 'string', new PhoneNumber],
             'password' => ['required', 'confirmed', Password::defaults()],
             'terms' => ['accepted'],
         ], [

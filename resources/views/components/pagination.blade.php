@@ -4,7 +4,7 @@
             Showing <span class="font-semibold text-ink">{{ $paginator->firstItem() }}</span>–<span class="font-semibold text-ink">{{ $paginator->lastItem() }}</span>
             of <span class="font-semibold text-ink">{{ $paginator->total() }}</span>
         </p>
-        <ul class="flex items-center gap-1">
+        <ul class="flex max-w-full flex-wrap items-center justify-center gap-1">
             <li>
                 @if ($paginator->onFirstPage())
                     <span class="grid size-10 place-items-center rounded-xl text-muted/50" aria-disabled="true"><x-icon name="chevron-left" class="size-4" /></span>

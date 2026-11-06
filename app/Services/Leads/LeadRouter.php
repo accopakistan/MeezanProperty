@@ -137,7 +137,7 @@ class LeadRouter
             ->where('role', Role::Dealer)
             ->where('status', 'active')
             ->whereHas('dealerProfile', function ($q) use ($requirement, $areaIds) {
-                $q->where('verification_status', DealerStatus::Verified)
+                $q->where('verification_status', DealerStatus::Verified)->where('is_demo', false)
                     ->where('business_type', '!=', 'owner')
                     ->where('accepts_leads', true)
                     // Only dealers who serve the requirement's city (multi-city coverage,

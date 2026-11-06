@@ -20,7 +20,7 @@
         <x-slot:head>
             <script type="application/ld+json">
                 {!! Seo::json([
-                    '@context' => 'https://schema.org',
+                    '@'.'context' => 'https://schema.org',
                     '@type' => 'CollectionPage',
                     'name' => $title,
                     'url' => $canonical,

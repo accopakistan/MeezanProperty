@@ -1,4 +1,4 @@
-<x-layouts.app title="Dealer packages" description="Compare Meezan Property dealer packages: listing limits, monthly buyer leads and featured listings.">
+<x-layouts.app title="Dealer packages" description="Compare Meezan Property dealer packages: listing limits, monthly buyer leads and featured listings." :robots="$packages->isEmpty() ? 'noindex, follow' : null">
     <section class="bg-brand-800">
         <div class="container-page py-14 sm:py-16">
             <x-breadcrumbs :items="[['Dealer packages', null]]" class="[&_a]:text-white/60 [&_span]:text-white/90 [&_svg]:text-white/40" />
@@ -10,9 +10,13 @@
 
     <div class="container-page py-12">
         @if ($packages->isEmpty())
-            <x-empty-state icon="credit-card" title="Packages are being finalised">
-                Dealers can list properties now without choosing a package. Packages will appear here once they are published.
+            <x-empty-state icon="credit-card" title="Dealer packages are being finalised">
+                Dealers and agencies can register and list properties now without choosing a package. Package prices and limits will be published here once they are final. Questions? <a href="{{ route('pages.contact') }}" class="link">Contact us</a>.
             </x-empty-state>
+            <div class="mt-6 flex flex-wrap justify-center gap-3">
+                <a href="{{ route('dealer.register') }}" class="btn btn-primary">Register as a dealer</a>
+                <a href="{{ route('sell') }}" class="btn btn-secondary">How listing works</a>
+            </div>
         @else
             @if ($packages->contains('is_demo', true))
                 <p class="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="note">

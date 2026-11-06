@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DealerStatus;
+use App\Support\SampleContent;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -28,6 +29,7 @@ class DealerProfile extends Model
         return [
             'verification_status' => DealerStatus::class,
             'verified_at' => 'datetime',
+            'is_demo' => 'boolean',
             'verification_submitted_at' => 'datetime',
             'review_started_at' => 'datetime',
             'changes_requested_at' => 'datetime',
@@ -132,8 +134,19 @@ class DealerProfile extends Model
         };
     }
 
+    protected static function booted(): void
+    {
+        // A test account's profile is a sample from the start: never listed, never "Verified", never sent leads.
+        static::creating(function (DealerProfile $profile) {
+            if ($profile->user_id && SampleContent::isTestAccount(User::find($profile->user_id))) {
+                $profile->is_demo = true;
+            }
+        });
+    }
+
+    /** Verified for public display. A sample or test dealer never shows as verified. */
     public function isVerified(): bool
     {
-        return $this->verification_status === DealerStatus::Verified;
+        return $this->verification_status === DealerStatus::Verified && ! $this->is_demo;
     }
 }

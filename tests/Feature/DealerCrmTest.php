@@ -76,7 +76,8 @@ it('keeps each dealer’s pipeline, notes and follow-ups independent on a shared
     $this->actingAs(User::find($b->dealer_id))->patch(route('dealer.crm.leads.stage', $a), ['stage' => 'negotiating'])->assertForbidden();
     $this->actingAs(User::find($b->dealer_id))->post(route('dealer.crm.notes.store', $a), ['body' => 'x'])->assertForbidden();
     $this->actingAs(User::find($b->dealer_id))->get(route('dealer.crm.leads.show', $b))->assertOk()->assertDontSee('DHA Phase 6, call after 6 PM')->assertSee('Sana Buyer');
-    $this->actingAs(User::find($b->dealer_id))->get(route('dealer.crm.agenda'))->assertDontSee('Call');
+    // "Call ·" is how the agenda labels a call follow-up; the site header's "Call us" button is not one.
+    $this->actingAs(User::find($b->dealer_id))->get(route('dealer.crm.agenda'))->assertDontSee('Call ·');
     $this->actingAs(User::find($a->dealer_id))->get(route('dealer.crm.leads.show', $a))->assertSee('DHA Phase 6, call after 6 PM');
 });
 

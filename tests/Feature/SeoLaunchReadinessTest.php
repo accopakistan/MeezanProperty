@@ -5,10 +5,12 @@ use App\Enums\PropertyStatus;
 use App\Enums\PropertyType;
 use App\Enums\Purpose;
 use App\Models\Area;
+use App\Models\Package;
 use App\Models\Property;
 use App\Models\User;
 use App\Support\Seo;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /*
@@ -91,8 +93,10 @@ it('lets search engines follow but not index demo listings', function () {
     $demo = Property::factory()->create();
     $demo->forceFill(['is_demo' => true])->save();
 
-    $html = $this->get(route('properties.show', $demo))->assertOk()
-        ->assertSee('<meta name="robots" content="noindex, follow">', false)
+    // Visitors never see a sample listing; an admin preview stays out of search.
+    $this->get(route('properties.show', $demo))->assertNotFound();
+    $html = $this->actingAs(User::factory()->admin()->create())->get(route('properties.show', $demo))->assertOk()
+        ->assertSee('<meta name="robots" content="noindex', false)
         ->getContent();
 
     expect(collect(jsonLd($html))->firstWhere('@type', 'RealEstateListing'))->toBeNull();
@@ -221,6 +225,10 @@ it('lists indexable category pages in the sitemap and leaves out thin ones', fun
 it('serves the split sitemap files and an index once listings outgrow one file', function () {
     houses(3);
 
+    // Pricing joins the sitemap once a final package is offered.
+    $this->get('/sitemaps/pages.xml')->assertOk()->assertDontSee(route('pricing'));
+    (new Package(['name' => 'Starter', 'slug' => 'starter', 'price' => 2500, 'currency' => 'PKR', 'billing_interval' => 'month', 'is_active' => true]))->save();
+    Cache::flush();
     $this->get('/sitemaps/pages.xml')->assertOk()->assertSee(route('pricing'));
     $this->get('/sitemaps/locations.xml')->assertOk()->assertSee(route('cities.category', ['lahore', 'houses-for-sale']));
     $this->get('/sitemaps/properties-1.xml')->assertOk()->assertSee(route('properties.show', Property::first()));

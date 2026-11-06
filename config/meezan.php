@@ -43,15 +43,29 @@ return [
     | Public contact details
     |--------------------------------------------------------------------------
     |
-    | Only verified, company-owned contact details belong here. When the
-    | WhatsApp number is empty the site hides WhatsApp call-to-actions.
+    | Only verified, company-owned contact details belong here. The defaults
+    | are the owner-confirmed details (6 Nov 2026); .env can override them.
+    | The office phone and the WhatsApp number are different lines.
     |
     */
 
+    /*
+    | Legal pages count as final only with an approval date here AND approved text in
+    | resources/views/pages/legal/approved/{terms,privacy,disclaimer}.blade.php.
+    | Until then each page shows a summary labelled "Not yet final" and is noindex.
+    */
+    'legal' => [
+        'terms' => ['approved_on' => env('MEEZAN_TERMS_APPROVED_ON')],
+        'privacy' => ['approved_on' => env('MEEZAN_PRIVACY_APPROVED_ON')],
+        'disclaimer' => ['approved_on' => env('MEEZAN_DISCLAIMER_APPROVED_ON')],
+    ],
+
     'contact' => [
-        'email' => env('MEEZAN_CONTACT_EMAIL'),
-        'phone' => env('MEEZAN_CONTACT_PHONE'),
-        'whatsapp' => env('MEEZAN_WHATSAPP_NUMBER'),
+        'email' => env('MEEZAN_CONTACT_EMAIL') ?: 'support@meezanproperty.com',
+        'phone' => env('MEEZAN_CONTACT_PHONE') ?: '+923002358853',
+        'whatsapp' => env('MEEZAN_WHATSAPP_NUMBER') ?: '+923111749849',
+        'address' => env('MEEZAN_CONTACT_ADDRESS') ?: 'Office 2, 3rd Floor, Bigcity Plaza, Gulberg-III, Lahore, Pakistan',
+        'whatsapp_message' => 'Assalam o Alaikum, I would like some help with a property on Meezan Property.',
     ],
 
     /*
@@ -368,7 +382,7 @@ return [
         ],
 
         'categories' => [
-            'overall' => ['label' => 'Best Overall Investment', 'requires' => []],
+            'overall' => ['label' => 'Overall Investment', 'requires' => []],
             'appreciation' => ['label' => 'Best Capital Appreciation', 'requires' => ['price_performance']],
             'rental' => ['label' => 'Best Rental Investment', 'requires' => ['rental_yield']],
             'low_risk' => ['label' => 'Best Low-Risk Investment', 'requires' => ['risk']],

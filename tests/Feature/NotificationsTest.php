@@ -122,6 +122,7 @@ it('sends contact messages to the company address, or to admins when none is set
     Notification::fake();
     $admin = User::factory()->admin()->create();
     $form = ['name' => 'Bilal', 'email' => 'bilal@example.com', 'phone' => '03001112222', 'message' => 'Do you list properties in Bahria Orchard?'];
+    config(['meezan.contact.email' => null]);
 
     $this->post(route('pages.contact.send'), $form)->assertSessionHasNoErrors();
     Notification::assertSentTo($admin, ContactMessageReceived::class, fn ($n) => $n->toMail($admin)->replyTo[0][0] === 'bilal@example.com');

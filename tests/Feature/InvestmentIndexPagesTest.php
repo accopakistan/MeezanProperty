@@ -89,7 +89,9 @@ beforeEach(function () {
 
 it('shows the five leaderboards and the Overall Index on the rankings home', function () {
     $this->get(route('rankings.index'))->assertOk()
-        ->assertSee('Top Housing Societies')->assertSee('Top Commercial Plazas')->assertSee('Top Apartment Buildings')->assertSee('Top Shopping Malls')->assertSee('Top Business Towers')
+        // "Verified … Rankings" where fewer than ten are ranked ("Top 10" needs ten); unranked categories keep their plain names.
+        ->assertSee('Verified Housing Society Rankings')->assertSee('Verified Shopping Mall Rankings')->assertDontSee('Top Housing Societies')->assertSee('Commercial Plazas')->assertSee('Apartment Buildings')->assertSee('Business Towers')
+        ->assertDontSee('Top Commercial Plazas')->assertDontSee('Top Business Towers')
         ->assertSee('Overall Meezan Investment Index')->assertSeeInOrder(['Pages Garden Town', 'Pages Model Town', 'Pages Canal View'])
         ->assertSee('Pages Fortress Mall')->assertSee('Insufficient Verified Data')->assertSee('No paid or sponsored ranking')
         ->assertDontSee('Pages Illegal Scheme')->assertSee('data-search-tabs', false);
@@ -141,7 +143,7 @@ it('lists ranked pages in the sitemap and leaves out the rest', function () {
 
     expect($xml)->toContain(route('rankings.index'))->toContain(route('rankings.methodology'))->toContain(route('rankings.category', 'housing-societies'))
         ->toContain(route('rankings.category', 'shopping-malls'))->toContain(route('rankings.overall'))->toContain(route('rankings.project', $this->a))
-        ->not->toContain(route('rankings.category', 'business-towers'))->not->toContain(route('rankings.project', $this->excluded))
+        ->toContain(route('rankings.category', 'business-towers'))->not->toContain(route('rankings.project', $this->excluded))
         ->not->toContain(route('rankings.project', $this->thin))->toContain(route('rankings.city-category', ['lahore', 'housing-societies']))
         ->not->toContain(route('rankings.city-category', ['lahore', 'business-towers']))->not->toContain('investment-rankings/lahore/commercial');
 });

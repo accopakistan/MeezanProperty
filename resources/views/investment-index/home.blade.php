@@ -1,8 +1,8 @@
-<x-layouts.app title="Investment Rankings — Meezan Investment Index for Pakistan"
-               description="The Meezan Investment Index ranks housing societies, commercial plazas, apartment buildings, shopping malls and business towers across Pakistan from verified, traceable evidence, with official legal checks and no paid placement."
+<x-layouts.app title="Meezan Investment Index — Research, Verification & Investment Intelligence"
+               description="The Meezan Investment Index researches housing societies, commercial plazas, apartment buildings, shopping malls and business towers across Pakistan, shows each project's legal status and evidence, and ranks only projects that verified evidence supports."
                :canonical="route('rankings.index')">
     @include('investment-index.partials.hero', [
-        'title' => 'Smart Real Estate Investments for a Better Tomorrow',
+        'title' => 'Meezan Investment Index — Research, Verification & Investment Intelligence',
         'intro' => 'Discover and compare real estate development projects across Pakistan using traceable market information, transparent investment analysis and verified project data. Where the evidence is not there, we say so.',
         'breadcrumbs' => [['Investment Rankings', null]],
         'run' => $run,
@@ -23,10 +23,10 @@
                         <dl class="grid grid-cols-2 gap-x-3 gap-y-1 p-3 text-[13px]">
                             <div><dt class="text-muted">Projects</dt><dd class="font-bold tabular-nums">{{ number_format($c['projects']) }}</dd></div>
                             <div><dt class="text-muted">Ranked</dt><dd class="font-bold tabular-nums">{{ number_format($c['ranked']) }}</dd></div>
-                            <div><dt class="text-muted">Under review</dt><dd class="font-bold tabular-nums">{{ number_format($c['review']) }}</dd></div>
-                            <div><dt class="text-muted">Insufficient data</dt><dd class="font-bold tabular-nums">{{ number_format($c['insufficient']) }}</dd></div>
+                            <div><dt class="text-muted">Under research</dt><dd class="font-bold tabular-nums">{{ number_format($c['review'] + $c['insufficient']) }}</dd></div>
+                            <div><dt class="text-muted">Excluded</dt><dd class="font-bold tabular-nums">{{ number_format($c['excluded']) }}</dd></div>
                         </dl>
-                        <span class="mt-auto border-t border-line px-3 py-2 text-[13px] font-semibold text-brand-700 group-hover:underline">View city rankings →</span>
+                        <span class="mt-auto border-t border-line px-3 py-2 text-[13px] font-semibold text-brand-700 group-hover:underline">View {{ $c['name'] }} projects →</span>
                     </a>
                 @endforeach
                 <a href="{{ route('rankings.city', 'pakistan') }}" class="card flex flex-col justify-center gap-1 p-4 hover:ring-brand-300">
@@ -46,7 +46,7 @@
 
         <section class="mt-10" aria-labelledby="leaderboards-title">
             <div class="flex flex-wrap items-end justify-between gap-2">
-                <h2 id="leaderboards-title" class="text-xl font-bold">Leaderboards</h2>
+                <h2 id="leaderboards-title" class="text-xl font-bold">The five investment categories</h2>
                 <p class="text-[13px] text-muted">{{ number_format($counts['assessed']) }} developments assessed · {{ number_format($counts['ranked']) }} ranked</p>
             </div>
             <dl class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -58,7 +58,7 @@
             <div class="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 @foreach ($categories as $c)
                     <article class="card flex min-w-0 flex-col p-5">
-                        <h3 class="text-base font-bold"><a href="{{ route('rankings.category', $c['key']) }}" class="hover:text-brand-700">{{ $c['leaderboard'] }}</a></h3>
+                        <h3 class="text-base font-bold"><a href="{{ route('rankings.category', $c['key']) }}" class="hover:text-brand-700">{{ \App\Services\InvestmentIndex\IndexBrowser::leaderboardTitle($c['key'], min($c['counts']['ranked'], \App\Services\InvestmentIndex\IndexBrowser::publicTop())) }}</a></h3>
                         <p class="mt-0.5 text-[12px] text-muted">{{ $c['counts']['ranked'] }} ranked · {{ $c['counts']['insufficient'] }} insufficient data · {{ $c['counts']['excluded'] }} excluded</p>
                         @if ($c['top']->isEmpty() && $c['provisional']->isNotEmpty())
                             <p class="mt-3 text-[12px] font-semibold text-amber-800">Provisional research ranking: not fully verified, not a recommendation</p>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Account;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Rules\PhoneNumber;
 use App\Services\WhatsApp\AccountLinker;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class ProfileController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'phone' => ['nullable', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'],
+            'phone' => ['nullable', 'string', new PhoneNumber],
             'city' => ['nullable', Rule::in(config('meezan.cities'))],
         ], ['phone.regex' => 'Enter a valid phone number, e.g. 0300 1234567.']);
 

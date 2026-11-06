@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Area;
 use App\Models\InvestmentCalculation;
 use App\Models\InvestmentIndexRun;
+use App\Models\Package;
 use App\Models\Property;
 use App\Services\Investment\RankingBrowser;
 use App\Support\Cities;
+use App\Support\Legal;
 use App\Support\Seo;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
@@ -71,7 +73,10 @@ class SitemapController extends Controller
     protected function pages(): Collection
     {
         return collect(['home', 'properties.buy', 'properties.rent', 'properties.plots', 'properties.commercial', 'properties.index',
-            'ai-finder', 'areas.index', 'dealers.index', 'projects.index', 'pricing', 'sell', 'pages.about', 'pages.how-it-works', 'pages.contact', 'pages.terms', 'pages.privacy'])
+            'ai-finder', 'areas.index', 'dealers.index', 'projects.index', 'sell', 'pages.about', 'pages.how-it-works', 'pages.contact'])
+            // Pricing and legal pages only once they are final: drafts are not indexed.
+            ->when(Package::offered()->exists(), fn ($pages) => $pages->push('pricing'))
+            ->concat(array_values(array_filter(['pages.terms', 'pages.privacy', 'pages.disclaimer'], fn ($r) => Legal::approved(substr($r, 6)))))
             ->map(fn ($name) => ['loc' => route($name), 'lastmod' => null])
             ->concat(collect(Cities::names())->map(fn ($city) => ['loc' => route('cities.show', Cities::slug($city)), 'lastmod' => null]))
             ->push(['loc' => route('rankings.index'), 'lastmod' => null])
@@ -88,7 +93,9 @@ class SitemapController extends Controller
      */
     protected function rankings(): Collection
     {
-        $urls = collect([['loc' => route('rankings.methodology'), 'lastmod' => null]]);
+        // The methodology and the five category pages always: they list researched projects and explain why they are not yet ranked.
+        $urls = collect([['loc' => route('rankings.methodology'), 'lastmod' => null]])
+            ->concat(collect(array_keys(config('investment_index.categories')))->map(fn ($c) => ['loc' => route('rankings.category', $c), 'lastmod' => null]));
         $run = InvestmentIndexRun::latestPublished();
         if (! $run) {
             return $urls;
@@ -98,7 +105,6 @@ class SitemapController extends Controller
             ->filter(fn ($s) => $s->project && ! $s->project->is_demo && $s->project->is_published);
 
         return $urls
-            ->concat($ranked->pluck('category')->unique()->map(fn ($c) => ['loc' => route('rankings.category', $c), 'lastmod' => $lastmod]))
             ->concat($ranked->map(fn ($s) => ['loc' => route('rankings.city-category', [Cities::slug($s->project->city), $s->category]), 'lastmod' => $lastmod])->unique('loc'))
             ->concat($ranked->whereNotNull('overall_rank')->isNotEmpty() ? [['loc' => route('rankings.overall'), 'lastmod' => $lastmod]] : [])
             ->concat($ranked->map(fn ($s) => ['loc' => route('rankings.project', $s->project), 'lastmod' => $lastmod]))

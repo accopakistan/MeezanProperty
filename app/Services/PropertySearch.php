@@ -396,7 +396,7 @@ class PropertySearch
             ->when($f['photos'] ?? false, fn ($q) => $q->has('images'))
             ->when($f['listed'] ?? null, fn ($q, $days) => $q->where('published_at', '>=', now()->subDays((int) $days)))
             ->when($f['reduced'] ?? false, fn ($q) => $q->recentlyReduced())
-            ->when($f['verified'] ?? false, fn ($q) => $q->whereHas('dealer.dealerProfile', fn ($d) => $d->where('verification_status', DealerStatus::Verified)))
+            ->when($f['verified'] ?? false, fn ($q) => $q->whereHas('dealer.dealerProfile', fn ($d) => $d->where('verification_status', DealerStatus::Verified)->where('is_demo', false)))
             ->when($f['q'] ?? null, function ($q, $term) {
                 $like = '%'.$this->escapeLike($term).'%';
                 $q->where(fn ($w) => $w->where('title', 'like', $like)
@@ -407,8 +407,9 @@ class PropertySearch
 
         if ($sort) {
             match ($f['sort'] ?? 'newest') {
-                'price_asc' => $query->orderBy('price'),
-                'price_desc' => $query->orderByDesc('price'),
+                // Without a purpose, sale prices and monthly rents are never sorted on one scale: sales first.
+                'price_asc' => $query->when(! isset($f['purpose']), fn ($q) => $q->orderByRaw("case when purpose = 'sale' then 0 else 1 end"))->orderBy('price'),
+                'price_desc' => $query->when(! isset($f['purpose']), fn ($q) => $q->orderByRaw("case when purpose = 'sale' then 0 else 1 end"))->orderByDesc('price'),
                 'area_desc' => $query->orderByDesc('area_sqft'),
                 default => $query->orderByDesc('is_featured')->orderByDesc('published_at')->orderByDesc('id'),
             };
@@ -466,7 +467,10 @@ class PropertySearch
         $area = $this->area();
         $place = $area ? $area->name.', '.$area->city : ($this->filters['city'] ?? 'Pakistan');
 
-        return $type.$purpose.' in '.$place;
+        // A search term the page could not turn into a place is echoed, so the heading matches the results.
+        $term = $area ? null : ($this->filters['q'] ?? null);
+
+        return $type.$purpose.' in '.$place.($term ? ' matching “'.Str::limit($term, 40).'”' : '');
     }
 
     /**

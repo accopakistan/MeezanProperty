@@ -46,7 +46,7 @@
     "src": "node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DGrEzAqZ.css",
+    "file": "assets/app-BQATzrlf.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -61,7 +61,7 @@
     "isDynamicEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-ETpTPmSh.js",
+    "file": "assets/app-cvNemyBF.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -102,7 +102,7 @@
     ]
   },
   "resources/js/investment-rankings.js": {
-    "file": "assets/investment-rankings-DqZnEF2C.js",
+    "file": "assets/investment-rankings-DEaMmu6Z.js",
     "name": "investment-rankings",
     "src": "resources/js/investment-rankings.js",
     "isDynamicEntry": true,

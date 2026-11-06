@@ -69,9 +69,38 @@ class IndexBrowser
             return collect();
         }
 
-        return $this->scored($category, $city, $filters)->where('status', 'ranked')
+        // Never beyond the published top of the category, whatever the city or filters.
+        return $this->scored($category, $city, $filters)->where('status', 'ranked')->where('category_rank', '<=', static::publicTop())
             ->with('project:id,name,slug,city,developer,category,cover_path,area_id', 'project.area:id,name')->orderBy('category_rank')
-            ->when($limit, fn ($q) => $q->limit($limit))->get();
+            ->limit(min($limit ?? static::publicTop(), static::publicTop()))->get();
+    }
+
+    /** How many ranked projects a public category leaderboard may show. */
+    public static function publicTop(): int
+    {
+        return (int) config('investment_index.public_leaderboard_size', 10);
+    }
+
+    /** A ranked position the public may see: within the published top of its category. */
+    public static function publicRank(?InvestmentIndexScore $score): ?int
+    {
+        return $score && $score->status === 'ranked' && $score->category_rank && $score->category_rank <= static::publicTop() ? $score->category_rank : null;
+    }
+
+    /**
+     * An honest leaderboard heading: "Top 10 Verified …" only when ten projects qualify,
+     * "Verified … Rankings" for fewer, and the plain category name when none do.
+     */
+    public static function leaderboardTitle(string $category, int $published): string
+    {
+        $c = config("investment_index.categories.$category");
+        $top = static::publicTop();
+
+        return match (true) {
+            $published >= $top => "Top {$top} Verified {$c['label']}",
+            $published > 0 => 'Verified '.ucwords($c['singular']).' Rankings',
+            default => $c['label'],
+        };
     }
 
     /** @return array{assessed: int, ranked: int, not_eligible: int, insufficient: int, excluded: int} */
@@ -166,8 +195,9 @@ class IndexBrowser
     {
         $run = $this->run();
 
-        return $run ? $run->scores()->whereNotNull('overall_rank')->with('project:id,name,slug,city,developer,category,area_id', 'project.area:id,name')
-            ->orderBy('overall_rank')->when($limit, fn ($q) => $q->limit($limit))->get() : collect();
+        return $run ? $run->scores()->whereNotNull('overall_rank')->where('overall_rank', '<=', static::publicTop())
+            ->with('project:id,name,slug,city,developer,category,area_id', 'project.area:id,name')
+            ->orderBy('overall_rank')->limit(min($limit ?? static::publicTop(), static::publicTop()))->get() : collect();
     }
 
     /** The project's result in the published run, or null when it was not assessed. */

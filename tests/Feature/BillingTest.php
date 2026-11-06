@@ -110,7 +110,7 @@ it('rejects invalid package settings and allows only a free default plan', funct
 });
 
 it('shows only active packages from the database and hides deactivated ones from dealers', function () {
-    $this->get(route('pricing'))->assertOk()->assertSee('Packages are being finalised');
+    $this->get(route('pricing'))->assertOk()->assertSee('Dealer packages are being finalised');
 
     $live = billingPackage(['name' => 'Visible Plan', 'price' => 3000, 'is_recommended' => true]);
     $hidden = billingPackage(['name' => 'Hidden Plan', 'price' => 1000]);

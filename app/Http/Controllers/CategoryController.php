@@ -20,8 +20,8 @@ class CategoryController extends Controller
             'purpose' => 'sale',
             'group' => null,
             'eyebrow' => 'Property for sale',
-            'title' => 'Houses for Sale in Pakistan',
-            'intro' => 'Explore reviewed houses across Lahore, Karachi, Islamabad and more',
+            'title' => 'Homes for Sale in Pakistan',
+            'intro' => 'Houses, apartments and portions for sale. For plots and commercial property, use the Plots and Commercial tabs.',
             'seo' => 'Houses, apartments and property for sale in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar. Reviewed listings from verified dealers.',
             'types' => [PropertyType::House, PropertyType::Apartment, PropertyType::UpperPortion, PropertyType::Farmhouse, PropertyType::Penthouse, PropertyType::LowerPortion],
             'tips' => [

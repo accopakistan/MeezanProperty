@@ -43,7 +43,7 @@
             @endif
         </select>
     @else
-        <input id="{{ $id }}" type="{{ $type }}" name="{{ $name }}" value="{{ $current }}" class="{{ $classes }}" placeholder="{{ $placeholder }}" @required($required)
+        <input id="{{ $id }}" type="{{ $type }}" name="{{ $name }}" value="{{ $current }}" class="{{ $classes }}" placeholder="{{ $placeholder }}" @required($required) @if ($type === 'tel' && ! $attributes->has('inputmode')) inputmode="tel" @endif
                @if ($error) aria-invalid="true" aria-describedby="{{ $id }}-error" @endif {{ $attributes->except(['class', 'id']) }}>
     @endif
 

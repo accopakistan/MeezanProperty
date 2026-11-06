@@ -18,6 +18,77 @@ document.addEventListener('click', (event) => {
     document.body.classList.toggle('overflow-hidden', open && trigger.hasAttribute('data-lock-scroll'));
 });
 
+/* Mega menu: [data-mega] > [data-mega-item] > button[data-mega-trigger] + [data-mega-panel] ------
+   Disclosure pattern: click or Enter toggles, hover opens on mouse devices (with a short delay so
+   passing over the bar does not flash panels), Escape closes and returns focus, a click outside or
+   focus leaving the item closes it, Left/Right move between top-level buttons, Down enters the panel. */
+(() => {
+    const nav = document.querySelector('[data-mega]');
+    if (!nav) return;
+    const items = [...nav.querySelectorAll('[data-mega-item]')];
+    const backdrop = document.querySelector('[data-mega-backdrop]');
+    const hoverable = window.matchMedia('(hover: hover) and (pointer: fine)');
+    let openItem = null;
+    let timer = null;
+
+    const parts = (item) => [item.querySelector('[data-mega-trigger]'), item.querySelector('[data-mega-panel]')];
+    const close = (item = openItem, focus = false) => {
+        if (!item) return;
+        const [trigger, panel] = parts(item);
+        trigger.setAttribute('aria-expanded', 'false');
+        panel.classList.add('hidden');
+        if (openItem === item) openItem = null;
+        if (!openItem) backdrop?.classList.add('hidden');
+        if (focus) trigger.focus();
+    };
+    const open = (item) => {
+        if (openItem && openItem !== item) close(openItem);
+        const [trigger, panel] = parts(item);
+        trigger.setAttribute('aria-expanded', 'true');
+        panel.classList.remove('hidden');
+        backdrop?.classList.remove('hidden');
+        openItem = item;
+    };
+
+    items.forEach((item, index) => {
+        const [trigger, panel] = parts(item);
+        trigger.addEventListener('click', () => (openItem === item ? close(item) : open(item)));
+        trigger.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                open(item);
+                panel.querySelector('a, button')?.focus();
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const next = items[(index + (e.key === 'ArrowRight' ? 1 : items.length - 1)) % items.length];
+                parts(next)[0].focus();
+                if (openItem) open(next);
+            }
+        });
+        item.addEventListener('mouseenter', () => {
+            if (!hoverable.matches) return;
+            clearTimeout(timer);
+            timer = setTimeout(() => open(item), openItem ? 0 : 120);
+        });
+        item.addEventListener('mouseleave', () => {
+            if (!hoverable.matches) return;
+            clearTimeout(timer);
+            timer = setTimeout(() => openItem === item && close(item), 200);
+        });
+        item.addEventListener('focusout', (e) => {
+            if (!item.contains(e.relatedTarget)) close(item);
+        });
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && openItem) close(openItem, true);
+    });
+    document.addEventListener('click', (e) => {
+        if (openItem && !openItem.contains(e.target)) close(openItem);
+    });
+    window.addEventListener('resize', () => openItem && !hoverable.matches && window.innerWidth < 1024 && close(openItem));
+})();
+
 /* Dialogs: <button data-dialog-open="id">, <button data-dialog-close> ----- */
 document.addEventListener('click', (event) => {
     const opener = event.target.closest('[data-dialog-open]');

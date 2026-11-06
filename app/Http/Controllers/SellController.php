@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\Role;
 use App\Models\DealerProfile;
 use App\Models\User;
+use App\Rules\PhoneNumber;
 use App\Services\AuditLogger;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -38,7 +39,7 @@ class SellController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'string', 'lowercase', 'email:rfc', 'max:190', 'unique:users,email'],
-            'phone' => ['required', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'],
+            'phone' => ['required', 'string', new PhoneNumber],
             'password' => ['required', 'confirmed', Password::defaults()],
             'city' => ['required', Rule::in(config('meezan.cities'))],
             'terms' => ['accepted'],

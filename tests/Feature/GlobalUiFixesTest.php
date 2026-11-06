@@ -77,8 +77,10 @@ it('keeps admin demo management and demo/verified separation', function () {
 it('tags sample property listings as samples, not demos', function () {
     $p = Property::factory()->create(['title' => 'Sample Tag House', 'is_demo' => true]);
 
-    $this->get('/properties')->assertSee('Sample listing')->assertDontSee('Demo listing');
-    $this->get(route('properties.show', $p->slug))->assertOk()->assertSee('Sample listing')
+    // Sample listings never reach the public; an admin still sees one, tagged as a sample.
+    $this->get('/properties')->assertDontSee('Sample Tag House');
+    $this->get(route('properties.show', $p->slug))->assertNotFound();
+    $this->actingAs(User::factory()->admin()->create())->get(route('properties.show', $p->slug))->assertOk()->assertSee('Sample listing')
         ->assertSee('This is not real inventory')->assertDontSee('Demo listing');
     expect($p->fresh()->is_demo)->toBeTrue();
 });

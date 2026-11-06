@@ -192,7 +192,7 @@ it('shows genuine counts on city cards, and city category pages at their own add
 
     $lahore = collect(app(IndexBrowser::class)->cityCards())->firstWhere('name', 'Lahore');
     expect($lahore['projects'])->toBe(2)->and($lahore['insufficient'])->toBe(2);
-    $this->get(route('rankings.index'))->assertOk()->assertSee('Smart Real Estate Investments for a Better Tomorrow')->assertSee('Choose a city')->assertSee('Insufficient Verified Data');
+    $this->get(route('rankings.index'))->assertOk()->assertSee('Meezan Investment Index — Research, Verification &amp; Investment Intelligence', false)->assertSee('Choose a city')->assertSee('Insufficient Verified Data');
 
     $url = route('rankings.city-category', ['lahore', 'housing-societies']);
     expect($url)->toEndWith('/investment-rankings/lahore/housing-societies');

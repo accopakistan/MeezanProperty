@@ -133,6 +133,7 @@ Route::get('/contact', [PageController::class, 'contact'])->name('pages.contact'
 Route::post('/contact', [PageController::class, 'sendContact'])->middleware('throttle:inquiries')->name('pages.contact.send');
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
+Route::get('/disclaimer', [PageController::class, 'disclaimer'])->name('pages.disclaimer');
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 Route::get('/sitemaps/{name}.xml', [SitemapController::class, 'show'])->where('name', 'pages|locations|properties-[1-9][0-9]{0,3}')->name('sitemap.show');

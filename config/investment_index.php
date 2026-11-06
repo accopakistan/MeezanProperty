@@ -23,6 +23,10 @@ return [
     | for that category. These are methodology version 1; admins change
     | weights in a new methodology version, never in place.
     */
+    // Each public category leaderboard shows at most this many ranked projects (owner's rule, 6 Nov 2026).
+    // Projects ranked below it stay ranked in admin and history, but no public page shows their position.
+    'public_leaderboard_size' => 10,
+
     'categories' => [
         'housing-societies' => [
             'label' => 'Housing Societies', 'singular' => 'Housing society', 'leaderboard' => 'Top Housing Societies',

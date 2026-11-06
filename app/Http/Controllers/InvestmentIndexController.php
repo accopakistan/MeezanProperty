@@ -77,7 +77,9 @@ class InvestmentIndexController extends Controller
             'counts' => $this->index->counts($category, $city),
             'filters' => $filters,
             // Assessed but not ranked: shown by name and status, never with a score.
-            'others' => $run ? $this->index->withWaitingLegal($this->index->scored($category, $city, $filters)->where('status', '!=', 'ranked')
+            // Everything not on the public leaderboard, including projects ranked below the published top.
+            'others' => $run ? $this->index->withWaitingLegal($this->index->scored($category, $city, $filters)
+                ->where(fn ($q) => $q->where('status', '!=', 'ranked')->orWhere('category_rank', '>', IndexBrowser::publicTop()))
                 ->with('project:id,name,slug,city,developer,status')->orderByRaw("case status when 'not_eligible' then 0 when 'insufficient' then 1 else 2 end")
                 ->orderByRaw("case legal_status when 'approved' then 0 when 'partially_approved' then 1 when 'pending' then 2 else 3 end")->orderByDesc('research_depth')->orderBy('project_id')->paginate(40)->withQueryString()) : collect(),
             'markers' => $this->index->markers($category, $city),

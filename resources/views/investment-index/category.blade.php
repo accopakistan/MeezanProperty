@@ -1,6 +1,7 @@
 @php
     $commercial = in_array($key, ['commercial-plazas', 'shopping-malls', 'business-towers'], true);
-    $title = $category['leaderboard'].($city ? ' in '.$city : ' in Pakistan');
+    // "Top ..." only once something is ranked here; until then the page is about research.
+    $title = \App\Services\InvestmentIndex\IndexBrowser::leaderboardTitle($key, $ranked->count()).($city ? ' in '.$city : ' in Pakistan');
 @endphp
 <x-layouts.app :title="$title.' — Meezan Investment Index'"
                :description="$title.', ranked from verified evidence: legal approval, '.collect($category['factors'])->except('legal_approval')->pluck('label')->take(4)->map(fn ($l) => mb_strtolower($l))->implode(', ').' and more.'"

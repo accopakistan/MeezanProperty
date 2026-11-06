@@ -29,7 +29,7 @@ class CityDirectory
             $dealers = DB::table('city_dealer_profile')
                 ->join('cities', 'cities.id', '=', 'city_dealer_profile.city_id')
                 ->join('dealer_profiles', 'dealer_profiles.id', '=', 'city_dealer_profile.dealer_profile_id')
-                ->where('dealer_profiles.verification_status', DealerStatus::Verified->value)
+                ->where('dealer_profiles.verification_status', DealerStatus::Verified->value)->where('dealer_profiles.is_demo', false)
                 ->select('cities.name', DB::raw('count(*) as total'))->groupBy('cities.name')->pluck('total', 'name');
 
             return array_map(fn (string $city) => [
@@ -62,7 +62,7 @@ class CityDirectory
     /** Verified dealers serving the city, newest verification first. */
     public function dealers(string $city, int $limit = 6)
     {
-        return DealerProfile::where('verification_status', DealerStatus::Verified)
+        return DealerProfile::where('verification_status', DealerStatus::Verified)->where('is_demo', false)
             ->whereHas('cities', fn ($q) => $q->where('name', $city))
             ->latest('verified_at')->take($limit)->get();
     }

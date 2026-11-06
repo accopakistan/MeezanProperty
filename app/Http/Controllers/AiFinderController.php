@@ -48,7 +48,7 @@ class AiFinderController extends Controller
             'summary' => (new RequirementState($conversation?->state))->summary(),
             'substantial' => (new RequirementState($conversation?->state))->isSubstantial(),
             'publishedCount' => Property::published()->count(),
-            'verifiedDealers' => DealerProfile::where('verification_status', DealerStatus::Verified)->count(),
+            'verifiedDealers' => DealerProfile::where('verification_status', DealerStatus::Verified)->where('is_demo', false)->count(),
         ]);
     }
 

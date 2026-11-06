@@ -66,6 +66,17 @@ class Package extends Model
         $query->where('is_active', true);
     }
 
+    /** Packages dealers may see and buy: active and not a draft or test package. Drafts stay in admin. */
+    public function scopeOffered(Builder $query): void
+    {
+        $query->where('is_active', true)->where('is_demo', false);
+    }
+
+    public function isOffered(): bool
+    {
+        return $this->is_active && ! $this->is_demo;
+    }
+
     public function scopeOrdered(Builder $query): void
     {
         $query->orderBy('sort_order')->orderBy('price')->orderBy('id');

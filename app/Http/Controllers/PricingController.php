@@ -17,7 +17,7 @@ class PricingController extends Controller
         $user = $request->user();
 
         return view('pricing', [
-            'packages' => Package::active()->ordered()->get(),
+            'packages' => Package::offered()->ordered()->get(),
             'current' => $user?->isDealer() ? $subscriptions->current($user) : null,
         ]);
     }

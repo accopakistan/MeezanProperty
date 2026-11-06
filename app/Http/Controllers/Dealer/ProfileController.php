@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\ContactConsent;
 use App\Models\User;
+use App\Rules\PhoneNumber;
 use App\Services\AuditLogger;
 use App\Support\DealerCoverage;
 use App\Support\WhatsAppNumber;
@@ -33,11 +34,11 @@ class ProfileController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $profile = $request->user()->dealerProfile;
-        $phone = ['nullable', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'];
+        $phone = ['nullable', 'string', new PhoneNumber];
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'phone' => ['required', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'],
+            'phone' => ['required', 'string', new PhoneNumber],
             'agency_name' => ['required', 'string', 'max:150'],
             'office_address' => ['nullable', 'string', 'max:255'],
             'registration_number' => ['nullable', 'string', 'max:80'],

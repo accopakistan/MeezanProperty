@@ -65,6 +65,7 @@ class DealerDirectoryController extends Controller
     {
         return DealerProfile::query()
             ->where('business_type', '!=', 'owner')
+            ->where('is_demo', false)
             ->whereNotIn('verification_status', [DealerStatus::Rejected, DealerStatus::Suspended])
             ->whereHas('user', fn ($u) => $u->where('status', 'active'))
             ->where(fn ($q) => $q->where('verification_status', DealerStatus::Verified)

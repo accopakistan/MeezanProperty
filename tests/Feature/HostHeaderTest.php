@@ -89,7 +89,8 @@ it('in production trusts only the APP_URL host and its www form', function () {
 
     $this->get('https://meezanproperty.com/')->assertOk()
         ->assertSee('<link rel="canonical" href="https://meezanproperty.com">', false);
-    $this->get('https://www.meezanproperty.com/')->assertOk();
+    // The www form is trusted, then sent permanently to the main address with its path and query.
+    $this->get('https://www.meezanproperty.com/properties?purpose=rent')->assertStatus(301)->assertRedirect('https://meezanproperty.com/properties?purpose=rent');
     $this->get('https://localhost/')->assertBadRequest();
     $this->get('https://'.FOREIGN_HOST.'/')->assertBadRequest();
 });

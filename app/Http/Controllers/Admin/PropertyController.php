@@ -198,6 +198,7 @@ class PropertyController extends Controller
 
     protected function approve(Property $property, PropertyStatus $previous): void
     {
+        abort_unless(array_key_exists((string) $property->publication_basis, Property::PUBLICATION_BASES), 422, 'This listing has no publication basis (a direct submission, authorised feed, licence or partnership), so it cannot be published.');
         abort_unless(in_array($previous, [PropertyStatus::Pending, PropertyStatus::Rejected, PropertyStatus::Draft, PropertyStatus::ChangesRequested], true), 422, 'Only pending listings can be approved.');
 
         $property->status = PropertyStatus::Published;

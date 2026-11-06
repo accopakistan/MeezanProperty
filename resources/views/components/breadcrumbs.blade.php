@@ -21,7 +21,7 @@
 </nav>
 <script type="application/ld+json">
 {!! json_encode([
-    '@context' => 'https://schema.org',
+    '@'.'context' => 'https://schema.org',
     '@type' => 'BreadcrumbList',
     'itemListElement' => collect($trail)->values()->map(fn ($item, $i) => array_filter([
         '@type' => 'ListItem',

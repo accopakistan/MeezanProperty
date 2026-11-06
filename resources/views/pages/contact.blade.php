@@ -1,18 +1,15 @@
-<x-layouts.app title="Contact Meezan Property" description="Contact the Meezan Property team.">
+<x-layouts.app title="Contact Meezan Property" description="Contact Meezan Property in Lahore: office phone, WhatsApp, email and office address, or send us a message." :canonical="route('pages.contact')">
     <div class="container-page grid gap-10 py-10 lg:grid-cols-[1fr_1.2fr]">
         <div>
             <x-breadcrumbs :items="[['Contact', null]]" />
             <h1 class="mt-6 text-3xl font-extrabold sm:text-4xl">Contact us</h1>
-            <p class="mt-3 text-[15px] leading-7 text-muted">Questions about a listing, dealer verification or your account? Send us a message and our team will reply by email.</p>
-            <ul class="mt-8 space-y-4 text-[15px]">
-                <li class="flex items-center gap-3"><span class="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600"><x-icon name="map-pin" /></span> Lahore, Pakistan</li>
-                @if ($contact['email'])
-                    <li class="flex items-center gap-3"><span class="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600"><x-icon name="mail" /></span> <a href="mailto:{{ $contact['email'] }}" class="link">{{ $contact['email'] }}</a></li>
-                @endif
-                @if ($contact['phone'])
-                    <li class="flex items-center gap-3"><span class="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600"><x-icon name="phone" /></span> <a href="tel:{{ $contact['phone'] }}" class="link">{{ $contact['phone'] }}</a></li>
-                @endif
-            </ul>
+            <p class="mt-3 text-[15px] leading-7 text-muted">Questions about a listing, dealer registration, the Investment Index or your account? Call the office, message us on WhatsApp, email us or use the form.</p>
+            <x-site.contact-list class="mt-8" />
+            <div class="mt-6 flex flex-wrap gap-3">
+                @if (\App\Support\Contact::phone())<a href="{{ \App\Support\Contact::phoneHref() }}" class="btn btn-primary"><x-icon name="phone" class="size-4" /> Call the office</a>@endif
+                @if (\App\Support\Contact::whatsapp())<a href="{{ \App\Support\Contact::whatsappUrl() }}" target="_blank" rel="noopener" class="btn btn-whatsapp"><x-icon name="whatsapp" class="size-4" /> WhatsApp us</a>@endif
+            </div>
+            <p class="mt-4 text-[13px] text-muted">WhatsApp opens a chat with our team. It is a person, not an automated assistant.</p>
         </div>
         <div class="card card-body">
             <form method="POST" action="{{ route('pages.contact.send') }}" class="space-y-4" novalidate>

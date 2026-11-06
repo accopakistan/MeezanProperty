@@ -31,9 +31,20 @@ class TrustAppHostsOnly
         Request::setTrustedHosts(array_map(fn (string $host) => '^'.preg_quote($host).'$', $hosts));
 
         try {
-            $request->getHost();
+            $host = $request->getHost();
         } catch (SuspiciousOperationException) {
             return $this->refuse();
+        }
+
+        // One site, one address: www.meezanproperty.com moves permanently to meezanproperty.com
+        // (or the other way round, whichever APP_URL names).
+        $canonical = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if ($canonical && strcasecmp($host, $canonical) !== 0 && strcasecmp(preg_replace('/^www\./i', '', $host), preg_replace('/^www\./i', '', $canonical)) === 0
+            && $request->isMethodSafe()) {
+            $base = rtrim((string) config('app.url'), '/');
+            $path = $request->getRequestUri();
+
+            return redirect()->away(preg_replace('#^(https?://[^/]+).*$#i', '$1', $base).$path, Response::HTTP_MOVED_PERMANENTLY);
         }
 
         return $next($request);

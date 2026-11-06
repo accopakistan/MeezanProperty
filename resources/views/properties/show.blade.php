@@ -56,7 +56,7 @@
         <x-slot:head>
             <script type="application/ld+json">
                 {!! \App\Support\Seo::json(array_filter([
-                    '@context' => 'https://schema.org',
+                    '@'.'context' => 'https://schema.org',
                     '@type' => 'RealEstateListing',
                     'name' => $property->title,
                     'description' => \App\Support\Seo::propertyDescription($property),
@@ -204,7 +204,7 @@
                         <a href="{{ $url }}?visit=1#inquiry" class="btn btn-primary h-11"><x-icon name="calendar" class="size-4" /> Request a Visit</a>
                     </div>
                     @unless ($verified)
-                        <p class="mt-3 text-xs text-muted">Phone and WhatsApp appear once the dealer is verified. Your message reaches them through Meezan Property.</p>
+                        <p class="mt-3 text-xs text-muted">Phone and WhatsApp appear once the dealer is verified. Your message reaches them through Meezan Property.@if (\App\Support\Contact::whatsapp()) Questions for us? <a href="{{ \App\Support\Contact::whatsappUrl('Assalam o Alaikum, I have a question about this listing: '.route('properties.show', $property)) }}" target="_blank" rel="noopener" class="link">WhatsApp Meezan Property</a>.@endif</p>
                     @endunless
                 </div>
             </div>
@@ -363,7 +363,7 @@
                                      :value="$visit ? 'Assalam o Alaikum, I would like to visit this property ('.$property->reference.'). Please let me know a suitable time.' : 'Assalam o Alaikum, I am interested in this property ('.$property->reference.'). Please share more details.'" />
                             <div>
                                 <label class="flex items-start gap-2.5 text-[13px] text-muted">
-                                    <input type="checkbox" name="consent" value="1" class="checkbox mt-0.5" @checked(old('consent'))>
+                                    <input type="checkbox" name="consent" value="1" class="checkbox mt-0.5" required @checked(old('consent'))>
                                     <span>I agree that Meezan Property may share my details with this listing’s dealer, as described in the <a href="{{ route('pages.privacy') }}" class="link">privacy policy</a>.</span>
                                 </label>
                                 @error('consent')<p class="field-error">{{ $message }}</p>@enderror

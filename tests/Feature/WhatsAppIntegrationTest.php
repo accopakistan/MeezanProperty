@@ -112,6 +112,8 @@ it('ignores events addressed to another business phone number', function () {
 
 it('handles a repeated webhook delivery once: one message, one reply, one lead, one allowance used', function () {
     Notification::fake();
+    // The payload carries the current second: a repeat delivery must be byte-identical, so the clock may not tick between sends.
+    $this->freezeSecond();
     waDealer('Lahore', [area('Gulberg')->id]);
     Package::create(['name' => 'Free', 'slug' => 'free', 'price' => 0, 'currency' => 'PKR', 'billing_interval' => 'month', 'is_active' => true, 'is_default' => true, 'lead_limit' => 5]);
 

@@ -5,7 +5,7 @@
         'Index status' => fn ($s, $p) => $s?->statusLabel() ?? 'Insufficient Verified Data',
         'Legal status' => fn ($s, $p) => $legal($s),
         'Investment score' => fn ($s, $p) => $s?->status === 'ranked' ? number_format($s->score, 1) : 'Not eligible',
-        'Rank in this category' => fn ($s, $p) => $s?->category_rank ? '#'.$s->category_rank : '—',
+        'Rank in this category' => fn ($s, $p) => ($r = \App\Services\InvestmentIndex\IndexBrowser::publicRank($s)) ? '#'.$r : ($s?->status === 'ranked' ? 'Outside the top '.\App\Services\InvestmentIndex\IndexBrowser::publicTop() : '—'),
         'Data confidence' => fn ($s, $p) => $s ? number_format($s->confidence_score, 0).' ('.ucfirst($s->confidence_level).')' : '—',
         'Risk' => fn ($s, $p) => $s?->riskLabel() ?? '—',
         'Development progress' => fn ($s, $p) => $s?->development_progress !== null ? number_format($s->development_progress, 0).'%' : 'Insufficient Verified Data',

@@ -9,6 +9,7 @@ use App\Enums\Purpose;
 use App\Services\ListingCompleteness;
 use App\Support\Format;
 use App\Support\Geo;
+use App\Support\SampleContent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -64,6 +65,18 @@ class Property extends Model
         'no_possession' => 'Possession pending',
     ];
 
+    /**
+     * How the listing reached Meezan Property: the basis for publishing it. A dealer's
+     * or owner's own submission, or an import under a named agreement. An advert seen
+     * on another portal is not a basis.
+     */
+    public const PUBLICATION_BASES = [
+        'direct_submission' => 'Submitted by the dealer or owner on Meezan Property',
+        'authorized_feed' => 'Authorised feed from the listing agency',
+        'licence' => 'Licensed data',
+        'partnership' => 'Data partnership',
+    ];
+
     /** The lister's declared relationship to the property (not legally verified). */
     public const AUTHORIZATION = [
         'owner' => 'I am the owner',
@@ -90,6 +103,7 @@ class Property extends Model
             'flagged_at' => 'datetime',
             'is_featured' => 'boolean',
             'is_demo' => 'boolean',
+            'source_verified_at' => 'datetime',
             'submitted_at' => 'datetime',
             'published_at' => 'datetime',
             'expires_at' => 'datetime',
@@ -102,6 +116,20 @@ class Property extends Model
     protected static function booted(): void
     {
         static::saving(function (Property $property) {
+            // A listing created through the site is its lister's own submission; imports name their basis.
+            if (! $property->exists && blank($property->publication_basis) && blank($property->source_url)) {
+                $property->publication_basis = 'direct_submission';
+            }
+            // A listing by a test account is a sample from the start, so it can never become public.
+            if (! $property->exists && $property->user_id && SampleContent::isTestAccount(User::find($property->user_id))) {
+                $property->is_demo = true;
+            }
+
+            // No basis, no publication: whatever the route (approval, renewal, a script).
+            if ($property->status === PropertyStatus::Published && $property->isDirty('status') && ! array_key_exists((string) $property->publication_basis, self::PUBLICATION_BASES)) {
+                throw new \DomainException('This listing has no publication basis, so it cannot be published.');
+            }
+
             if ($property->area_unit && $property->area_size) {
                 $property->area_sqft = $property->area_unit->toSquareFeet($property->area_size);
             }
@@ -328,11 +356,13 @@ class Property extends Model
     // Scopes ------------------------------------------------------------
 
     /**
-     * Listings that may be shown to the public: approved and not expired.
+     * Listings that may be shown to the public: approved, not expired and not
+     * sample data. Sample listings never reach a public page, even if one is
+     * left published by mistake.
      */
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', PropertyStatus::Published)
+        return $query->where('status', PropertyStatus::Published)->where('is_demo', false)
             ->where(fn (Builder $q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()));
     }
 
@@ -343,14 +373,14 @@ class Property extends Model
 
     public function scopeForCards(Builder $query): Builder
     {
-        return $query->with(['area:id,name,slug', 'coverImage', 'latestPriceChange', 'dealer.dealerProfile:id,user_id,agency_name,verification_status,business_type,public_phone,whatsapp_number']);
+        return $query->with(['area:id,name,slug', 'coverImage', 'latestPriceChange', 'dealer.dealerProfile:id,user_id,agency_name,verification_status,business_type,public_phone,whatsapp_number,is_demo']);
     }
 
     // Presentation ------------------------------------------------------
 
     public function isPublic(): bool
     {
-        return $this->status === PropertyStatus::Published
+        return $this->status === PropertyStatus::Published && ! $this->is_demo
             && ($this->expires_at === null || $this->expires_at->isFuture());
     }
 

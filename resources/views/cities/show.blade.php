@@ -10,7 +10,7 @@
     <x-slot:head>
         <script type="application/ld+json">
             {!! json_encode(array_filter([
-                '@context' => 'https://schema.org',
+                '@'.'context' => 'https://schema.org',
                 '@type' => 'CollectionPage',
                 'name' => $title,
                 'url' => route('cities.show', $slug),

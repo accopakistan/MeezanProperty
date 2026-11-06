@@ -53,7 +53,7 @@
                         ['home', number_format($publishedCount), 'Published Listings'],
                         ['users', number_format($verifiedDealers), 'Verified Dealers'],
                         ['target', 'AI Matched', 'Results in seconds'],
-                        $whatsapp ? ['whatsapp', 'Available 24/7', 'On website & WhatsApp'] : ['clock', 'Available 24/7', 'On the website'],
+                        ['clock', 'Available 24/7', 'On the website'],
                     ]) as [$icon, $title, $body])
                         <div class="flex items-center gap-3 border-b border-white/10 px-3 py-3.5 last:border-0">
                             <span class="grid size-11 shrink-0 place-items-center rounded-full bg-gold-500/15 text-gold-500"><x-icon :name="$icon" class="size-6" /></span>
@@ -216,11 +216,11 @@
                         <span class="grid size-14 shrink-0 place-items-center rounded-full bg-[#16a34a]"><x-icon name="whatsapp" class="size-8" /></span>
                         <div>
                             <p class="font-serif text-lg font-bold">Chat on WhatsApp</p>
-                            <p class="text-[13px] text-white/80">{{ $whatsapp ? 'Get property suggestions directly on WhatsApp.' : 'Our WhatsApp assistant is being set up and will be available soon.' }}</p>
+                            <p class="text-[13px] text-white/80">{{ $whatsapp ? 'Message our team about your requirement. The automated WhatsApp assistant is not live yet.' : 'Our WhatsApp assistant is being set up and will be available soon.' }}</p>
                         </div>
                     </div>
                     @if ($whatsapp)
-                        <a href="https://wa.me/{{ preg_replace('/\D+/', '', $whatsapp) }}?text={{ rawurlencode('Assalam o Alaikum, I am looking for a property.') }}" target="_blank" rel="noopener" class="btn btn-gold mt-4 w-full">Start WhatsApp Chat <x-icon name="arrow-right" class="size-4" /></a>
+                        <a href="{{ \App\Support\Contact::whatsappUrl('Assalam o Alaikum, I am looking for a property.') }}" target="_blank" rel="noopener" class="btn btn-gold mt-4 w-full">Start WhatsApp Chat <x-icon name="arrow-right" class="size-4" /></a>
                     @else
                         <a href="{{ $user?->hasRole('buyer') ? route('account.requirements.create') : route('register') }}" class="btn btn-gold mt-4 w-full">Save My Requirement Instead <x-icon name="arrow-right" class="size-4" /></a>
                     @endif

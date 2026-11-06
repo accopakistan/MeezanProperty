@@ -77,7 +77,8 @@ class PropertyRequest extends FormRequest
             'completion_status' => ['nullable', Rule::in(array_keys(Property::COMPLETION))],
             'authorization_type' => ['required', Rule::in(array_keys(Property::AUTHORIZATION))],
             'authorization_confirmed' => ['accepted'],
-            'description' => ['required', 'string', 'min:50', 'max:5000'],
+            // Placeholder text is never published as a property description.
+            'description' => ['required', 'string', 'min:50', 'max:5000', 'not_regex:/lorem\s+ipsum|dolor\s+sit\s+amet|placeholder\s+text/i'],
             'amenities' => ['nullable', 'array'],
             'amenities.*' => [Rule::in(array_keys(config('meezan.amenities')))],
             'images' => ['nullable', 'array', 'max:'.$maxImages],

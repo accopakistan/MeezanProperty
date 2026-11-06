@@ -34,6 +34,7 @@ use App\Services\DuplicateDetector;
 use App\Services\Investment\InvestmentAdvisor;
 use App\Services\Investment\MarketMetrics;
 use App\Services\InvestmentIndex\Coverage;
+use App\Services\InvestmentIndex\IndexBrowser;
 use App\Services\ListingCompleteness;
 use App\Support\Cities;
 use App\Support\Format;
@@ -332,7 +333,7 @@ class ToolRegistry
         $listings = Property::query()->published()->toBase()->selectRaw('city, count(*) as n')->groupBy('city')->pluck('n', 'city');
         $real = Property::query()->published()->where('is_demo', false)->toBase()->selectRaw('city, count(*) as n')->groupBy('city')->pluck('n', 'city');
         $areas = Area::active()->toBase()->selectRaw('city, count(*) as n')->groupBy('city')->pluck('n', 'city');
-        $dealers = DealerProfile::where('verification_status', DealerStatus::Verified)->toBase()->selectRaw('city, count(*) as n')->groupBy('city')->pluck('n', 'city');
+        $dealers = DealerProfile::where('verification_status', DealerStatus::Verified)->where('is_demo', false)->toBase()->selectRaw('city, count(*) as n')->groupBy('city')->pluck('n', 'city');
         $leads = $this->leadCityQuery()->where('leads.created_at', '>=', $since)->selectRaw('count(*) as n')->groupBy('lead_city')->pluck('n', 'lead_city');
 
         return ['period_days' => $days, 'cities' => collect(Cities::names())->mapWithKeys(fn ($c) => [$c => [
@@ -368,7 +369,7 @@ class ToolRegistry
     protected function dealerPerformance(array $i): array
     {
         $days = (int) ($i['days'] ?? 30);
-        $dealers = DealerProfile::query()->where('verification_status', DealerStatus::Verified)->when($i['city'] ?? null, fn ($q, $c) => $q->where('city', $c))->get(['user_id', 'agency_name', 'city']);
+        $dealers = DealerProfile::query()->where('verification_status', DealerStatus::Verified)->where('is_demo', false)->when($i['city'] ?? null, fn ($q, $c) => $q->where('city', $c))->get(['user_id', 'agency_name', 'city']);
         $perf = app(CrmStats::class)->performance($dealers->pluck('user_id'), now()->subDays($days));
 
         return ['period_days' => $days, 'dealers' => $dealers->map(function ($d) use ($perf) {
@@ -383,7 +384,7 @@ class ToolRegistry
         $since = $this->since($days);
         $active = DB::table('properties')->where('updated_at', '>=', $since)->pluck('user_id')
             ->merge(DB::table('lead_assignments')->where('last_activity_at', '>=', $since)->pluck('dealer_id'))->unique();
-        $dealers = DealerProfile::where('verification_status', DealerStatus::Verified)->whereNotIn('user_id', $active)->get(['user_id', 'agency_name', 'city', 'verified_at']);
+        $dealers = DealerProfile::where('verification_status', DealerStatus::Verified)->where('is_demo', false)->whereNotIn('user_id', $active)->get(['user_id', 'agency_name', 'city', 'verified_at']);
 
         return ['period_days' => $days, 'count' => $dealers->count(), 'dealers' => $dealers->map(fn ($d) => ['dealer_id' => $d->user_id, 'agency' => $d->agency_name, 'city' => $d->city])->all()];
     }
@@ -604,7 +605,8 @@ class ToolRegistry
                 'missing' => ['No Investment Index run has been published yet: Insufficient Verified Data.']];
         }
         $scores = $run->scores()->where('category', $category)->with('project:id,name,city,developer')->get();
-        $ranked = $scores->where('status', 'ranked')->sortBy('category_rank')->take(max(1, min($limit, 25)));
+        // The assistant quotes only the published top of a category, as the public pages do.
+        $ranked = $scores->where('status', 'ranked')->where('category_rank', '<=', IndexBrowser::publicTop())->sortBy('category_rank')->take(max(1, min($limit, IndexBrowser::publicTop())));
 
         return [
             'category' => config("investment_index.categories.$category.label"), 'published' => true, 'run' => $run->id, 'published_at' => $run->published_at?->toDateString(),
@@ -628,7 +630,8 @@ class ToolRegistry
         }
 
         return ['found' => true, 'name' => $project->name, 'city' => $project->city, 'category' => $score->categoryLabel(), 'status' => $score->statusLabel(),
-            'score' => $score->score, 'category_rank' => $score->category_rank, 'overall_index_rank' => $score->overall_rank, 'confidence' => $score->confidence_score,
+            'score' => $score->score, 'category_rank' => IndexBrowser::publicRank($score), 'outside_published_top' => $score->status === 'ranked' && ! IndexBrowser::publicRank($score),
+            'overall_index_rank' => $score->overall_rank && $score->overall_rank <= IndexBrowser::publicTop() ? $score->overall_rank : null, 'confidence' => $score->confidence_score,
             'confidence_level' => $score->confidence_level, 'risk' => $score->riskLabel(), 'risks' => $score->risks, 'legal_status' => $score->legal_status,
             'verified_yield' => $score->verified_yield, 'development_progress' => $score->development_progress, 'last_verified' => $score->last_verified_at?->toDateString(),
             'factors' => collect($score->factors)->map(fn ($f) => ['label' => $f['label'], 'weight' => $f['weight'], 'score' => $f['score'], 'value' => $f['value'], 'missing' => $f['missing']])->values()->all(),

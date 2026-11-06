@@ -181,6 +181,14 @@
                 @else
                     <p class="mt-2 text-sm">{{ $property->dealer?->name }}</p>
                 @endif
+                <p class="mt-3 text-[13px]"><span class="text-muted">Publication basis:</span>
+                    @if (isset(\App\Models\Property::PUBLICATION_BASES[$property->publication_basis]))
+                        {{ \App\Models\Property::PUBLICATION_BASES[$property->publication_basis] }}
+                    @else
+                        <span class="font-semibold text-red-700">None recorded: this listing cannot be published</span>
+                    @endif
+                    @if ($property->source_name) <span class="block text-muted">Source: {{ $property->source_name }}@if ($property->source_reference) · ref {{ $property->source_reference }}@endif @if ($property->source_url)· <a href="{{ $property->source_url }}" class="link" target="_blank" rel="noopener nofollow">open</a>@endif @if ($property->source_verified_at)· checked {{ $property->source_verified_at->localTime()->format('j M Y') }}@endif</span>@endif
+                </p>
                 @if ($property->authorization_type)
                     <p class="mt-3 text-[13px]"><span class="text-muted">Lister declared:</span> {{ \App\Models\Property::AUTHORIZATION[$property->authorization_type] ?? $property->authorization_type }} <span class="text-muted">({{ $property->authorization_confirmed_at?->format('j M Y') }})</span></p>
                 @else

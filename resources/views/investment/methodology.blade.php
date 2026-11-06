@@ -3,11 +3,12 @@
     $factors = config('meezan.investment.factors');
     $categories = config('meezan.investment.categories');
 @endphp
-<x-layouts.app title="How investment rankings work" description="The Meezan Property investment scoring methodology: factors, weights, data confidence, risk, rental yield and growth scenarios.">
+<x-layouts.app title="Market insight score (MPIS) methodology" description="How the Meezan Property market insight score (MPIS) is calculated from verified price and rent records: factors, weights, data confidence, risk, rental yield and growth scenarios." :canonical="route('investment.methodology')">
     <section class="bg-gradient-to-r from-brand-900 to-brand-700">
         <div class="container-page py-10">
             <x-breadcrumbs :items="[['Investment insights', route('investment.index')], ['Methodology', null]]" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
-            <h1 class="mt-5 text-3xl text-white sm:text-4xl">How investment rankings work</h1>
+            <h1 class="mt-5 text-3xl text-white sm:text-4xl">Market insight score (MPIS) methodology</h1>
+            <p class="mt-2 max-w-3xl text-white/85">This page covers the market insight score used on the Investment Insights pages. The project rankings of the Meezan Investment Index follow a separate methodology: <a href="{{ route('rankings.methodology') }}" class="font-semibold text-gold-300 underline">how the Investment Index works</a>.</p>
             <p class="mt-2 max-w-3xl text-white/85">Every number on our investment pages comes from a recorded, reviewed source, or is calculated from those records with the formulas below. When the data is not enough, we show "Insufficient Data" instead of a score.</p>
         </div>
     </section>

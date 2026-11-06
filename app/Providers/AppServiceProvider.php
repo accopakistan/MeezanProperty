@@ -8,6 +8,7 @@ use App\Services\Ai\LlmRequirementParser;
 use App\Services\Ai\RequirementParser;
 use App\Services\Ai\RulesRequirementParser;
 use App\Services\Billing\Gateways\GatewayManager;
+use App\Services\InvestmentIndex\IndexBrowser;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Middleware\TrustProxies;
@@ -35,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
             : $app->make(RulesRequirementParser::class));
 
         $this->app->singleton(GatewayManager::class);
+        // One Index browser per request (or queued job), so the published run is looked up once.
+        $this->app->scoped(IndexBrowser::class);
     }
 
     /**

@@ -5,7 +5,6 @@ namespace App\Services\Investment;
 use App\Enums\PropertyType;
 use App\Models\Area;
 use App\Models\InvestmentCalculation;
-use App\Models\InvestmentIndexRun;
 use App\Models\InvestmentRanking;
 use App\Models\MarketIndicator;
 use App\Models\MarketObservation;
@@ -279,7 +278,7 @@ class RankingBrowser
     /** @return array<int, int> project ids the published Investment Index excluded, as keys */
     protected function excludedProjects(): array
     {
-        return $this->excluded ??= InvestmentIndexRun::latestPublished()?->scores()->where('status', 'excluded')->pluck('project_id')->flip()->all() ?? [];
+        return $this->excluded ??= app(IndexBrowser::class)->run()?->scores()->where('status', 'excluded')->pluck('project_id')->flip()->all() ?? [];
     }
 
     /** A legally excluded project: named, with no score or figures. */

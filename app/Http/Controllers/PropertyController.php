@@ -7,6 +7,7 @@ use App\Services\NearbyPlaces;
 use App\Services\PropertySearch;
 use App\Support\MapMarkers;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -16,10 +17,14 @@ class PropertyController extends Controller
     /** Most results plotted on a map at once. */
     protected const MAP_LIMIT = 500;
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $search = new PropertySearch($request->query());
         $properties = $search->paginate();
+        // A page past the end goes to the last page that has results, not an empty page that still counts them.
+        if ($properties->total() > 0 && $properties->currentPage() > $properties->lastPage()) {
+            return redirect()->to($properties->url($properties->lastPage()));
+        }
 
         return view('properties.index', [
             'search' => $search,

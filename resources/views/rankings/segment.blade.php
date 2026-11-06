@@ -16,7 +16,7 @@
                :canonical="route('rankings.segment', [$citySlug, $group, $segmentKey])" :robots="$indexable ? null : 'noindex, follow'">
     @if ($scored->isNotEmpty() && ! $calc?->includes_demo)
         <x-slot:head>
-            <script type="application/ld+json">{!! \App\Support\Seo::json(['@context' => 'https://schema.org', '@type' => 'ItemList', 'name' => $title,
+            <script type="application/ld+json">{!! \App\Support\Seo::json(['@'.'context' => 'https://schema.org', '@type' => 'ItemList', 'name' => $title,
                 'itemListElement' => $scored->values()->map(fn ($i, $n) => ['@type' => 'ListItem', 'position' => $n + 1, 'name' => $i['name'].' ('.$i['location'].')', 'url' => $itemUrl($i)])->all()]) !!}</script>
         </x-slot:head>
     @endif

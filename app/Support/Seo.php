@@ -119,6 +119,7 @@ class Seo
             'logo' => asset('images/logo/meezan-mark.png'),
             'email' => $contact['email'] ?: null,
             'telephone' => $contact['phone'] ?: null,
+            'address' => $contact['address'] ? ['@type' => 'PostalAddress', 'streetAddress' => 'Office 2, 3rd Floor, Bigcity Plaza, Gulberg-III', 'addressLocality' => 'Lahore', 'addressCountry' => 'PK'] : null,
             'areaServed' => ['@type' => 'Country', 'name' => 'Pakistan'],
         ]);
     }

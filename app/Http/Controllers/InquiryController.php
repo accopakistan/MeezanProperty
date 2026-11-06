@@ -6,6 +6,7 @@ use App\Models\Inquiry;
 use App\Models\Property;
 use App\Models\User;
 use App\Notifications\NewInquiryReceived;
+use App\Rules\PhoneNumber;
 use App\Services\Leads\LeadRouter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ class InquiryController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email:rfc', 'max:190'],
-            'phone' => ['required', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'],
+            'phone' => ['required', 'string', new PhoneNumber],
             'message' => ['required', 'string', 'min:10', 'max:2000'],
             'preferred_contact' => ['required', Rule::in(['call', 'whatsapp', 'email'])],
             'consent' => ['accepted'],

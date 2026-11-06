@@ -25,7 +25,7 @@
                 </h1>
                 @if (! empty($subtitle))<p class="mt-2 text-lg font-semibold text-white/95">{{ $subtitle }}</p>@endif
                 <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold text-white/90">
-                    <span>Real Data</span><span aria-hidden="true" class="text-white/40">|</span><span>AI Analysis</span><span aria-hidden="true" class="text-white/40">|</span><span>Transparent Rankings</span>
+                    <span>Real Data</span><span aria-hidden="true" class="text-white/40">|</span><span>AI Analysis</span><span aria-hidden="true" class="text-white/40">|</span><span>Transparent Research</span>
                 </p>
                 <p class="mt-3 max-w-xl text-sm text-white/80">{{ $intro }}</p>
             </div>

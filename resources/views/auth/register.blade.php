@@ -11,10 +11,7 @@
             <x-field name="password_confirmation" type="password" label="Confirm password" required autocomplete="new-password" />
         </div>
         <div>
-            <label class="flex items-start gap-2.5 text-sm text-muted">
-                <input type="checkbox" name="terms" value="1" class="checkbox mt-0.5" @checked(old('terms'))>
-                <span>I agree to the <a href="{{ route('pages.terms') }}" class="link">terms of use</a> and <a href="{{ route('pages.privacy') }}" class="link">privacy policy</a>.</span>
-            </label>
+            @include('auth.partials.terms-consent')
             @error('terms')<p class="field-error">{{ $message }}</p>@enderror
         </div>
         <button class="btn btn-primary btn-lg w-full">Create account</button>

@@ -2,9 +2,10 @@
     use App\Services\Investment\InvestmentInsights;
     $f = $filters;
     $changeKey = $f['period'] === '2y' ? 'change_2y' : 'change_1y';
-    $title = ($categories[$f['category']]['label'] ?? 'Investment rankings').(isset($f['city']) ? ' in '.$f['city'] : ' in Pakistan');
+    // A "Best ..." heading only when something is ranked; otherwise the page is plain insights.
+    $title = ($rankings->total() > 0 ? ($categories[$f['category']]['label'] ?? 'Investment insights') : 'Investment Insights').(isset($f['city']) ? ' in '.$f['city'] : ' in Pakistan');
 @endphp
-<x-layouts.app :title="$title" description="Transparent, evidence-based property investment rankings for Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar, with data confidence, sources and methodology."
+<x-layouts.app :title="$title" description="Property investment insights for Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar. Rankings appear only when verified market data supports them, with data confidence, sources and methodology." :canonical="route('investment.index')"
                :robots="$calc && ! $calc->includes_demo && $rankings->total() ? null : 'noindex, follow'">
     <section class="bg-gradient-to-r from-brand-900 to-brand-700">
         <div class="container-page py-10">

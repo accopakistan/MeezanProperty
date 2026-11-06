@@ -32,11 +32,12 @@
                 <dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <div><dt class="text-[12px] text-muted">Investment score</dt><dd class="text-2xl font-bold tabular-nums">{{ $s && $s->score !== null && $s->status === 'ranked' ? number_format($s->score, 1) : '—' }}</dd>
                         @if ($s && $s->status === 'not_eligible' && $s->score !== null)<dd class="text-[12px] text-muted">Scored {{ number_format($s->score, 1) }}; not ranked</dd>@endif</div>
-                    <div><dt class="text-[12px] text-muted">Ranking position</dt><dd class="text-2xl font-bold tabular-nums">{{ $s?->category_rank ? '#'.$s->category_rank : '—' }}</dd>
-                        @if ($s?->overall_rank)<dd class="text-[12px] text-muted">Overall Index #{{ $s->overall_rank }}</dd>@endif</div>
+                    <div><dt class="text-[12px] text-muted">Ranking position</dt><dd class="text-2xl font-bold tabular-nums">{{ ($r = \App\Services\InvestmentIndex\IndexBrowser::publicRank($s)) ? '#'.$r : '—' }}</dd>
+                        @if ($s?->status === 'ranked' && ! $r)<dd class="text-[12px] text-muted">Ranked, outside the published top {{ \App\Services\InvestmentIndex\IndexBrowser::publicTop() }}</dd>@endif
+                        @if ($s?->overall_rank && $s->overall_rank <= \App\Services\InvestmentIndex\IndexBrowser::publicTop())<dd class="text-[12px] text-muted">Overall Index #{{ $s->overall_rank }}</dd>@endif</div>
                     <div><dt class="text-[12px] text-muted">Data confidence</dt><dd class="text-2xl font-bold tabular-nums">{{ $s ? number_format($s->confidence_score, 0) : '—' }}</dd><dd class="text-[12px] text-muted">{{ $s ? \App\Services\InvestmentIndex\IndexBrowser::confidenceLabel($s->confidence_level) : 'No evidence' }}</dd>
                         @if ($s)<dd class="text-[12px] text-muted">Evidence covers {{ number_format(($s->coverage ?? 0) * 100, 0) }}% of the weight</dd>@endif</div>
-                    <div><dt class="text-[12px] text-muted">Risk</dt><dd class="text-base font-bold">{{ $s?->riskLabel() ?? '—' }}</dd></div>
+                    <div><dt class="text-[12px] text-muted">Risk</dt><dd class="text-base font-bold">{{ $s && in_array($s->status, ['ranked', 'not_eligible'], true) ? $s->riskLabel() : ($s?->status === 'excluded' ? $s->riskLabel() : 'Not assessed') }}</dd></div>
                 </dl>
                 @if ($s && $s->provisional_rank && \App\Services\InvestmentIndex\IndexBrowser::provisionalPublic())
                     <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900"><strong>Provisional research position P{{ $s->provisional_rank }}, score {{ number_format($s->provisional_score, 1) }}.</strong> Not fully verified and not an investment recommendation. Evidence covers {{ number_format($s->provisional_coverage * 100, 0) }}% of the weight, including {{ $s->provisional_unchecked }} {{ \Illuminate\Support\Str::plural('record', (int) $s->provisional_unchecked) }} staff have not yet checked.</p>
@@ -225,7 +226,7 @@
                     <h2 id="trend-title" class="text-base font-bold">Score over time</h2>
                     <ul class="mt-2 divide-y divide-line text-[14px]">
                         @foreach ($history as $h)
-                            <li class="flex justify-between py-1.5"><span class="text-muted">{{ $h->run?->published_at?->localTime()->format('j M Y') }}</span><span class="tabular-nums">{{ $h->status === 'ranked' ? number_format($h->score, 1).' (#'.$h->category_rank.')' : config('investment_index.statuses.'.$h->status) }}</span></li>
+                            <li class="flex justify-between py-1.5"><span class="text-muted">{{ $h->run?->published_at?->localTime()->format('j M Y') }}</span><span class="tabular-nums">{{ $h->status === 'ranked' ? number_format($h->score, 1).($h->category_rank <= \App\Services\InvestmentIndex\IndexBrowser::publicTop() ? ' (#'.$h->category_rank.')' : '') : config('investment_index.statuses.'.$h->status) }}</span></li>
                         @endforeach
                     </ul>
                 </section>

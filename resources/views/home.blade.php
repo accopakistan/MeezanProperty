@@ -33,7 +33,7 @@
         <link rel="preload" as="image" href="{{ asset($heroPhoto['file']) }}">
         <script type="application/ld+json">
             {!! json_encode([
-                '@context' => 'https://schema.org',
+                '@'.'context' => 'https://schema.org',
                 '@type' => 'WebSite',
                 'name' => 'Meezan Property',
                 'url' => route('home'),
@@ -74,7 +74,7 @@
                     ['home', 'Reviewed Listings', 'Every listing checked before it goes live'],
                     ['shield', 'Trusted Dealers', 'Verified badge only after our checks'],
                     ['sparkles', 'AI Property Match', 'Find properties that match your needs'],
-                    ['whatsapp', 'WhatsApp Support', 'Quick assistance and property alerts'],
+                    ['whatsapp', 'WhatsApp Support', 'Chat with our team on WhatsApp'],
                 ] as [$icon, $title, $body])
                     <div class="flex items-center gap-4 border-b border-white/10 px-4 py-3.5 last:border-0">
                         <x-icon :name="$icon" class="size-8 text-gold-500" />
@@ -96,7 +96,7 @@
                 ['home', 'Wide Selection', 'Houses, plots, apartments and commercial', route('properties.index')],
                 ['badge-check', 'Verified Dealers', 'Professional and trusted dealer network', route('pages.how-it-works')],
                 ['sparkles', 'AI Property Match', 'Smart recommendations based on your needs', route('ai-finder')],
-                ['whatsapp', 'WhatsApp Support', 'Assistance and property alerts', route('ai-finder')],
+                ['whatsapp', 'WhatsApp Support', 'Chat with our team', \App\Support\Contact::whatsappUrl() ?? route('pages.contact')],
                 ['map', 'Map Search', 'Explore listings city by city', route('properties.map')],
                 ['shield', 'Reviewed Listings', 'Checked by our team before publishing', route('pages.how-it-works')],
             ] as [$icon, $title, $body, $url])

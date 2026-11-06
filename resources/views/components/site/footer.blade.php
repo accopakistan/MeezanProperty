@@ -1,5 +1,4 @@
 @php
-    $contact = config('meezan.contact');
     $areas = \App\Support\Lookup::popularAreas(7);
 @endphp
 {{-- Layout follows the footer in public/Refrence/Meezan Property Real Estate UI Showcase.png --}}
@@ -41,6 +40,8 @@
                 <li><a class="hover:text-white" href="{{ route('pages.how-it-works') }}">How it works</a></li>
                 <li><a class="hover:text-white" href="{{ route('pages.terms') }}">Terms &amp; Conditions</a></li>
                 <li><a class="hover:text-white" href="{{ route('pages.privacy') }}">Privacy Policy</a></li>
+                <li><a class="hover:text-white" href="{{ route('pages.disclaimer') }}">Disclaimer</a></li>
+                <li><a class="hover:text-white" href="{{ route('pages.contact') }}">Contact Us</a></li>
                 <li><a class="hover:text-white" href="{{ route('dealer.register') }}">Dealer Registration</a></li>
                 <li><a class="hover:text-white" href="{{ route('pages.about') }}">About Us</a></li>
             </ul>
@@ -48,16 +49,8 @@
 
         <div>
             <h2 class="text-sm font-semibold text-white">Contact</h2>
-            <ul class="mt-4 space-y-2.5 text-sm">
-                <li class="flex items-center gap-2"><x-icon name="map-pin" class="size-4 text-gold-500" /> Head office: Lahore, Pakistan</li>
-                @if ($contact['phone'])
-                    <li class="flex items-center gap-2"><x-icon name="phone" class="size-4 text-gold-500" /> <a href="tel:{{ $contact['phone'] }}" class="hover:text-white">{{ $contact['phone'] }}</a></li>
-                @endif
-                @if ($contact['email'])
-                    <li class="flex items-center gap-2"><x-icon name="mail" class="size-4 text-gold-500" /> <a href="mailto:{{ $contact['email'] }}" class="hover:text-white">{{ $contact['email'] }}</a></li>
-                @endif
-                <li><a class="hover:text-white" href="{{ route('pages.contact') }}">Send us a message</a></li>
-            </ul>
+            <x-site.contact-list tone="dark" class="mt-4" />
+            <a class="mt-2.5 inline-block text-sm hover:text-white" href="{{ route('pages.contact') }}">Send us a message</a>
         </div>
     </div>
     <div class="border-t border-white/10">
@@ -66,6 +59,7 @@
             <div class="flex gap-6">
                 <a href="{{ route('pages.terms') }}" class="hover:text-white">Terms</a>
                 <a href="{{ route('pages.privacy') }}" class="hover:text-white">Privacy</a>
+                <a href="{{ route('pages.disclaimer') }}" class="hover:text-white">Disclaimer</a>
                 <a href="{{ route('sitemap') }}" class="hover:text-white">Sitemap</a>
             </div>
         </div>

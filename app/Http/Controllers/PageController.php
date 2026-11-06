@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Inquiry;
 use App\Models\User;
 use App\Notifications\ContactMessageReceived;
+use App\Rules\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -32,7 +33,7 @@ class PageController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email:rfc', 'max:190'],
-            'phone' => ['required', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'],
+            'phone' => ['required', 'string', new PhoneNumber],
             'message' => ['required', 'string', 'min:10', 'max:2000'],
             'website' => ['prohibited'],
         ], ['phone.regex' => 'Enter a valid phone number, e.g. 0300 1234567.']);
@@ -66,5 +67,10 @@ class PageController extends Controller
     public function privacy(): View
     {
         return view('pages.legal', ['page' => 'privacy']);
+    }
+
+    public function disclaimer(): View
+    {
+        return view('pages.legal', ['page' => 'disclaimer']);
     }
 }

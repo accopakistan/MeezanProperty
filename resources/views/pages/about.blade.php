@@ -24,5 +24,20 @@
             <p class="text-lg font-bold">We started in Lahore and now cover Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar, adding cities one at a time.</p>
             <a href="{{ route('pages.contact') }}" class="btn btn-primary">Get in touch</a>
         </div>
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <div class="card card-body">
+                <h2 class="text-lg font-extrabold">Our office</h2>
+                <x-site.contact-list class="mt-4" />
+            </div>
+            <div class="card card-body">
+                <h2 class="text-lg font-extrabold">What we offer</h2>
+                <ul class="mt-4 space-y-2 text-[15px] text-muted">
+                    <li><a href="{{ route('properties.index') }}" class="link">Property search</a> for homes, plots, apartments and commercial property, with <a href="{{ route('properties.map') }}" class="link">map search</a> and <a href="{{ route('compare') }}" class="link">comparison</a>.</li>
+                    <li>The <a href="{{ route('ai-finder') }}" class="link">AI Property Finder</a>: describe what you need in plain words.</li>
+                    <li>The <a href="{{ route('rankings.index') }}" class="link">Meezan Investment Index</a>: research on housing societies, plazas, apartment buildings, malls and business towers.</li>
+                    <li><a href="{{ route('dealer.register') }}" class="link">Dealer and agency accounts</a> with listing tools and lead management.</li>
+                </ul>
+            </div>
+        </div>
     </div>
 </x-layouts.app>

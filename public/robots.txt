@@ -2,6 +2,7 @@
 # this file only guides well-behaved crawlers.
 User-agent: *
 Disallow: /account
+Allow: /dealer/register
 Disallow: /dealer/
 Disallow: /admin
 Disallow: /notifications

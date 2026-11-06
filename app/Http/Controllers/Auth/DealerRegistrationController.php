@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\DealerProfile;
 use App\Models\User;
+use App\Rules\PhoneNumber;
 use App\Services\AuditLogger;
 use App\Support\DealerCoverage;
 use Illuminate\Auth\Events\Registered;
@@ -34,7 +35,7 @@ class DealerRegistrationController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'string', 'lowercase', 'email:rfc', 'max:190', 'unique:users,email'],
-            'phone' => ['required', 'string', 'regex:/^[+0-9][0-9\s\-]{9,17}$/'],
+            'phone' => ['required', 'string', new PhoneNumber],
             'password' => ['required', 'confirmed', Password::defaults()],
             'business_type' => ['required', Rule::in(['individual', 'agency'])],
             'agency_name' => ['required', 'string', 'max:150'],

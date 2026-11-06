@@ -84,10 +84,7 @@
                     </details>
 
                     <div>
-                        <label class="flex items-start gap-2.5 text-[13px] text-ink">
-                            <input type="checkbox" name="terms" value="1" class="checkbox mt-0.5" @checked(old('terms'))>
-                            <span>I agree to the <a href="{{ route('pages.terms') }}" class="link">Terms &amp; Conditions</a> and <a href="{{ route('pages.privacy') }}" class="link">Privacy Policy</a></span>
-                        </label>
+                        @include('auth.partials.terms-consent', ['class' => 'text-[13px] text-ink'])
                         @error('terms')<p class="field-error">{{ $message }}</p>@enderror
                     </div>
 
