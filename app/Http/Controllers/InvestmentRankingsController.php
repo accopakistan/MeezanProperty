@@ -38,18 +38,23 @@ class InvestmentRankingsController extends Controller
         $f = $this->filters($request);
         // The hero search form: go to the chosen city / category with the filters.
         if ($request->boolean('go')) {
-            $city = in_array($request->query('city'), array_merge(['pakistan'], array_map([Cities::class, 'slug'], Cities::names())), true) ? $request->query('city') : 'pakistan';
+            $cityInput = trim((string) $request->query('city'));
+            $city = in_array(mb_strtolower($cityInput), array_merge(['pakistan'], array_map([Cities::class, 'slug'], Cities::names())), true)
+                ? mb_strtolower($cityInput)
+                : (Cities::slug($cityInput) ?? 'pakistan');
             $segment = RankingBrowser::publicSegment((string) $request->query('segment')) ? $request->query('segment') : null;
             $query = $f + array_filter(['period' => $request->query('period') !== '2y' ? $request->query('period') : null]);
 
-            // All of Pakistan without a category: the landing page, or societies when filters were chosen.
-            $segment ??= $city === 'pakistan' && $query ? 'societies' : null;
+            if ($segment !== null) {
+                $cat = IndexBrowser::categoryForSegment($segment);
+                return $cat && $city !== 'pakistan'
+                    ? redirect()->route('rankings.city-category', [$city, $cat] + $query)
+                    : redirect()->route('rankings.category', [$cat ?? 'housing-societies'] + $query);
+            }
 
-            return match (true) {
-                $segment !== null => redirect()->route('rankings.segment', [$city, RankingBrowser::segment($segment)['group'], $segment] + $query),
-                $city === 'pakistan' => redirect()->route('rankings.index'),
-                default => redirect()->route('rankings.city', [$city] + $query),
-            };
+            return $city === 'pakistan'
+                ? redirect()->route('rankings.index')
+                : redirect()->route('rankings.city', [$city] + $query);
         }
         $featured = collect(array_keys(RankingBrowser::publicSegments()))->mapWithKeys(fn ($s) => [$s => $this->browser->publicItems($s, null, ['sort' => 'score'])
             ->filter(fn ($i) => in_array($i['status'], ['ranked', 'provisional'], true))->take(5)->values()]);
@@ -81,12 +86,25 @@ class InvestmentRankingsController extends Controller
         abort_unless(isset(RankingBrowser::SPECIAL_TABS[$tab]) || RankingBrowser::publicSegment($tab), 404);
 
         [$items, $segmentKey] = $this->tabItems($tab, $name, $f);
+        $indexBrowser = app(IndexBrowser::class);
+        $run = $indexBrowser->run();
+        $cityOverall = $indexBrowser->overall(10, $name);
+        $researchTotals = $indexBrowser->researchTotals($name);
+        $cityCounts = $indexBrowser->counts(null, $name);
+        $categoryCounts = collect(IndexBrowser::categories())->mapWithKeys(fn ($c, $k) => [$k => $indexBrowser->counts($k, $name)])->all();
+
         $data = [
             'calc' => $this->browser->calculation(),
+            'run' => $run,
             'city' => $name,
             'citySlug' => $city,
             'cities' => $this->browser->cities(),
             'indexBoards' => $this->indexBoards($name),
+            'cityOverall' => $cityOverall,
+            'researchTotals' => $researchTotals,
+            'cityCounts' => $cityCounts,
+            'categoryCounts' => $categoryCounts,
+            'cityAnalytics' => app(\App\Services\InvestmentIndex\IndexAnalytics::class)->cityAnalytics($name),
             'overview' => $this->browser->overview($name),
             'tab' => $tab,
             'segmentKey' => $segmentKey,
@@ -95,7 +113,7 @@ class InvestmentRankingsController extends Controller
             'markers' => $this->browser->markers($items, fn ($i) => $this->itemUrl($i, $name, $segmentKey)),
             'upcoming' => $this->browser->upcoming($name),
             'advice' => $this->advice($request, $advisor, $name, $segmentKey),
-            'indexable' => ! $this->browser->showsDemo() && $items->contains(fn ($i) => in_array($i['status'], ['ranked', 'provisional'], true)),
+            'indexable' => ! $this->browser->showsDemo() && ($items->contains(fn ($i) => in_array($i['status'], ['ranked', 'provisional'], true)) || $cityOverall->isNotEmpty()),
         ];
 
         return $request->hasHeader('X-Rankings-Partial') ? view('rankings.partials.city-results', $data) : view('rankings.city', $data);

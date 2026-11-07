@@ -24,3 +24,8 @@ Thumbs.db
 
 # Local archives of the project
 *.zip
+*.sql
+database/backups/
+
+
+backup_meezanproperty_redesign.sql

@@ -7,6 +7,7 @@ use App\Models\AppSetting;
 use App\Models\InvestmentCollectionRun;
 use App\Models\InvestmentEvidence;
 use App\Models\InvestmentIndexRun;
+use App\Models\InvestmentIndexScore;
 use App\Models\InvestmentLegalRecord;
 use App\Models\MarketObservation;
 use App\Models\MarketSource;
@@ -302,5 +303,64 @@ class InvestmentCoverageController extends Controller
         }
 
         return $source;
+    }
+
+    /**
+     * Admin Evidence Gap Analysis: identifies missing evaluation factors for each project
+     * and recommends verified source types required to bridge the gap to 60% ranking eligibility.
+     */
+    public function evidenceGaps(Request $request): View
+    {
+        $categoryKey = $request->query('category', 'housing-societies');
+        $city = $request->query('city');
+        $categories = config('investment_index.categories');
+        $category = $categories[$categoryKey] ?? $categories['housing-societies'];
+        $factors = $category['factors'] ?? [];
+
+        $run = InvestmentIndexRun::latestPublished();
+        $query = $run ? $run->scores()->where('category', $categoryKey) : InvestmentIndexScore::where('category', $categoryKey);
+
+        if ($city && in_array($city, Cities::names(), true)) {
+            $query->whereHas('project', fn ($q) => $q->where('city', $city));
+        }
+
+        $scores = $query->with('project:id,name,slug,city,developer,approval_status')
+            ->orderBy('coverage', 'asc')
+            ->paginate(30)
+            ->withQueryString();
+
+        // Build factor source recommendations
+        $sourceRecommendations = [];
+        foreach ($factors as $factorKey => $fConfig) {
+            $acceptedTypes = config("investment_index.factors.{$factorKey}.sources") ?? [];
+            $sourceRecommendations[$factorKey] = [
+                'label' => $fConfig['label'],
+                'weight' => $fConfig['weight'],
+                'sources' => $acceptedTypes,
+                'action' => match ($factorKey) {
+                    'legal_approval' => 'Official authority gazettes and web portals (LDA, CDA, FDA, RDA, NAB)',
+                    'development_progress' => 'Certified site engineering survey, audited developer construction milestone statement',
+                    'occupancy' => 'Physical door-to-door census, resident association registers, utility meter activation counts',
+                    'rental_income' => 'Audited REIT financial distributions, registered excise rental tax deeds',
+                    'utilities' => 'WAPDA/LESCO demand notices, SNGPL gas meters, WASA sewerage connectivity audit',
+                    'structural_safety' => 'SBCA / LDA vetted structural drawings, Pakistan Engineering Council (PEC) certified audit',
+                    'market_demand' => 'Verified transaction deed registrations, authorized valuer liquidity surveys',
+                    'developer_track_record' => 'Portfolio completion records across developer previous schemes',
+                    default => 'Official or audited documentation',
+                },
+            ];
+        }
+
+        return view('admin.investment-index.evidence-gaps', [
+            'categoryKey' => $categoryKey,
+            'category' => $category,
+            'categories' => $categories,
+            'city' => $city,
+            'cities' => Cities::names(),
+            'scores' => $scores,
+            'factors' => $factors,
+            'sourceRecommendations' => $sourceRecommendations,
+            'threshold' => (float) config('investment_index.parameters.min_coverage', 0.6),
+        ]);
     }
 }

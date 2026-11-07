@@ -69,10 +69,19 @@ class IndexBrowser
             return collect();
         }
 
-        // Never beyond the published top of the category, whatever the city or filters.
-        return $this->scored($category, $city, $filters)->where('status', 'ranked')->where('category_rank', '<=', static::publicTop())
-            ->with('project:id,name,slug,city,developer,category,cover_path,area_id', 'project.area:id,name')->orderBy('category_rank')
-            ->limit(min($limit ?? static::publicTop(), static::publicTop()))->get();
+        $top = static::publicTop();
+
+        return $this->scored($category, $city, $filters)
+            ->where('status', 'ranked')
+            ->when(! $city, fn ($q) => $q->where('category_rank', '<=', $top), function ($q) use ($top) {
+                $hasTop10 = (clone $q)->where('category_rank', '<=', $top)->exists();
+
+                return $hasTop10 ? $q->where('category_rank', '<=', $top) : $q;
+            })
+            ->with('project:id,name,slug,city,developer,category,cover_path,area_id', 'project.area:id,name')
+            ->orderBy('category_rank')
+            ->limit(min($limit ?? $top, $top))
+            ->get();
     }
 
     /** How many ranked projects a public category leaderboard may show. */
@@ -190,14 +199,21 @@ class IndexBrowser
         return ($score?->coverage ?? 0) >= (float) config('investment_index.parameters.min_coverage') ? 'Verified' : 'Partially Verified';
     }
 
-    /** @return Collection<int, InvestmentIndexScore> the Overall Meezan Investment Index, best first */
-    public function overall(?int $limit = null): Collection
+    /** @return Collection<int, InvestmentIndexScore> the Overall Meezan Investment Index, best first (national or city-specific) */
+    public function overall(?int $limit = null, ?string $city = null): Collection
     {
         $run = $this->run();
+        if (! $run) {
+            return collect();
+        }
 
-        return $run ? $run->scores()->whereNotNull('overall_rank')->where('overall_rank', '<=', static::publicTop())
+        return $run->scores()->whereNotNull('overall_rank')
+            ->when(! $city, fn ($q) => $q->where('overall_rank', '<=', static::publicTop()))
+            ->when($city, fn ($q) => $q->whereHas('project', fn ($p) => $p->where('city', $city)))
             ->with('project:id,name,slug,city,developer,category,area_id', 'project.area:id,name')
-            ->orderBy('overall_rank')->limit(min($limit ?? static::publicTop(), static::publicTop()))->get() : collect();
+            ->orderByDesc('overall_index')
+            ->limit(min($limit ?? static::publicTop(), static::publicTop()))
+            ->get();
     }
 
     /** The project's result in the published run, or null when it was not assessed. */

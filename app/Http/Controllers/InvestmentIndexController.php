@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\InvestmentIndexMethodology;
 use App\Models\Project;
 use App\Services\InvestmentIndex\EvidenceSubmissions;
+use App\Services\InvestmentIndex\IndexAnalytics;
 use App\Services\InvestmentIndex\IndexBrowser;
 use App\Services\InvestmentIndex\IndexEngine;
 use App\Support\Cities;
@@ -24,18 +25,27 @@ class InvestmentIndexController extends Controller
     /** Leaderboards show the top 100; every project's rank is also on its profile. */
     public const PAGE_LIMIT = 100;
 
-    public function __construct(protected IndexBrowser $index) {}
+    public function __construct(
+        protected IndexBrowser $index,
+        protected IndexAnalytics $analytics,
+    ) {}
 
     public function home(Request $request): View|RedirectResponse
     {
-        // The search form: straight to the chosen city and category.
+        // The search form: straight to the chosen city and category, or to the city index.
         $category = $request->query('category');
-        if (is_string($category) && isset(IndexBrowser::categories()[$category])) {
-            $city = in_array($request->query('city'), Cities::names(), true) ? $request->query('city') : null;
-            $search = array_filter(['q' => is_string($request->query('q')) ? trim($request->query('q')) : null]);
+        $cityParam = $request->query('city');
+        $cityName = in_array($cityParam, Cities::names(), true) ? $cityParam : Cities::fromSlug((string) $cityParam);
+        $search = array_filter(['q' => is_string($request->query('q')) ? trim($request->query('q')) : null]);
 
-            return $city ? redirect()->route('rankings.city-category', [Cities::slug($city), $category] + $search) : redirect()->route('rankings.category', [$category] + $search);
+        if (is_string($category) && isset(IndexBrowser::categories()[$category])) {
+            return $cityName ? redirect()->route('rankings.city-category', [Cities::slug($cityName), $category] + $search) : redirect()->route('rankings.category', [$category] + $search);
         }
+
+        if ($cityName) {
+            return redirect()->route('rankings.city', [Cities::slug($cityName)] + $search);
+        }
+
         $categories = collect(IndexBrowser::categories())->map(fn ($c, $key) => $c + [
             'key' => $key, 'top' => $this->index->leaderboard($key, null, 3), 'counts' => $this->index->counts($key),
             'provisional' => IndexBrowser::provisionalPublic() ? $this->index->provisional($key, null, 3) : collect(),
@@ -49,12 +59,16 @@ class InvestmentIndexController extends Controller
             'counts' => $this->index->counts(),
             'cityCards' => $this->index->cityCards(),
             'research' => $this->index->researchTotals(),
+            'analytics' => $this->analytics->nationalAnalytics(),
         ]);
     }
 
     public function category(Request $request, string $category): View
     {
-        return $this->categoryPage($request, $category, in_array($request->query('city'), Cities::names(), true) ? $request->query('city') : null);
+        $cityParam = $request->query('city');
+        $cityName = in_array($cityParam, Cities::names(), true) ? $cityParam : Cities::fromSlug((string) $cityParam);
+
+        return $this->categoryPage($request, $category, $cityName);
     }
 
     public function cityCategory(Request $request, string $city, string $category): View
@@ -84,6 +98,7 @@ class InvestmentIndexController extends Controller
                 ->orderByRaw("case legal_status when 'approved' then 0 when 'partially_approved' then 1 when 'pending' then 2 else 3 end")->orderByDesc('research_depth')->orderBy('project_id')->paginate(40)->withQueryString()) : collect(),
             'markers' => $this->index->markers($category, $city),
             'provisional' => IndexBrowser::provisionalPublic() && $filters === [] ? $this->index->provisional($category, $city) : collect(),
+            'analytics' => $this->analytics->categoryAnalytics($category, $city),
         ]);
     }
 

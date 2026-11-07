@@ -7,7 +7,7 @@
 <body class="min-h-screen bg-white">
     <div class="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,600px)]">
         <div class="flex flex-col px-4 py-6 sm:px-10 lg:px-16">
-            <a href="{{ route('home') }}" aria-label="Meezan Property home"><x-logo class="h-16 w-auto" /></a>
+            <a href="{{ route('home') }}" aria-label="Meezan Property home"><x-logo priority class="h-16 w-auto" /></a>
 
             <div @class(['mx-auto flex w-full flex-1 flex-col justify-center py-10', 'max-w-2xl' => $wide, 'max-w-md' => ! $wide])>
                 <h1 class="text-[28px] font-extrabold sm:text-3xl">{{ $heading }}</h1>

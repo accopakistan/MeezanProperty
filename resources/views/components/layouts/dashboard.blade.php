@@ -95,7 +95,7 @@
                 <button type="button" class="absolute top-3 right-3 grid size-9 place-items-center rounded-md text-white/80 hover:bg-white/10 lg:hidden" data-toggle="dash-nav" data-lock-scroll aria-label="Close menu"><x-icon name="x" /></button>
 
                 @if ($isAdmin)
-                    <a href="{{ route('admin.dashboard') }}" class="px-6 pt-5 pb-4" aria-label="Admin dashboard"><x-logo variant="light" class="h-16 w-auto" /></a>
+                    <a href="{{ route('admin.dashboard') }}" class="px-6 pt-5 pb-4" aria-label="Admin dashboard"><x-logo variant="light" priority class="h-16 w-auto" /></a>
                 @else
                     <div class="flex items-center gap-3 px-5 pt-6 pb-5">
                         <span class="grid size-12 shrink-0 place-items-center rounded-full bg-white font-serif text-lg font-bold text-brand-700 ring-2 ring-gold-500">{{ $user->initials() }}</span>

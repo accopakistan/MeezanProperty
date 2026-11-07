@@ -116,7 +116,7 @@ class Seo
             '@type' => 'Organization',
             'name' => 'Meezan Property',
             'url' => route('home'),
-            'logo' => asset('images/logo/meezan-mark.png'),
+            'logo' => asset('images/logo/'.rawurlencode('Meezan Property Premium Logo.png')),
             'email' => $contact['email'] ?: null,
             'telephone' => $contact['phone'] ?: null,
             'address' => $contact['address'] ? ['@type' => 'PostalAddress', 'streetAddress' => 'Office 2, 3rd Floor, Bigcity Plaza, Gulberg-III', 'addressLocality' => 'Lahore', 'addressCountry' => 'PK'] : null,

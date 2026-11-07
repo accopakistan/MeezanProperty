@@ -67,7 +67,7 @@
                 <dt>Verified evidence past its age limit</dt><dd class="font-semibold tabular-nums">{{ $pending['stale'] }}</dd>
                 <dt>Rejected records</dt><dd class="font-semibold tabular-nums">{{ $pending['rejected'] }}</dd>
             </dl>
-            <p class="mt-3 text-[13px]"><a class="link" href="{{ route('admin.investment-index.verification') }}">Verification Centre</a> · <a class="link" href="{{ route('admin.investment-index.exceptions') }}">Exceptions</a></p>
+            <p class="mt-3 text-[13px]"><a class="link" href="{{ route('admin.investment-index.verification') }}">Verification Centre</a> · <a class="link" href="{{ route('admin.investment-index.exceptions') }}">Exceptions</a> · <a class="link" href="{{ route('admin.investment-index.evidence-gaps') }}">Evidence gap analysis</a></p>
         </section>
         <section class="card card-body min-w-0">
             <h2 class="text-base font-bold">Possible duplicate projects</h2>

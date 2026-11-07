@@ -5,14 +5,24 @@
 @php
     use App\Services\Investment\InvestmentInsights;
     use App\Services\Investment\RankingBrowser;
-    $label = RankingBrowser::SPECIAL_TABS[$tab] ?? RankingBrowser::segment($tab)['label'];
-    $segmentOf = fn ($i) => $segmentKey ?? $i['segment'];
-    $url = fn ($i) => route('rankings.segment', [$citySlug, RankingBrowser::segment($segmentOf($i))['group'], $segmentOf($i), 'selected' => $i['key']]).'#performance';
+    use App\Services\InvestmentIndex\IndexBrowser;
+
+    $label = RankingBrowser::SPECIAL_TABS[$tab] ?? (RankingBrowser::segment($tab)['label'] ?? ucfirst($tab));
+    $segmentOf = fn ($i) => $segmentKey ?? ($i['segment'] ?? 'societies');
+    $catSlug = $segmentKey ? (IndexBrowser::categoryForSegment($segmentKey) ?? $segmentKey) : null;
+    $url = function ($i) use ($citySlug, $segmentKey) {
+        if (! empty($i['project'])) {
+            return route('rankings.project', $i['project']);
+        }
+        $seg = $segmentKey ?? ($i['segment'] ?? 'societies');
+        $cat = IndexBrowser::categoryForSegment($seg);
+        return $cat ? route('rankings.city-category', [$citySlug, $cat]) : route('rankings.city', $citySlug);
+    };
 @endphp
 <section class="card overflow-hidden" aria-labelledby="city-results-title" data-rankings-results>
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
         <h2 id="city-results-title" class="text-base font-bold">{{ $label }} in {{ $city }}</h2>
-        @if ($segmentKey)<a href="{{ route('rankings.segment', [$citySlug, RankingBrowser::segment($segmentKey)['group'], $segmentKey]) }}" class="link text-[13px]">Open the {{ strtolower($label) }} dashboard →</a>@endif
+        @if ($catSlug)<a href="{{ route('rankings.city-category', [$citySlug, $catSlug]) }}" class="link text-[13px]">Open the {{ strtolower($label) }} leaderboard →</a>@endif
     </div>
     @if ($items->isEmpty())
         <div class="p-6 text-center text-sm text-muted">

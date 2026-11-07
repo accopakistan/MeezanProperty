@@ -44,6 +44,16 @@ class InvestmentIndexScore extends Model
         return config('investment_index.risk_classes.'.$this->risk_class, $this->risk_class);
     }
 
+    /**
+     * Risk as shown to visitors: only for projects the Index has actually scored (ranked or
+     * not eligible) or excluded for a legal issue. A project still under research has no
+     * assessed risk, so it reads "Not assessed" rather than a risk class worked out from gaps.
+     */
+    public function publicRiskLabel(): string
+    {
+        return in_array($this->status, ['ranked', 'not_eligible', 'excluded'], true) ? $this->riskLabel() : 'Not assessed';
+    }
+
     public function categoryLabel(): string
     {
         return config('investment_index.categories.'.$this->category.'.label', $this->category);

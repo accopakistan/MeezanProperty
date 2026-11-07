@@ -36,6 +36,21 @@ class Cities
         return null;
     }
 
+    public static function canonical(?string $city): ?string
+    {
+        if (! $city) {
+            return null;
+        }
+
+        foreach (self::names() as $name) {
+            if (strcasecmp($name, $city) === 0 || self::slug($name) === Str::slug($city)) {
+                return $name;
+            }
+        }
+
+        return self::fromSlug($city);
+    }
+
     /** @return array<string, string> name => name, for <select> options */
     public static function options(): array
     {

@@ -18,5 +18,6 @@
 
     <x-site.footer />
     <x-site.whatsapp-float />
+    @stack('scripts')
 </body>
 </html>

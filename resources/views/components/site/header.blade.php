@@ -12,7 +12,7 @@
 <header {{ $attributes->merge(['class' => 'sticky top-0 z-40 border-b border-line bg-white']) }} data-site-header>
     <div class="mx-auto flex h-[76px] max-w-[1440px] items-center gap-4 px-4 sm:px-6 lg:h-[88px] lg:gap-6 lg:px-8 2xl:px-10">
         <a href="{{ route('home') }}" class="shrink-0" aria-label="Meezan Property home">
-            <x-logo class="h-[60px] w-auto lg:h-[64px] xl:h-[72px]" />
+            <x-logo priority class="h-[60px] w-auto lg:h-[64px] xl:h-[72px]" />
         </a>
 
         {{-- Desktop mega menu: a disclosure per section (buttons with aria-expanded), opened by click, hover or keyboard. --}}

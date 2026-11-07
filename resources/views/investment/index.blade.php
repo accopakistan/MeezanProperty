@@ -55,8 +55,31 @@
             <section aria-labelledby="results-title">
                 <h2 id="results-title" class="sr-only">Rankings</h2>
                 @if (! $calc)
+                    <div class="rounded-xl border border-brand-200 bg-brand-50/70 p-6 shadow-sm mb-6">
+                        <div class="flex items-start gap-4">
+                            <span class="grid size-12 shrink-0 place-items-center rounded-xl bg-brand-600 text-gold-300">
+                                <x-icon name="chart" class="size-6" />
+                            </span>
+                            <div class="min-w-0">
+                                <h3 class="text-lg font-bold text-ink">Published Rankings Available in Meezan Investment Index</h3>
+                                <p class="mt-1 text-sm text-ink/80">
+                                    Official verified real estate rankings and empirical evaluation across all 5 development categories (Housing Societies, Commercial Plazas, Apartment Buildings, Shopping Malls, Business Towers) are active and published under the Meezan Investment Index.
+                                </p>
+                                <div class="mt-4 flex flex-wrap items-center gap-3">
+                                    @if (! empty($f['city']))
+                                        <a href="{{ route('rankings.city', \App\Support\Cities::slug($f['city'])) }}" class="btn btn-primary btn-sm">
+                                            View {{ $f['city'] }} Investment Rankings →
+                                        </a>
+                                    @endif
+                                    <a href="{{ route('rankings.index') }}" class="btn btn-secondary btn-sm">
+                                        Explore Meezan Investment Index Leaderboards →
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <x-empty-state icon="chart" title="No published rankings yet">
-                        Rankings appear here once verified market data (prices, rents and indicators from recorded sources) has been reviewed and a calculation is published. We do not rank without evidence.
+                        Secondary unit-level market observations are currently undergoing continuous data intake. For official, verified statutory development rankings, explore the Meezan Investment Index above. Rankings appear here once verified market data (prices, rents and indicators from recorded sources) has been reviewed and a calculation is published. We do not rank without evidence.
                     </x-empty-state>
                 @else
                     <p class="text-sm text-muted">

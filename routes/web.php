@@ -435,6 +435,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::post('/research/{project}/request', 'requestResearch')->whereNumber('project')->middleware('throttle:60,1')->name('research.request');
         Route::patch('/research/provisional', 'provisionalSwitch')->name('research.provisional');
         Route::post('/validation/alias', 'storeAlias')->name('alias.store');
+        Route::get('/evidence-gaps', 'evidenceGaps')->name('evidence-gaps');
     });
 
     // AI Command Center (Central AI Brain and agent workforce)

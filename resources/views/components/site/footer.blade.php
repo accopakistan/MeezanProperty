@@ -1,5 +1,6 @@
 @php
-    $areas = \App\Support\Lookup::popularAreas(7);
+    // Nationwide coverage: the seven launch cities (config meezan.cities), each to its city landing page.
+    $cities = ['Lahore', 'Karachi', 'Islamabad', 'Multan', 'Faisalabad', 'Peshawar', 'Quetta'];
 @endphp
 {{-- Layout follows the footer in public/Refrence/Meezan Property Real Estate UI Showcase.png --}}
 <footer class="mt-20 bg-brand-900 text-white/70">
@@ -21,16 +22,17 @@
                 <li><a class="hover:text-white" href="{{ route('ai-finder') }}">AI Property Finder</a></li>
                 <li><a class="hover:text-white" href="{{ route('rankings.index') }}">Investment Rankings</a></li>
                 <li><a class="hover:text-white" href="{{ route('investment.index') }}">Investment Insights</a></li>
+                <li><a class="hover:text-white" href="{{ route('areas.index') }}">Explore All Cities</a></li>
             </ul>
         </div>
 
         <div>
             <h2 class="text-sm font-semibold text-white">Popular Locations</h2>
             <ul class="mt-4 space-y-2.5 text-sm">
-                @foreach ($areas as $area)
-                    <li><a class="hover:text-white" href="{{ route('properties.index', ['area' => $area->slug]) }}">{{ $area->name }}</a></li>
+                @foreach ($cities as $city)
+                    <li><a class="hover:text-white" href="{{ route('cities.show', \App\Support\Cities::slug($city)) }}">{{ $city }}</a></li>
                 @endforeach
-                <li><a class="hover:text-white" href="{{ route('properties.map') }}">All Locations</a></li>
+                <li><a class="hover:text-white" href="{{ route('areas.index') }}">All Locations</a></li>
             </ul>
         </div>
 

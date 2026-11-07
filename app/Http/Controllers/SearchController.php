@@ -93,14 +93,26 @@ class SearchController extends Controller
             default => 'housing-societies',
         };
 
+        if ($category === null) {
+            return redirect()->route('rankings.index');
+        }
+
         return $this->index($category, $city === 'pakistan' ? null : Cities::fromSlug((string) $city));
     }
 
     /** An Investment Index leaderboard (optionally one city), or the Index home without a category. */
     protected function index(?string $category, ?string $city): RedirectResponse
     {
-        return $category
-            ? redirect()->route('rankings.category', array_filter(['category' => $category, 'city' => in_array($city, Cities::names(), true) ? $city : null]))
-            : redirect()->route('rankings.index');
+        $cityName = in_array($city, Cities::names(), true) ? $city : Cities::fromSlug((string) $city);
+
+        if ($category) {
+            return redirect()->route('rankings.category', array_filter(['category' => $category, 'city' => $cityName]));
+        }
+
+        if ($cityName) {
+            return redirect()->route('rankings.city', Cities::slug($cityName));
+        }
+
+        return redirect()->route('rankings.index');
     }
 }
