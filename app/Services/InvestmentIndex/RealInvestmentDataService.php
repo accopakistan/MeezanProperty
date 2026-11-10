@@ -10,20 +10,18 @@ use App\Enums\Purpose;
 use App\Models\Area;
 use App\Models\DealerProfile;
 use App\Models\InvestmentEvidence;
-use App\Models\InvestmentIndexRun;
 use App\Models\InvestmentLegalRecord;
 use App\Models\MarketSource;
 use App\Models\Project;
 use App\Models\Property;
 use App\Models\User;
-use App\Services\AuditLogger;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class RealInvestmentDataService
 {
     protected ?User $adminUser = null;
+
     protected array $sources = [];
 
     public function __construct()
@@ -50,11 +48,14 @@ class RealInvestmentDataService
             $stats['legal_records'] += $this->populateLegalRecords();
             $stats['evidence_records'] += $this->populateEvidenceRecords();
             $stats['context_records'] += $this->populateContextRecords();
-            $stats['listings_published'] += $this->populateMarketplaceListings();
+            // Listings are no longer written here (owner decision, 10 Nov 2026): only real dealers
+            // and owners publish listings, through the dealer dashboard or meezan:listings-import
+            // with a documented publication basis. populateMarketplaceListings() created a test
+            // dealer's listings with no agency feed behind them; migration 000063 archived them.
         });
 
         // Run the deterministic Index Engine
-        $engine = new IndexEngine();
+        $engine = new IndexEngine;
         $run = $engine->run('verified_real_data_import', $this->adminUser);
 
         return [
@@ -191,7 +192,7 @@ class RealInvestmentDataService
     {
         $rec = InvestmentLegalRecord::where('project_id', $project->id)
             ->where('source_id', $source->id)
-            ->first() ?? new InvestmentLegalRecord();
+            ->first() ?? new InvestmentLegalRecord;
 
         $rec->forceFill([
             'project_id' => $project->id,
@@ -217,7 +218,7 @@ class RealInvestmentDataService
         if ($subject) {
             $q->where('subject', $subject);
         }
-        $rec = $q->first() ?? new InvestmentEvidence();
+        $rec = $q->first() ?? new InvestmentEvidence;
 
         $rec->forceFill([
             'project_id' => $project->id,
@@ -307,18 +308,18 @@ class RealInvestmentDataService
         // 3. Shopping Malls
         $mallLog = [
             // Karachi (SBCA)
-            952  => ['Dolmen Mall, Clifton', $this->sources['sbca_official'], 'SBCA', 'SBCA/CLF/MAL-2011/001', '2011-05-10'],
-            953  => ['Lucky One Mall', $this->sources['sbca_official'], 'SBCA', 'SBCA/FB/MAL-2016/014', '2016-12-15'],
-            954  => ['Square One Mall', $this->sources['sbca_official'], 'SBCA', 'SBCA/MAL/MAL-2019/022', '2019-08-20'],
+            952 => ['Dolmen Mall, Clifton', $this->sources['sbca_official'], 'SBCA', 'SBCA/CLF/MAL-2011/001', '2011-05-10'],
+            953 => ['Lucky One Mall', $this->sources['sbca_official'], 'SBCA', 'SBCA/FB/MAL-2016/014', '2016-12-15'],
+            954 => ['Square One Mall', $this->sources['sbca_official'], 'SBCA', 'SBCA/MAL/MAL-2019/022', '2019-08-20'],
             // Lahore (LDA)
-            940  => ['Emporium Mall', $this->sources['lda_commercial'], 'LDA', 'LDA/BC/MAL-2015/002', '2015-11-20'],
-            941  => ['Packages Mall', $this->sources['lda_commercial'], 'LDA', 'LDA/BC/MAL-2016/009', '2016-09-14'],
-            942  => ['Fortress Square', $this->sources['lda_commercial'], 'LDA', 'LDA/CAN/MAL-2014/011', '2014-04-18'],
-            943  => ['Mall of Lahore', $this->sources['lda_commercial'], 'LDA', 'LDA/CAN/MAL-2007/001', '2007-06-25'],
+            940 => ['Emporium Mall', $this->sources['lda_commercial'], 'LDA', 'LDA/BC/MAL-2015/002', '2015-11-20'],
+            941 => ['Packages Mall', $this->sources['lda_commercial'], 'LDA', 'LDA/BC/MAL-2016/009', '2016-09-14'],
+            942 => ['Fortress Square', $this->sources['lda_commercial'], 'LDA', 'LDA/CAN/MAL-2014/011', '2014-04-18'],
+            943 => ['Mall of Lahore', $this->sources['lda_commercial'], 'LDA', 'LDA/CAN/MAL-2007/001', '2007-06-25'],
             // Islamabad (CDA)
-            987  => ['The Centaurus', $this->sources['cda_building'], 'CDA', 'CDA/BC-I/MAL-2011/001', '2011-02-15'],
-            988  => ['Giga Mall (World Trade Center)', $this->sources['cda_building'], 'CDA', 'CDA/BC-II/MAL-2015/008', '2015-08-10'],
-            989  => ['Safa Gold Mall', $this->sources['cda_building'], 'CDA', 'CDA/BC-I/MAL-2013/006', '2013-05-18'],
+            987 => ['The Centaurus', $this->sources['cda_building'], 'CDA', 'CDA/BC-I/MAL-2011/001', '2011-02-15'],
+            988 => ['Giga Mall (World Trade Center)', $this->sources['cda_building'], 'CDA', 'CDA/BC-II/MAL-2015/008', '2015-08-10'],
+            989 => ['Safa Gold Mall', $this->sources['cda_building'], 'CDA', 'CDA/BC-I/MAL-2013/006', '2013-05-18'],
             // Multan (MDA)
             1010 => ['Mall of Multan', $this->sources['mda_official'], 'MDA', 'MDA/TP/MAL-2016/003', '2016-10-12'],
             1011 => ['United Mall Gulgasht', $this->sources['mda_official'], 'MDA', 'MDA/TP/MAL-2015/007', '2015-04-22'],
@@ -444,13 +445,15 @@ class RealInvestmentDataService
 
         foreach ($housingSocieties as $id => $data) {
             $p = Project::find($id);
-            if (! $p) continue;
+            if (! $p) {
+                continue;
+            }
 
             $this->upsertEvidence($p, 'development_progress', $this->sources['site_survey'], numeric: $data['progress']);
             $this->upsertEvidence($p, 'occupancy', $this->sources['site_survey'], numeric: $data['occ']);
             $this->upsertEvidence($p, 'location', $this->sources['lda_official'], level: $data['loc']);
             $this->upsertEvidence($p, 'market_demand', $this->sources['transaction_register'], level: $data['demand']);
-            
+
             // 4 Utility subjects
             foreach (['electricity', 'gas', 'water', 'sewerage'] as $subj) {
                 $this->upsertEvidence($p, 'utilities', $this->sources['site_survey'], level: 'connected', subject: $subj);
@@ -486,7 +489,9 @@ class RealInvestmentDataService
 
         foreach ($commercialPlazas as $id => $data) {
             $p = Project::find($id);
-            if (! $p) continue;
+            if (! $p) {
+                continue;
+            }
 
             $this->upsertEvidence($p, 'occupancy', $this->sources['site_survey'], numeric: $data['occ']);
             $this->upsertEvidence($p, 'rental_income', $this->sources['lease_register'], numeric: $data['yield']);
@@ -524,7 +529,9 @@ class RealInvestmentDataService
 
         foreach ($apartmentBuildings as $id => $data) {
             $p = Project::find($id);
-            if (! $p) continue;
+            if (! $p) {
+                continue;
+            }
 
             $this->upsertEvidence($p, 'occupancy', $this->sources['site_survey'], numeric: $data['occ']);
             $this->upsertEvidence($p, 'rental_income', $this->sources['lease_register'], numeric: $data['yield']);
@@ -541,18 +548,18 @@ class RealInvestmentDataService
         // ==============================================================
         $shoppingMalls = [
             // Karachi
-            952  => ['name' => 'Dolmen Mall, Clifton', 'op' => 'strong', 'occ' => 97.8, 'yield' => 9.6, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
-            953  => ['name' => 'Lucky One Mall', 'op' => 'strong', 'occ' => 96.5, 'yield' => 9.2, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
-            954  => ['name' => 'Square One Mall', 'op' => 'stable', 'occ' => 88.0, 'yield' => 8.1, 'footfall' => 'high', 'tenant' => 'good', 'loc' => 'good', 'safety' => 'compliant', 'fin' => 'adequate'],
+            952 => ['name' => 'Dolmen Mall, Clifton', 'op' => 'strong', 'occ' => 97.8, 'yield' => 9.6, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
+            953 => ['name' => 'Lucky One Mall', 'op' => 'strong', 'occ' => 96.5, 'yield' => 9.2, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
+            954 => ['name' => 'Square One Mall', 'op' => 'stable', 'occ' => 88.0, 'yield' => 8.1, 'footfall' => 'high', 'tenant' => 'good', 'loc' => 'good', 'safety' => 'compliant', 'fin' => 'adequate'],
             // Lahore
-            940  => ['name' => 'Emporium Mall', 'op' => 'strong', 'occ' => 95.2, 'yield' => 9.4, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
-            941  => ['name' => 'Packages Mall', 'op' => 'strong', 'occ' => 96.0, 'yield' => 9.3, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
-            942  => ['name' => 'Fortress Square', 'op' => 'stable', 'occ' => 92.5, 'yield' => 8.8, 'footfall' => 'very_high', 'tenant' => 'good', 'loc' => 'excellent', 'safety' => 'compliant', 'fin' => 'adequate'],
-            943  => ['name' => 'Mall of Lahore', 'op' => 'stable', 'occ' => 91.0, 'yield' => 8.5, 'footfall' => 'high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'compliant', 'fin' => 'adequate'],
+            940 => ['name' => 'Emporium Mall', 'op' => 'strong', 'occ' => 95.2, 'yield' => 9.4, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
+            941 => ['name' => 'Packages Mall', 'op' => 'strong', 'occ' => 96.0, 'yield' => 9.3, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
+            942 => ['name' => 'Fortress Square', 'op' => 'stable', 'occ' => 92.5, 'yield' => 8.8, 'footfall' => 'very_high', 'tenant' => 'good', 'loc' => 'excellent', 'safety' => 'compliant', 'fin' => 'adequate'],
+            943 => ['name' => 'Mall of Lahore', 'op' => 'stable', 'occ' => 91.0, 'yield' => 8.5, 'footfall' => 'high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'compliant', 'fin' => 'adequate'],
             // Islamabad
-            987  => ['name' => 'The Centaurus', 'op' => 'strong', 'occ' => 96.8, 'yield' => 9.5, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
-            988  => ['name' => 'Giga Mall (World Trade Center)', 'op' => 'strong', 'occ' => 94.0, 'yield' => 9.0, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
-            989  => ['name' => 'Safa Gold Mall', 'op' => 'stable', 'occ' => 89.0, 'yield' => 8.2, 'footfall' => 'high', 'tenant' => 'good', 'loc' => 'good', 'safety' => 'compliant', 'fin' => 'adequate'],
+            987 => ['name' => 'The Centaurus', 'op' => 'strong', 'occ' => 96.8, 'yield' => 9.5, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
+            988 => ['name' => 'Giga Mall (World Trade Center)', 'op' => 'strong', 'occ' => 94.0, 'yield' => 9.0, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
+            989 => ['name' => 'Safa Gold Mall', 'op' => 'stable', 'occ' => 89.0, 'yield' => 8.2, 'footfall' => 'high', 'tenant' => 'good', 'loc' => 'good', 'safety' => 'compliant', 'fin' => 'adequate'],
             // Multan
             1010 => ['name' => 'Mall of Multan', 'op' => 'strong', 'occ' => 93.0, 'yield' => 8.9, 'footfall' => 'very_high', 'tenant' => 'excellent', 'loc' => 'excellent', 'safety' => 'certified', 'fin' => 'strong'],
             1011 => ['name' => 'United Mall Gulgasht', 'op' => 'stable', 'occ' => 88.0, 'yield' => 8.0, 'footfall' => 'high', 'tenant' => 'good', 'loc' => 'good', 'safety' => 'compliant', 'fin' => 'adequate'],
@@ -567,7 +574,9 @@ class RealInvestmentDataService
 
         foreach ($shoppingMalls as $id => $data) {
             $p = Project::find($id);
-            if (! $p) continue;
+            if (! $p) {
+                continue;
+            }
 
             $this->upsertEvidence($p, 'operational_performance', $this->sources['reit_audited'], level: $data['op']);
             $this->upsertEvidence($p, 'occupancy', $this->sources['site_survey'], numeric: $data['occ']);
@@ -605,7 +614,9 @@ class RealInvestmentDataService
 
         foreach ($businessTowers as $id => $data) {
             $p = Project::find($id);
-            if (! $p) continue;
+            if (! $p) {
+                continue;
+            }
 
             $this->upsertEvidence($p, 'occupancy', $this->sources['site_survey'], numeric: $data['occ']);
             $this->upsertEvidence($p, 'rental_income', $this->sources['reit_audited'], numeric: $data['yield']);
@@ -644,7 +655,9 @@ class RealInvestmentDataService
 
         foreach ($deliveries as $id => $level) {
             $p = Project::find($id);
-            if (! $p) continue;
+            if (! $p) {
+                continue;
+            }
 
             $this->upsertEvidence($p, 'delivery_status', $this->sources['site_survey'], level: $level);
             $this->upsertEvidence($p, 'operational_status', $this->sources['site_survey'], level: 'operational');
@@ -674,7 +687,7 @@ class RealInvestmentDataService
             ]);
         }
 
-        $dealerProfile = DealerProfile::where('user_id', $dealerUser->id)->first() ?? new DealerProfile();
+        $dealerProfile = DealerProfile::where('user_id', $dealerUser->id)->first() ?? new DealerProfile;
         $dealerProfile->forceFill([
             'user_id' => $dealerUser->id,
             'agency_name' => 'Jonathon Estate & Property Advisors',
@@ -871,9 +884,11 @@ class RealInvestmentDataService
             $area = Area::where('city', $d['city'])->where('name', $d['area_name'])->first()
                 ?? Area::where('city', $d['city'])->first();
 
-            if (! $area) continue;
+            if (! $area) {
+                continue;
+            }
 
-            $prop = Property::where('source_reference', $d['source_ref'])->first() ?? new Property();
+            $prop = Property::where('source_reference', $d['source_ref'])->first() ?? new Property;
             $prop->forceFill([
                 'user_id' => $dealerUser->id,
                 'title' => $d['title'],

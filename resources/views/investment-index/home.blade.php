@@ -287,7 +287,7 @@
                         </div>
 
                         <div class="mt-4 pt-3 border-t border-line flex items-center justify-between text-xs">
-                            <span class="text-muted">Top verified entries</span>
+                            <span class="text-muted">Showing the top 3</span>
                             <a href="{{ route('rankings.category', $c['key']) }}" class="font-semibold text-brand-700 hover:underline">
                                 Full Leaderboard →
                             </a>

@@ -30,7 +30,7 @@
 
 @pushOnce('scripts')
 <script src="{{ asset('chart.umd.min.js') }}"></script>
-<script>
+<script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
 window.MeezanCharts = window.MeezanCharts || {
     instances: {},
     init(id, config) {
@@ -57,7 +57,7 @@ window.MeezanCharts = window.MeezanCharts || {
 @endPushOnce
 
 @push('scripts')
-<script>
+<script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', function() {
     @php
         $chartType = $type === 'horizontalBar' ? 'bar' : $type;
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             },
-            scales: {{ in_array($type, ['doughnut', 'pie']) ? '{}' : '{
+            scales: {!! in_array($type, ['doughnut', 'pie']) ? '{}' : '{
                 x: {
                     grid: { display: false },
                     ticks: { font: { size: 11 } }
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     grid: { color: "#F1F5F9" },
                     ticks: { font: { size: 11 } }
                 }
-            }' }}
+            }' !!}
         }
     });
 });

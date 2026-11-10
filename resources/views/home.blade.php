@@ -185,7 +185,7 @@
                     @foreach ($areaTiles as [$label, $image, $url])
                         <a href="{{ $url }}" class="group block overflow-hidden rounded-lg border border-line bg-white shadow-card">
                             <img src="{{ asset('images/ref/'.$image.'.jpg') }}" alt="{{ $label }}" loading="lazy" class="aspect-[6/5] w-full object-cover transition duration-500 group-hover:scale-105">
-                            <span class="flex items-center justify-between gap-1 px-2 py-1.5 text-xs font-medium text-ink"><span class="truncate">{{ $label }}</span> <x-icon name="chevron-right" class="size-3.5 shrink-0" /></span>
+                            <span class="block px-1.5 py-1.5 text-center text-xs leading-tight font-medium text-ink">{{ $label }}</span>
                         </a>
                     @endforeach
                 </div>
@@ -238,7 +238,7 @@
         <section class="mt-12 overflow-hidden rounded-xl bg-brand-800 text-white" aria-labelledby="dealer-title">
             <div class="grid items-center gap-6 p-7 sm:p-10 lg:grid-cols-[1fr_auto]">
                 <div>
-                    <h2 id="dealer-title" class="font-serif text-3xl font-bold">Are you a property dealer?</h2>
+                    <h2 id="dealer-title" class="font-serif text-3xl font-bold text-white">Are you a property dealer?</h2>
                     <p class="mt-2 max-w-2xl text-white/80">List your inventory, get verified, and receive buyer leads matched to the areas you work in.</p>
                 </div>
                 <div class="flex flex-wrap gap-3">

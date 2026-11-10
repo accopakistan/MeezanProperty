@@ -206,7 +206,6 @@
                                 <th scope="col">Risk Class</th>
                                 <th scope="col" class="text-right">Evidence Coverage</th>
                                 <th scope="col">Last Verified</th>
-                                <th scope="col" class="text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-line">
@@ -294,13 +293,6 @@
                                     {{-- Updated --}}
                                     <td class="text-xs text-muted whitespace-nowrap">
                                         {{ $s->last_verified_at?->localTime()->format('j M Y') ?? '—' }}
-                                    </td>
-
-                                    {{-- Action --}}
-                                    <td class="text-right">
-                                        <a href="{{ route('rankings.project', $s->project) }}" class="btn btn-secondary btn-sm">
-                                            Analysis →
-                                        </a>
                                     </td>
                                 </tr>
                             @endforeach
