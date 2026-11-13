@@ -318,7 +318,7 @@
                 </section>
 
                 {{-- PART 5-C: MARKET PERFORMANCE & PRICE RECORDS --}}
-                <section class="card p-6 shadow-card" aria-labelledby="price-records-heading">
+                <section id="price-records" class="card p-6 shadow-card" aria-labelledby="price-records-heading">
                     <div class="border-b border-line pb-4 mb-4">
                         <h2 id="price-records-heading" class="text-base font-bold text-ink uppercase tracking-wider">
                             Empirical Price & Rental Records
@@ -327,6 +327,22 @@
                             Asking prices, verified transactions, and rental records are strictly segregated. An asking price is never recorded as a sale price.
                         </p>
                     </div>
+
+                    {{-- Advertised market figures (research facts), each with its source. Never counted as verified evidence. --}}
+                    @php $marketFacts = collect($project->research_facts ?? [])->filter(fn ($f) => str_contains((string) ($f['basis'] ?? ''), 'Advertised')); @endphp
+                    @if ($marketFacts->isNotEmpty())
+                        <div class="mb-4 rounded-lg border border-line p-4">
+                            <h3 class="text-sm font-bold text-ink">Advertised market figures</h3>
+                            <p class="mt-0.5 text-xs text-muted">Asking-price index figures from the named source. They are not verified sales and do not affect the Index score.</p>
+                            <dl class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                                @foreach ($marketFacts as $f)
+                                    <div><dt class="text-xs text-muted">{{ $f['label'] }}</dt><dd class="font-semibold text-ink">{{ $f['value'] }}</dd></div>
+                                @endforeach
+                            </dl>
+                            @php $mf = $marketFacts->first(); $mfUrl = \App\Services\InvestmentIndex\IndexBrowser::safeUrl($mf['url'] ?? null); @endphp
+                            <p class="mt-3 text-xs text-muted">Source: @if ($mfUrl)<a href="{{ $mfUrl }}" class="link" rel="noopener nofollow" target="_blank">{{ $mf['source'] }}</a>@else{{ $mf['source'] }}@endif, read {{ \Illuminate\Support\Carbon::parse($mf['date'])->format('j M Y') }}.</p>
+                        </div>
+                    @endif
 
                     @php
                         $anyPrices = collect($priceSeries)->contains(fn ($rows) => $rows->isNotEmpty());

@@ -19,10 +19,17 @@
         :publishedAt="$kpis['published_at'] ?? null"
         :kpis="$kpis"
         badge="Institutional Real Estate Intelligence"
+        layout="dashboard"
+        :tiles="[['building', number_format($kpis['total_projects'] ?? 0), 'Researched'], ['chart', number_format($kpis['ranked_projects'] ?? 0), 'Ranked'], ['map-pin', '7', 'Major cities'], ['shield', number_format($kpis['verified_projects'] ?? 0), 'Legal records']]"
     />
 
     {{-- Main Container --}}
     <div class="container-page py-8">
+
+        {{-- Dashboard block (owner's reference layout), Pakistan-wide --}}
+        @include('rankings.partials.city-dashboard', ['city' => null, 'citySlug' => null, 'indexCityCards' => $cityCards, 'cityOverall' => $overall, 'tab' => 'all', 'stripOverlap' => true])
+
+        <h2 class="mt-12 mb-4 text-xl font-bold text-ink">Pakistan research coverage</h2>
 
         {{-- Verification Quality Callout Banner --}}
         <div class="mb-8 rounded-xl border border-brand-200 bg-brand-50/60 p-5 shadow-sm">

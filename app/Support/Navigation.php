@@ -8,6 +8,9 @@ use App\Models\Package;
  * The public site navigation: one definition for the desktop mega menu and the
  * mobile menu. Every link points at a page that exists; nothing is promoted
  * that isn't ready (dealer packages appear only once a final package is offered).
+ *
+ * Menu panel photos (public/images/menu) are from Pexels, free for commercial use under the
+ * Pexels licence: buy 27692049, rent 7641906, investment 7580643, dealers 16749990.
  */
 class Navigation
 {
@@ -34,7 +37,7 @@ class Navigation
                     ['title' => 'Buy in a city', 'links' => $cityLinks('property-for-sale')],
                     ['title' => 'Popular areas in '.config('meezan.default_city'), 'links' => $areas->map(fn ($a) => ['label' => $a->name, 'url' => route('areas.show', $a->slug)])->push(['label' => 'All area guides', 'url' => route('areas.index')])->all()],
                 ],
-                'feature' => ['icon' => 'sparkles', 'title' => 'Describe it, we find it', 'body' => 'Tell the AI Property Finder what you need in plain words, in English or Urdu.', 'cta' => 'Try AI Property Finder', 'url' => route('ai-finder')],
+                'feature' => ['image' => 'images/menu/buy.jpg', 'image_position' => 'center 20%', 'icon' => 'sparkles', 'title' => 'Describe it, we find it', 'body' => 'Tell the AI Property Finder what you need in plain words, in English or Urdu.', 'cta' => 'Try AI Property Finder', 'url' => route('ai-finder')],
             ],
             [
                 'key' => 'rent', 'label' => 'Rent', 'routes' => ['properties.rent'],
@@ -53,10 +56,10 @@ class Navigation
                         ['label' => 'How it works', 'url' => route('pages.how-it-works'), 'icon' => 'info'],
                     ]],
                 ],
-                'feature' => ['icon' => 'whatsapp', 'title' => 'Ask our team', 'body' => 'Tell us what you are looking for and we will help you find it.', 'cta' => 'WhatsApp us', 'url' => Contact::whatsappUrl() ?? route('pages.contact'), 'external' => (bool) Contact::whatsapp()],
+                'feature' => ['image' => 'images/menu/rent.jpg', 'image_position' => 'center', 'icon' => 'whatsapp', 'title' => 'Ask our team', 'body' => 'Tell us what you are looking for and we will help you find it.', 'cta' => 'WhatsApp us', 'url' => Contact::whatsappUrl() ?? route('pages.contact'), 'external' => (bool) Contact::whatsapp()],
             ],
             [
-                'key' => 'invest', 'label' => 'Investment', 'routes' => ['rankings.*', 'investment.*', 'projects.*'],
+                'key' => 'invest', 'label' => 'Investment', 'routes' => ['rankings.*', 'projects.*'],
                 'columns' => [
                     ['title' => 'Meezan Investment Index', 'links' => [
                         ['label' => 'Index overview', 'url' => route('rankings.index'), 'icon' => 'chart', 'hint' => 'Researched projects across Pakistan'],
@@ -64,16 +67,12 @@ class Navigation
                         ['label' => 'New projects', 'url' => route('projects.index'), 'icon' => 'building'],
                     ]],
                     ['title' => 'Research by category', 'links' => collect(config('investment_index.categories'))->map(fn ($c, $key) => ['label' => $c['label'], 'url' => route('rankings.category', $key)])->values()->all()],
-                    ['title' => 'Investment tools', 'links' => [
-                        ['label' => 'Investment insights', 'url' => route('investment.index'), 'icon' => 'target'],
-                        ['label' => 'Compare investments', 'url' => route('investment.compare'), 'icon' => 'layers'],
-                        ['label' => 'Rental yield calculator', 'url' => route('investment.yield'), 'icon' => 'chart'],
-                    ]],
+                    ['title' => 'Rankings by city', 'links' => array_map(fn ($city) => ['label' => $city, 'url' => route('rankings.city', Cities::slug($city))], $cities)],
                 ],
-                'feature' => ['icon' => 'shield', 'title' => 'Research, not recommendations', 'body' => 'Every project shows its legal status, sources and missing evidence. A project is ranked only when verified evidence supports it.', 'cta' => 'Explore the Index', 'url' => route('rankings.index')],
+                'feature' => ['image' => 'images/menu/investment.jpg', 'image_position' => '70% center', 'icon' => 'shield', 'title' => 'Research, not recommendations', 'body' => 'Every project shows its legal status, sources and missing evidence. A project is ranked only when verified evidence supports it.', 'cta' => 'Explore the Index', 'url' => route('rankings.index')],
             ],
             [
-                'key' => 'explore', 'label' => 'Explore', 'routes' => ['properties.map', 'compare', 'areas.index', 'pages.*'],
+                'key' => 'explore', 'label' => 'Explore', 'routes' => ['properties.map', 'compare', 'areas.index', 'pages.*', 'investment.*'],
                 'columns' => [
                     ['title' => 'Search tools', 'links' => [
                         ['label' => 'All properties', 'url' => route('properties.index'), 'icon' => 'search'],
@@ -82,6 +81,11 @@ class Navigation
                         ['label' => 'Area guides', 'url' => route('areas.index'), 'icon' => 'map-pin'],
                     ]],
                     ['title' => 'Cities', 'links' => array_map(fn ($city) => ['label' => $city, 'url' => route('cities.show', Cities::slug($city))], $cities)],
+                    ['title' => 'Investment tools', 'links' => [
+                        ['label' => 'Investment insights', 'url' => route('investment.index'), 'icon' => 'target'],
+                        ['label' => 'Compare investments', 'url' => route('investment.compare'), 'icon' => 'layers'],
+                        ['label' => 'Rental yield calculator', 'url' => route('investment.yield'), 'icon' => 'chart'],
+                    ]],
                     ['title' => 'Company', 'links' => [
                         ['label' => 'About us', 'url' => route('pages.about'), 'icon' => 'info'],
                         ['label' => 'How it works', 'url' => route('pages.how-it-works'), 'icon' => 'check'],
@@ -101,7 +105,7 @@ class Navigation
                         Package::offered()->exists() ? ['label' => 'Dealer packages', 'url' => route('pricing'), 'icon' => 'credit-card'] : null,
                     ]))],
                 ],
-                'feature' => ['icon' => 'briefcase', 'title' => 'Grow your agency', 'body' => 'List properties, receive buyer leads for your areas and manage them in one dashboard.', 'cta' => 'Register as a dealer', 'url' => route('dealer.register')],
+                'feature' => ['image' => 'images/menu/dealers.jpg', 'image_position' => '72% center', 'icon' => 'briefcase', 'title' => 'Grow your agency', 'body' => 'List properties, receive buyer leads for your areas and manage them in one dashboard.', 'cta' => 'Register as a dealer', 'url' => route('dealer.register')],
             ],
         ];
     }

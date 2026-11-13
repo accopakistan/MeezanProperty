@@ -22,11 +22,18 @@
         :kpis="$kpis"
         :badge="'Smart Real Estate Investments in '.$city"
         :search-group="$segmentKey ? 'commercial' : null"
+        layout="dashboard"
+        :tiles="[['building', number_format($kpis['total_projects'] ?? 0), 'Researched'], ['chart', number_format($kpis['ranked_projects'] ?? 0), 'Ranked'], ['map-pin', '7', 'Major cities'], ['shield', number_format($kpis['verified_projects'] ?? 0), 'Legal records']]"
     />
 
     {{-- Main Content --}}
     <div class="container-page py-8" data-rankings-page>
         @include('investment.partials.demo-notice')
+
+        {{-- City dashboard: leaderboards, map, featured project, advisor (owner's reference layout) --}}
+        @include('rankings.partials.city-dashboard', ['stripOverlap' => true])
+
+        <h2 class="mt-12 mb-4 text-xl font-bold text-ink">{{ $city }} research coverage</h2>
 
         {{-- PART 3-B: CITY KPI CARDS --}}
         <section aria-labelledby="city-kpi-heading" class="mb-10">
@@ -308,11 +315,6 @@
         {{-- Dynamic Results Target for Test Assertions & Legacy Filters --}}
         <div class="mt-6" data-rankings-target>
             @include('rankings.partials.city-results')
-        </div>
-
-        {{-- AI Investment Advisor --}}
-        <div class="mt-8">
-            @include('rankings.partials.advisor', ['segmentKey' => $segmentKey])
         </div>
 
     </div>

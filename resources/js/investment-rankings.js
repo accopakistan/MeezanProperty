@@ -256,7 +256,15 @@ if (mapEl) {
     import('./investment-map.js').then(({ InvestmentMap }) => {
         map = new InvestmentMap(mapEl, JSON.parse(mapEl.dataset.investmentMap), JSON.parse(mapEl.dataset.markers || '[]'), {
             onSelect: (marker) => (document.querySelector('[data-rankings-performance]') ? swapPerformance(marker.url) : (window.location.href = marker.url)),
+            colourBy: mapEl.dataset.colourBy || 'status',
         });
+        // Dashboard map: category checkboxes ("All" toggles every one) and the Map/Satellite switch.
+        const filters = document.querySelectorAll('[data-map-category]');
+        const all = document.querySelector('[data-map-all]');
+        const apply = () => map.showCategories([...filters].filter((f) => f.checked).map((f) => f.value));
+        filters.forEach((f) => f.addEventListener('change', () => { if (all) all.checked = [...filters].every((x) => x.checked); apply(); }));
+        all?.addEventListener('change', () => { filters.forEach((f) => (f.checked = all.checked)); apply(); });
+        document.querySelector('[data-map-base]')?.addEventListener('change', (e) => map.setBase(e.target.value));
         const selected = new URL(window.location.href).searchParams.get('selected');
         if (selected) map.highlight(selected);
     });

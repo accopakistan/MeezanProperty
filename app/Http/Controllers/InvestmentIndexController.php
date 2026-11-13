@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\InvestmentIndexMethodology;
 use App\Models\Project;
+use App\Services\Investment\AdvisorGateway;
+use App\Services\Investment\RankingBrowser;
 use App\Services\InvestmentIndex\EvidenceSubmissions;
 use App\Services\InvestmentIndex\IndexAnalytics;
 use App\Services\InvestmentIndex\IndexBrowser;
@@ -60,7 +62,21 @@ class InvestmentIndexController extends Controller
             'cityCards' => $this->index->cityCards(),
             'research' => $this->index->researchTotals(),
             'analytics' => $this->analytics->nationalAnalytics(),
+            // The dashboard block (rankings.partials.city-dashboard), Pakistan-wide.
+            'cityBoards' => collect(IndexBrowser::categories())->map(fn ($c, $k) => $this->index->leaderboard($k, null, 5))->all(),
+            'dashMarkers' => collect(array_keys(IndexBrowser::categories()))->flatMap(fn ($k) => $this->index->markers($k, null))->unique('key')->values()->all(),
+            'upcoming' => app(RankingBrowser::class)->upcoming(null),
+            'advice' => $this->advice($request),
         ]);
+    }
+
+    /** The AI advisor's answer to ?ask= / ?example= on the national page (same gateway as the city pages). */
+    protected function advice(Request $request): ?array
+    {
+        $ask = trim((string) ($request->query('ask') ?: $request->query('example', '')));
+        $focus = in_array($request->query('focus'), ['compare', 'rental', 'risk', 'forecast'], true) ? $request->query('focus') : null;
+
+        return $ask !== '' && mb_strlen($ask) <= 300 ? app(AdvisorGateway::class)->ask($ask, null, null, $focus, $request->user()) : null;
     }
 
     public function category(Request $request, string $category): View
@@ -97,6 +113,10 @@ class InvestmentIndexController extends Controller
                 ->with('project:id,name,slug,city,developer,status')->orderByRaw("case status when 'not_eligible' then 0 when 'insufficient' then 1 else 2 end")
                 ->orderByRaw("case legal_status when 'approved' then 0 when 'partially_approved' then 1 when 'pending' then 2 else 3 end")->orderByDesc('research_depth')->orderBy('project_id')->paginate(40)->withQueryString()) : collect(),
             'markers' => $this->index->markers($category, $city),
+            'indexCityCards' => $this->index->cityCards(),
+            'dashMarkers' => collect(array_keys(IndexBrowser::categories()))->flatMap(fn ($k) => $this->index->markers($k, $city))->values()->all(),
+            'upcoming' => app(RankingBrowser::class)->upcoming($city),
+            'advice' => $this->advice($request),
             'provisional' => IndexBrowser::provisionalPublic() && $filters === [] ? $this->index->provisional($category, $city) : collect(),
             'analytics' => $this->analytics->categoryAnalytics($category, $city),
         ]);

@@ -15,6 +15,7 @@ use App\Models\MarketSource;
 use App\Models\Project;
 use App\Support\Cities;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Read-only view of the published Meezan Investment Index for the public
@@ -78,7 +79,7 @@ class IndexBrowser
 
                 return $hasTop10 ? $q->where('category_rank', '<=', $top) : $q;
             })
-            ->with('project:id,name,slug,city,developer,category,cover_path,area_id', 'project.area:id,name')
+            ->with('project:id,name,slug,city,developer,category,status,cover_path,research_facts,area_id', 'project.area:id,name')
             ->orderBy('category_rank')
             ->limit(min($limit ?? $top, $top))
             ->get();
@@ -115,6 +116,26 @@ class IndexBrowser
     /** @return array{assessed: int, ranked: int, not_eligible: int, insufficient: int, excluded: int} */
     public function counts(?string $category = null, ?string $city = null): array
     {
+        return $this->perRun('counts.'.($category ?? 'all').'.'.($city ?? 'all'), fn () => $this->countRows($category, $city));
+    }
+
+    /**
+     * A figure that depends only on the published run's scores, kept for ten minutes per run.
+     * A page asks for the same status counts many times (per city, per category), and each one
+     * scans the run's score rows. A new published run has a new id, so it never shows old figures.
+     */
+    protected function perRun(string $key, callable $compute): mixed
+    {
+        $run = $this->run();
+        if (! $run || app()->runningUnitTests()) {
+            return $compute();
+        }
+
+        return Cache::remember('meezan.index.run.'.$run->id.'.'.$key, 600, $compute);
+    }
+
+    protected function countRows(?string $category, ?string $city): array
+    {
         $run = $this->run();
         $rows = $run ? $run->scores()->when($category, fn ($q) => $q->where('category', $category))
             ->when($city, fn ($q) => $q->whereHas('project', fn ($p) => $p->where('city', $city)))->toBase()
@@ -126,6 +147,11 @@ class IndexBrowser
 
     /** The seven city cards: actual record counts. @return list<array> */
     public function cityCards(): array
+    {
+        return $this->perRun('cityCards', fn () => $this->cityCardRows());
+    }
+
+    protected function cityCardRows(): array
     {
         $run = $this->run();
         $rows = $run ? $run->scores()->join('projects', 'projects.id', '=', 'investment_index_scores.project_id')->toBase()
@@ -155,7 +181,7 @@ class IndexBrowser
                     return null;
                 }
 
-                return ['key' => 'project:'.$p->id, 'lat' => (float) ($exact ? $p->latitude : $p->area->latitude), 'lng' => (float) ($exact ? $p->longitude : $p->area->longitude), 'name' => $p->name,
+                return ['key' => 'project:'.$p->id, 'category' => $s->category, 'lat' => (float) ($exact ? $p->latitude : $p->area->latitude), 'lng' => (float) ($exact ? $p->longitude : $p->area->longitude), 'name' => $p->name,
                     'location' => $p->area?->name ?? $p->city, 'status' => match ($s->status) {
                         'ranked' => 'ranked', 'not_eligible' => 'provisional', default => 'insufficient'
                     }, 'status_label' => $s->statusLabel().' · '.static::legalLabel($s->legal_status),
@@ -210,7 +236,7 @@ class IndexBrowser
         return $run->scores()->whereNotNull('overall_rank')
             ->when(! $city, fn ($q) => $q->where('overall_rank', '<=', static::publicTop()))
             ->when($city, fn ($q) => $q->whereHas('project', fn ($p) => $p->where('city', $city)))
-            ->with('project:id,name,slug,city,developer,category,area_id', 'project.area:id,name')
+            ->with('project:id,name,slug,city,developer,category,status,cover_path,research_facts,area_id', 'project.area:id,name')
             ->orderByDesc('overall_index')
             ->limit(min($limit ?? static::publicTop(), static::publicTop()))
             ->get();
@@ -339,14 +365,20 @@ class IndexBrowser
     {
         $run = $this->run();
         $inCity = fn ($q) => $q->when($city, fn ($w) => $w->whereHas('project', fn ($p) => $p->where('city', $city)));
-        $counts = $run ? $inCity($run->scores())->toBase()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status') : collect();
+        // Score-derived figures are fixed for a published run; the waiting-check count below stays live.
+        [$counts, $provisional, $legalVerified] = $this->perRun('research.'.($city ?? 'all'), fn () => [
+            $run ? $inCity($run->scores())->toBase()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')->all() : [],
+            $run ? $inCity($run->scores())->whereNotNull('provisional_rank')->count() : 0,
+            $run ? $inCity($run->scores())->whereIn('legal_status', ['approved', 'partially_approved', 'pending', 'excluded'])->count() : 0,
+        ]);
+        $counts = collect($counts);
         $projects = (int) $counts->sum();
 
         return [
             'projects' => $projects, 'ranked' => (int) ($counts['ranked'] ?? 0), 'excluded' => (int) ($counts['excluded'] ?? 0),
             'research' => (int) ($counts['insufficient'] ?? 0) + (int) ($counts['not_eligible'] ?? 0),
-            'provisional' => $run ? $inCity($run->scores())->whereNotNull('provisional_rank')->count() : 0,
-            'legal_verified' => $run ? $inCity($run->scores())->whereIn('legal_status', ['approved', 'partially_approved', 'pending', 'excluded'])->count() : 0,
+            'provisional' => $provisional,
+            'legal_verified' => $legalVerified,
             'awaiting_check' => InvestmentLegalRecord::where('verification_status', 'unverified')->whereHas('project', fn ($p) => $p->where('is_demo', false)->when($city, fn ($w) => $w->where('city', $city)))->distinct()->count('project_id'),
             'published_at' => $run?->published_at,
         ];

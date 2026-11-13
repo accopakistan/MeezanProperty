@@ -6,6 +6,7 @@ use App\Services\Investment\AdvisorGateway;
 use App\Services\Investment\InvestmentAdvisor;
 use App\Services\Investment\InvestmentInsights;
 use App\Services\Investment\RankingBrowser;
+use App\Services\InvestmentIndex\IndexAnalytics;
 use App\Services\InvestmentIndex\IndexBrowser;
 use App\Support\Cities;
 use App\Support\PriceChart;
@@ -47,6 +48,7 @@ class InvestmentRankingsController extends Controller
 
             if ($segment !== null) {
                 $cat = IndexBrowser::categoryForSegment($segment);
+
                 return $cat && $city !== 'pakistan'
                     ? redirect()->route('rankings.city-category', [$city, $cat] + $query)
                     : redirect()->route('rankings.category', [$cat ?? 'housing-societies'] + $query);
@@ -104,7 +106,10 @@ class InvestmentRankingsController extends Controller
             'researchTotals' => $researchTotals,
             'cityCounts' => $cityCounts,
             'categoryCounts' => $categoryCounts,
-            'cityAnalytics' => app(\App\Services\InvestmentIndex\IndexAnalytics::class)->cityAnalytics($name),
+            'cityBoards' => collect(IndexBrowser::categories())->map(fn ($c, $k) => $indexBrowser->leaderboard($k, $name, 5))->all(),
+            'indexCityCards' => $indexBrowser->cityCards(),
+            'dashMarkers' => collect(array_keys(IndexBrowser::categories()))->flatMap(fn ($k) => $indexBrowser->markers($k, $name))->values()->all(),
+            'cityAnalytics' => app(IndexAnalytics::class)->cityAnalytics($name),
             'overview' => $this->browser->overview($name),
             'tab' => $tab,
             'segmentKey' => $segmentKey,

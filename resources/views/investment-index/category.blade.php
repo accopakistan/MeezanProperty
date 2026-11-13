@@ -6,6 +6,7 @@
     $kpis = $analytics['kpis'] ?? [];
     $charts = $analytics['charts'] ?? [];
     $topThree = $ranked->take(3);
+    $dashHeadline = 'Top <span class="text-gold-500">'.e($category['label']).'</span> in '.e($city ?? 'Pakistan');
 @endphp
 
 <x-layouts.app :title="$title.' — Meezan Investment Index'"
@@ -33,42 +34,19 @@
         :currentQuery="$filters['q'] ?? null"
         :badge="$category['label'].' · '.($city ? $city.' Market' : 'Pakistan National')"
         :search-group="$commercial ? 'commercial' : ($key === 'apartment-buildings' ? 'rent' : null)"
+        layout="dashboard"
+        :headline="$dashHeadline"
+        tagline="Ranked on verified evidence"
+        :tiles="[['building', number_format($counts['assessed'] ?? 0), 'Researched'], ['chart', number_format($counts['ranked'] ?? 0), 'Ranked'], ['map-pin', '7', 'Major cities'], ['shield', number_format($kpis['legal_verified'] ?? 0), 'Legal records']]"
     />
 
     {{-- Main Content --}}
     <div class="container-page py-8">
 
-        {{-- Category & City Navigation Tabs --}}
-        <div class="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-            <nav class="flex flex-wrap gap-2 text-sm" aria-label="Categories">
-                @foreach (config('investment_index.categories') as $k => $c)
-                    <a href="{{ $city ? route('rankings.city-category', [Cities::slug($city), $k]) : route('rankings.category', $k) }}"
-                       @class([
-                           'rounded-full px-4 py-1.5 font-semibold transition text-xs sm:text-sm',
-                           'bg-brand-600 text-white shadow-sm ring-1 ring-brand-600' => $k === $key,
-                           'bg-white text-ink border border-line hover:border-brand-300 hover:text-brand-700' => $k !== $key,
-                       ])
-                       @if ($k === $key) aria-current="page" @endif>
-                        {{ $c['label'] }}
-                    </a>
-                @endforeach
-                <a href="{{ $city ? route('rankings.city', Cities::slug($city)) : route('rankings.overall') }}"
-                   class="rounded-full bg-page px-4 py-1.5 font-semibold text-xs sm:text-sm border border-line hover:border-brand-300 text-ink">
-                    {{ $city ? $city.' General Index' : 'Overall Index' }}
-                </a>
-            </nav>
+        {{-- Dashboard block (owner's category reference design) --}}
+        @include('rankings.partials.city-dashboard', ['stripOverlap' => true, 'stripCategory' => $key, 'citySlug' => $city ? Cities::slug($city) : null, 'tab' => $key, 'focusCategory' => $key, 'focusRows' => $ranked])
 
-            {{-- City Filter Toggle --}}
-            @if ($city)
-                <div class="flex items-center gap-2">
-                    <span class="text-xs text-muted">Filtered to:</span>
-                    <span class="rounded bg-brand-50 px-2 py-0.5 text-xs font-bold text-brand-700">{{ $city }}</span>
-                    <a href="{{ route('rankings.category', $key) }}" class="text-xs text-brand-600 hover:underline">
-                        View All Pakistan →
-                    </a>
-                </div>
-            @endif
-        </div>
+        <h2 id="full-leaderboard" class="mt-12 mb-4 scroll-mt-28 text-xl font-bold text-ink">{{ $category['label'] }} {{ $city ? 'in '.$city : 'in Pakistan' }}: full leaderboard and research coverage</h2>
 
         {{-- PART 4-B: CATEGORY KPI CARDS --}}
         <section aria-labelledby="cat-kpi-heading" class="mb-8">

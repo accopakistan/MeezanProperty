@@ -7,10 +7,15 @@ import { maplibregl, createMap, boundsOfCoordinates, BRAND, esc } from './geo-ma
  */
 const SOURCE = 'investments';
 const COLOURS = { ranked: '#059669', provisional: '#f59e0b', review: '#0284c7', insufficient: '#8c66c8' };
+// Dashboard maps colour pins by development category (owner's reference design).
+export const CATEGORY_COLOURS = { 'housing-societies': '#6d28d9', 'commercial-plazas': '#f59e0b', 'shopping-malls': '#dc2626', 'business-towers': '#2563eb', 'apartment-buildings': '#16a34a' };
 
 export class InvestmentMap {
-    constructor(el, config, markers, { onSelect } = {}) {
+    constructor(el, config, markers, { onSelect, colourBy = 'status' } = {}) {
+        this.all = markers;
         this.markers = markers;
+        this.colourBy = colourBy;
+        this.config = config;
         this.onSelect = onSelect;
         this.popup = new maplibregl.Popup({ className: 'mp-popup', maxWidth: '260px', offset: 12, focusAfterOpen: false });
         this.map = createMap(el, config, {
@@ -29,7 +34,7 @@ export class InvestmentMap {
     geojson() {
         return {
             type: 'FeatureCollection',
-            features: this.markers.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lng, m.lat] }, properties: { key: m.key, status: m.status, approximate: m.approximate ? 1 : 0 } })),
+            features: this.markers.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lng, m.lat] }, properties: { key: m.key, status: m.status, category: m.category ?? '', approximate: m.approximate ? 1 : 0 } })),
         };
     }
 
@@ -42,7 +47,9 @@ export class InvestmentMap {
             layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 12 }, paint: { 'text-color': '#ffffff' } });
         map.addLayer({ id: 'inv-points', type: 'circle', source: SOURCE, filter: ['!', ['has', 'point_count']],
             paint: {
-                'circle-color': ['match', ['get', 'status'], 'ranked', COLOURS.ranked, 'provisional', COLOURS.provisional, 'review', COLOURS.review, COLOURS.insufficient],
+                'circle-color': this.colourBy === 'category'
+                    ? ['match', ['get', 'category'], ...Object.entries(CATEGORY_COLOURS).flat(), '#8c66c8']
+                    : ['match', ['get', 'status'], 'ranked', COLOURS.ranked, 'provisional', COLOURS.provisional, 'review', COLOURS.review, COLOURS.insufficient],
                 'circle-radius': 9,
                 'circle-stroke-width': ['case', ['==', ['get', 'approximate'], 1], 3, 2],
                 'circle-stroke-color': ['case', ['==', ['get', 'approximate'], 1], BRAND.purple, '#ffffff'],
@@ -71,6 +78,21 @@ export class InvestmentMap {
             <button type="button" class="link mt-1 text-[12px]" data-map-open>View performance →</button></div>`;
         this.popup.setLngLat([m.lng, m.lat]).setHTML(html).addTo(this.map);
         this.popup.getElement()?.querySelector('[data-map-open]')?.addEventListener('click', () => this.onSelect?.(m));
+    }
+
+    /** Show only these categories (empty list = none). */
+    showCategories(categories) {
+        this.markers = this.all.filter((m) => categories.includes(m.category));
+        this.map.getSource(SOURCE)?.setData(this.geojson());
+    }
+
+    /** Switch between the street map and satellite imagery (when configured). */
+    setBase(kind) {
+        if (kind === 'satellite' && this.config.satellite) {
+            this.map.setStyle({ version: 8, sources: { sat: { type: 'raster', tiles: [this.config.satellite.tiles], tileSize: 256, attribution: this.config.satellite.attribution } }, layers: [{ id: 'sat', type: 'raster', source: 'sat' }] });
+        } else {
+            this.map.setStyle(this.config.style || { version: 8, sources: { osm: { type: 'raster', tiles: [this.config.raster.tiles], tileSize: 256, attribution: this.config.raster.attribution } }, layers: [{ id: 'osm', type: 'raster', source: 'osm' }] });
+        }
     }
 
     /** Centre on an entry chosen in the list (no pop-up if it has no position). */

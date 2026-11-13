@@ -35,6 +35,36 @@
                         <p class="text-[11px] text-muted">Source: Meezan Property published rankings{{ $advice['methodology'] ? ' (methodology v'.$advice['methodology'].($advice['published_at'] ? ', published '.$advice['published_at'] : '').')' : '' }}{{ $advice['sources'] ? '; data from '.implode(', ', $advice['sources']) : '' }}. {{ match ($advice['mode']) { 'llm-agent' => 'Answered by the Investment Analyst agent (Central AI Brain); worded by AI and checked against the data.', 'rules-agent' => 'Answered by the Investment Analyst agent (Central AI Brain) from the data.', 'llm' => 'Worded by AI, checked against the data.', default => 'Answered directly from the data.' } }}</p>
                     </div>
                 </div>
+            @elseif (! empty($topPicks) && count($topPicks))
+                {{-- Pre-filled from the published Index (not AI text): the top three where the visitor is. --}}
+                <p class="rounded-lg bg-brand-50 px-3 py-2 text-[13px] font-semibold text-brand-800">{{ $topPicksQuestion }}</p>
+                <div class="flex gap-2.5">
+                    <x-logo compact class="size-7 shrink-0" />
+                    <div class="min-w-0 flex-1 rounded-lg ring-1 ring-line">
+                        <p class="px-3 pt-2.5 text-[12.5px] text-ink">From the published Meezan Investment Index, the top three here are:</p>
+                        <ol class="divide-y divide-line">
+                            @foreach ($topPicks as $i => $s)
+                                <li>
+                                    <a href="{{ route('rankings.project', $s->project) }}" class="flex gap-2.5 px-3 py-2 hover:bg-brand-50/50">
+                                        <img src="{{ $s->project->coverUrl() }}" alt="" class="h-12 w-16 shrink-0 rounded object-cover" loading="lazy">
+                                        <span class="min-w-0 text-[12px]">
+                                            <span class="block font-bold text-ink">{{ $i + 1 }}. {{ $s->project->name }} – Index {{ number_format($s->score, 0) }}</span>
+                                            @foreach (collect($s->factors)->filter(fn ($f) => ($f['score'] ?? null) !== null && ! ($f['display_only'] ?? false))->sortByDesc('score')->take(2) as $f)
+                                                <span class="block text-muted">• {{ $f['label'] }}: {{ $f['value'] ?? number_format($f['score'], 0).'/100' }}</span>
+                                            @endforeach
+                                            <span class="block text-muted">• {{ $s->riskLabel() }}</span>
+                                        </span>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ol>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 pl-9">
+                    <a href="{{ $topPicksCompare }}" class="rounded-md px-2.5 py-1 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50">Compare These</a>
+                    <a href="{{ route('rankings.methodology') }}" class="rounded-md px-2.5 py-1 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50">How They're Scored</a>
+                    <button type="submit" name="example" value="{{ $examples[0] }}" class="rounded-md px-2.5 py-1 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50">More Options →</button>
+                </div>
             @else
                 <p class="text-[13px] text-muted">Ask about a city, society, project or property type. Answers come from published Meezan Property rankings{{ ($calc ?? null)?->includes_demo ? ', currently the illustrative preview dataset' : '' }} and say when data is missing.</p>
                 <ul class="flex flex-wrap gap-1.5">

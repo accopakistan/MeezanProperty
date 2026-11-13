@@ -77,7 +77,7 @@
                     ['whatsapp', 'WhatsApp Support', 'Chat with our team on WhatsApp'],
                 ] as [$icon, $title, $body])
                     <div class="flex items-center gap-4 border-b border-white/10 px-4 py-3.5 last:border-0">
-                        <x-icon :name="$icon" class="size-8 text-gold-500" />
+                        <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white/10 text-gold-300 ring-1 ring-white/15"><x-icon :name="$icon" class="size-5" /></span>
                         <div>
                             <p class="text-[15px] font-semibold text-white">{{ $title }}</p>
                             <p class="text-xs leading-5 text-white/75">{{ $body }}</p>
@@ -101,7 +101,7 @@
                 ['shield', 'Reviewed Listings', 'Checked by our team before publishing', route('pages.how-it-works')],
             ] as [$icon, $title, $body, $url])
                 <a href="{{ $url }}" class="group flex flex-col items-center px-3 py-3 text-center lg:border-r lg:border-line lg:last:border-0">
-                    <x-icon :name="$icon" class="size-9 text-brand-600 transition group-hover:scale-110" />
+                    <span class="grid size-12 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 transition group-hover:bg-brand-600 group-hover:text-white"><x-icon :name="$icon" class="size-6" /></span>
                     <span class="mt-2 text-[15px] font-semibold text-ink">{{ $title }}</span>
                     <span class="mt-0.5 max-w-44 text-[13px] leading-5 text-muted">{{ $body }}</span>
                 </a>

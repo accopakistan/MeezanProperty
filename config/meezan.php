@@ -218,6 +218,11 @@ return [
         // Published society/area boundaries are drawn from this zoom level.
         'boundary_min_zoom' => 10,
         'attribution' => env('MEEZAN_MAP_ATTRIBUTION', '&copy; OpenStreetMap contributors'),
+        // Optional satellite imagery for the investment map's Map/Satellite switch: an XYZ raster
+        // tile URL from a provider you hold a licence or key for (for example MapTiler Satellite).
+        // Empty = no Satellite option is shown.
+        'satellite_url' => env('MEEZAN_MAP_SATELLITE_URL'),
+        'satellite_attribution' => env('MEEZAN_MAP_SATELLITE_ATTRIBUTION', ''),
         'center' => [31.5204, 74.3587],
         'zoom' => 11,
         // Used to reject area look-ups that land outside the city.

@@ -51,12 +51,21 @@
                             @endforeach
                             @isset($section['feature'])
                                 @php $f = $section['feature']; @endphp
-                                <aside class="relative flex flex-col overflow-hidden rounded-xl bg-brand-800 p-6 text-white">
-                                    <span class="pointer-events-none absolute -top-10 -right-10 size-40 rounded-full bg-gold-500/15" aria-hidden="true"></span>
-                                    <span class="grid size-11 place-items-center rounded-xl bg-white/10 text-gold-500"><x-icon :name="$f['icon']" class="size-6" /></span>
-                                    <p class="mt-4 font-serif text-xl font-bold">{{ $f['title'] }}</p>
-                                    <p class="mt-2 text-[13.5px] leading-6 text-white/80">{{ $f['body'] }}</p>
-                                    <a href="{{ $f['url'] }}" @if ($f['external'] ?? false) target="_blank" rel="noopener" @endif class="btn btn-gold mt-auto w-max pt-2.5">{{ $f['cta'] }} <x-icon name="arrow-right" class="size-4" /></a>
+                                <aside class="relative isolate flex flex-col overflow-hidden rounded-xl bg-brand-900 text-white">
+                                    @isset($f['image'])
+                                        <span class="relative block h-44 shrink-0 overflow-hidden">
+                                            <img src="{{ asset($f['image']) }}" alt="" class="size-full object-cover" style="object-position: {{ $f['image_position'] ?? 'center' }}" loading="lazy" decoding="async">
+                                            <span class="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-brand-900 to-transparent" aria-hidden="true"></span>
+                                        </span>
+                                    @else
+                                        <span class="pointer-events-none absolute -top-10 -right-10 size-40 rounded-full bg-gold-500/15" aria-hidden="true"></span>
+                                        <span class="m-6 mb-3 grid size-11 place-items-center rounded-xl bg-white/10 text-gold-500"><x-icon :name="$f['icon']" class="size-6" /></span>
+                                    @endisset
+                                    <div @class(['flex flex-1 flex-col', 'px-5 pt-3 pb-5' => isset($f['image']), 'p-6 pt-0' => ! isset($f['image'])])>
+                                        <p class="mt-1 font-serif text-xl font-bold text-white">{{ $f['title'] }}</p>
+                                        <p class="mt-1.5 text-[13px] leading-5 text-white/85">{{ $f['body'] }}</p>
+                                        <a href="{{ $f['url'] }}" @if ($f['external'] ?? false) target="_blank" rel="noopener" @endif class="btn btn-gold mt-4 w-max pt-2.5">{{ $f['cta'] }} <x-icon name="arrow-right" class="size-4" /></a>
+                                    </div>
                                 </aside>
                             @endisset
                         </div>
