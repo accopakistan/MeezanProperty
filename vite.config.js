@@ -15,6 +15,17 @@ export default defineConfig({
     experimental: {
         renderBuiltUrl: () => ({ relative: true }),
     },
+    build: {
+        rollupOptions: {
+            output: {
+                // MapLibre's worker is an .mjs file. Some hosts (the live Hostinger server)
+                // send .mjs as text/plain, and browsers refuse to run it, so the map shows no
+                // street detail and no listing pins. Publish it as .js, which every host serves
+                // as JavaScript.
+                assetFileNames: (asset) => ((asset.names?.[0] ?? asset.name ?? '').endsWith('.mjs') ? 'assets/[name]-[hash].js' : 'assets/[name]-[hash][extname]'),
+            },
+        },
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],

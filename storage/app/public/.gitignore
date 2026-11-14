@@ -3,3 +3,5 @@
 # Listing photos are versioned so a GitHub deploy brings them to the live site.
 !properties/
 !properties/**
+# Upload bundles are never versioned.
+*.zip
