@@ -13,7 +13,8 @@
     $config = [
         'style' => $mapConfig['style_url'] ?: null,
         'raster' => ['tiles' => $mapConfig['tile_url'], 'attribution' => $mapConfig['attribution']],
-        'satellite' => $mapConfig['satellite_url'] ? ['tiles' => $mapConfig['satellite_url'], 'attribution' => $mapConfig['satellite_attribution']] : null,
+        // `?? ''`: a server whose config cache predates these keys simply gets no Satellite option.
+        'satellite' => ($mapConfig['satellite_url'] ?? null) ? ['tiles' => $mapConfig['satellite_url'], 'attribution' => $mapConfig['satellite_attribution'] ?? ''] : null,
         'pakistan' => [[$b['west'], $b['south']], [$b['east'], $b['north']]],
         'center' => $centre ? [(float) $centre[1], (float) $centre[0]] : null,
     ];

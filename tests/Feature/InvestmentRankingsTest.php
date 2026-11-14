@@ -512,3 +512,12 @@ it('records apartment bedrooms on observations without changing older fingerprin
         ->and(MarketObservation::fingerprintFor($base + ['bedrooms' => 2]))->not->toBe(MarketObservation::fingerprintFor($base + ['bedrooms' => 3]))
         ->and(strlen(MarketObservation::fingerprintFor($base + ['bedrooms' => 2])))->toBe(64);
 });
+
+it('renders the ranking dashboards when the server config cache predates the satellite map keys', function () {
+    // A production config cache built before 13 Nov 2026 has no satellite_url / satellite_attribution.
+    config(['meezan.map' => collect(config('meezan.map'))->except(['satellite_url', 'satellite_attribution'])->all()]);
+
+    $this->get(route('rankings.city', 'lahore'))->assertOk()->assertSee('data-investment-map', false)->assertDontSee('value="satellite"', false);
+    $this->get(route('rankings.index'))->assertOk();
+    $this->get(route('rankings.category', 'shopping-malls'))->assertOk();
+});
