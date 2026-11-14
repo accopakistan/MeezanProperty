@@ -3,12 +3,13 @@
     // Layout: public/Refrence/Meezan Property AI Search Dashboard.png (+ AI Platform Mockup 7A/7C)
     $whatsapp = config('meezan.contact.whatsapp');
     $user = auth()->user();
+    // [icon, tone, short title, detail, the full prompt sent to the assistant, title language]
     $examples = [
-        ['home', 'text-red-500 bg-red-50', '10 marla house in DHA Lahore around 4 crore'],
-        ['key', 'text-emerald-600 bg-emerald-50', '2 bed flat on rent in Clifton Karachi under 1.5 lakh'],
-        ['plot', 'text-sky-600 bg-sky-50', '1 kanal plot in Islamabad for investment'],
-        ['building', 'text-brand-600 bg-brand-50', 'Mujhe Peshawar mein 5 marla ka ghar chahiye'],
-        ['store', 'text-gold-600 bg-gold-50', 'ملتان میں دس مرلہ مکان چاہیے'],
+        ['home', 'text-red-500 bg-red-50', '10 Marla house', 'DHA Lahore, around 4 crore', '10 marla house in DHA Lahore around 4 crore', null],
+        ['key', 'text-emerald-600 bg-emerald-50', '2 bed flat to rent', 'Clifton Karachi, under 1.5 lakh', '2 bed flat on rent in Clifton Karachi under 1.5 lakh', null],
+        ['plot', 'text-sky-600 bg-sky-50', '1 Kanal plot', 'Islamabad, for investment', '1 kanal plot in Islamabad for investment', null],
+        ['message', 'text-brand-600 bg-brand-50', '5 marla ka ghar', 'Peshawar, asked in Roman Urdu', 'Mujhe Peshawar mein 5 marla ka ghar chahiye', null],
+        ['message', 'text-gold-600 bg-gold-50', 'دس مرلہ مکان، ملتان', 'Multan, asked in Urdu', 'ملتان میں دس مرلہ مکان چاہیے', 'ur'],
     ];
     $signedInBuyer = $user?->hasRole('buyer');
 @endphp
@@ -67,12 +68,20 @@
         <div class="mx-auto grid max-w-[1440px] gap-5 px-4 sm:px-6 lg:px-10 xl:grid-cols-[minmax(0,1fr)_380px]">
             <div class="min-w-0">
                 {{-- Examples --}}
-                <section class="card relative z-10 flex flex-col gap-4 p-4 lg:flex-row lg:items-center xl:-mt-6" aria-labelledby="examples-title">
-                    <h2 id="examples-title" class="flex shrink-0 items-center gap-2 font-serif text-lg font-bold"><x-icon name="sparkles" class="size-5 text-gold-500" /> Try These Examples</h2>
-                    <div class="grid flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                        @foreach ($examples as [$icon, $tone, $prompt])
-                            <button type="button" class="flex items-center gap-2.5 rounded-lg border border-line bg-white p-2.5 text-left text-xs leading-snug hover:border-brand-300" data-prompt="{{ $prompt }}">
-                                <span class="grid size-9 shrink-0 place-items-center rounded-md {{ $tone }}"><x-icon :name="$icon" class="size-5" /></span> {{ $prompt }}
+                <section class="card relative z-10 p-4 sm:p-5 xl:-mt-6" aria-labelledby="examples-title">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h2 id="examples-title" class="flex items-center gap-2 font-serif text-lg font-bold"><x-icon name="sparkles" class="size-5 text-gold-500" /> Try These Examples</h2>
+                        <p class="text-[13px] text-muted">Tap one to ask the assistant. English, Roman Urdu and Urdu all work.</p>
+                    </div>
+                    <div class="mt-3.5 grid gap-2.5 md:grid-cols-5">
+                        @foreach ($examples as [$icon, $tone, $title, $detail, $prompt, $lang])
+                            <button type="button" data-prompt="{{ $prompt }}" aria-label="Ask: {{ $prompt }}" title="{{ $prompt }}"
+                                    class="group flex items-center gap-3 rounded-xl border border-line bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card focus-visible:outline-2 focus-visible:outline-brand-500 md:flex-col md:items-start md:gap-2.5">
+                                <span class="grid size-10 shrink-0 place-items-center rounded-full {{ $tone }}"><x-icon :name="$icon" class="size-5" /></span>
+                                <span class="min-w-0">
+                                    <span class="block text-left text-[13.5px] leading-snug font-semibold text-ink group-hover:text-brand-700" @if ($lang) lang="{{ $lang }}" dir="rtl" @endif>{{ $title }}</span>
+                                    <span class="mt-0.5 block text-[12px] leading-snug text-muted">{{ $detail }}</span>
+                                </span>
                             </button>
                         @endforeach
                     </div>
