@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\WhatsApp\WhatsAppClient;
+use App\Support\PublicStorage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -22,7 +23,7 @@ class SettingsController extends Controller
             ['WhatsApp Cloud API credentials', $whatsapp->isConfigured(), 'WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN'],
             ['WhatsApp outbound sending', $whatsapp->isLive(), 'WHATSAPP_ENABLED=true'],
             ['Map tiles', (bool) config('meezan.map.enabled'), 'MEEZAN_MAP_ENABLED, MEEZAN_MAP_TILE_URL'],
-            ['Public storage link', file_exists(public_path('storage')), 'php artisan storage:link'],
+            ['Public storage link', PublicStorage::pointsTo(public_path('storage'), storage_path('app/public')), 'move public/storage aside, then run php artisan storage:link'],
             ['Outgoing mail', config('mail.default') !== 'log', 'MAIL_MAILER (currently "'.config('mail.default').'")'],
             // Emails are queued: without a running worker they wait in the jobs table.
             ['Queued emails waiting to send', ($waiting = DB::table('jobs')->count()) === 0, 'php artisan queue:work (or composer run dev) sends them', $waiting.' waiting'],

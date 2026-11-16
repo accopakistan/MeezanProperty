@@ -53,6 +53,8 @@ php artisan storage:link
 php artisan meezan:geocode-areas   # approximate area centres from OpenStreetMap; set the 4 missing ones in Admin → Locations
 ```
 
+`public/storage` must resolve to `storage/app/public`, not be a regular directory. If an existing directory blocks `storage:link`, preserve it outside `public/` before creating the link.
+
 Create the first admin with `php artisan tinker`: create a user and set `role` to `admin` with `forceFill`. Use a strong password, and never reuse the local demo accounts.
 
 ---

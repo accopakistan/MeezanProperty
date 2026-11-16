@@ -3,10 +3,13 @@
 use App\Enums\DealerStatus;
 use App\Models\Property;
 use App\Models\User;
+use App\Support\PublicStorage;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 it('sends security headers with a strict script policy', function () {
     $response = $this->get('/')->assertOk();
@@ -113,6 +116,20 @@ it('reports production readiness and fails on unsafe settings', function () {
         ->expectsOutputToContain('APP_DEBUG is off')
         ->expectsOutputToContain('Outgoing mail is configured')
         ->assertFailed();
+});
+
+it('does not mistake an ordinary public storage folder for the storage link', function () {
+    $root = sys_get_temp_dir().DIRECTORY_SEPARATOR.'public-storage-check-'.Str::uuid();
+    $public = $root.DIRECTORY_SEPARATOR.'public';
+    $storage = $root.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'app'.DIRECTORY_SEPARATOR.'public';
+    mkdir($public, 0777, true);
+    mkdir($storage, 0777, true);
+
+    try {
+        expect(PublicStorage::pointsTo($public, $storage))->toBeFalse();
+    } finally {
+        File::deleteDirectory($root);
+    }
 });
 
 it('drains the queue from the scheduler only when asked to', function () {

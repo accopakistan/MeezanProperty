@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\Role;
 use App\Models\Property;
 use App\Models\User;
+use App\Support\PublicStorage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -72,8 +73,7 @@ class ProductionCheck extends Command
             $this->check(is_writable($dir), 'Writable: '.str_replace(base_path().DIRECTORY_SEPARATOR, '', $dir), 'web server user needs write access');
         }
 
-        // file_exists() also sees Windows junctions, which is_link()/is_dir() report as false.
-        $this->check(file_exists(public_path('storage')), 'Public storage link exists', 'php artisan storage:link');
+        $this->check(PublicStorage::pointsTo(public_path('storage'), storage_path('app/public')), 'Public storage link exists', 'remove or move public/storage, then run php artisan storage:link');
         $this->check(File::exists(public_path('build/manifest.json')), 'Front-end build present', 'run npm run build and upload public/build');
 
         // Hosting that serves the project folder itself (root index.php) must refuse .env, logs and source files.

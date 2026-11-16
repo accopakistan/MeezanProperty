@@ -40,8 +40,19 @@ class ImageProcessor
         $name = $directory.'/'.Str::random(32);
         $paths = ['path' => $name.'.webp', 'thumb_path' => $name.'-thumb.webp'];
 
-        Storage::disk($disk)->put($paths['path'], $this->encode($full));
-        Storage::disk($disk)->put($paths['thumb_path'], $this->encode($thumb));
+        $storage = Storage::disk($disk);
+        try {
+            if (! $storage->put($paths['path'], $this->encode($full))) {
+                throw new RuntimeException('Could not write the listing photo.');
+            }
+            if (! $storage->put($paths['thumb_path'], $this->encode($thumb))) {
+                throw new RuntimeException('Could not write the listing photo thumbnail.');
+            }
+        } catch (\Throwable $e) {
+            $storage->delete(array_values($paths));
+
+            throw new RuntimeException('Failed to store listing photo files.', previous: $e);
+        }
 
         return $paths + ['width' => imagesx($full), 'height' => imagesy($full)];
     }
