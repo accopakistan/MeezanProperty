@@ -38,9 +38,15 @@ return [
             'report' => false,
         ],
 
+        // Uploaded photos (listings, projects, logos). Normally stored in
+        // storage/app/public and served through the public/storage symlink.
+        // Hosting that cannot keep that symlink (e.g. Hostinger shared
+        // hosting, where public/storage ends up as a plain folder) sets
+        // MEEZAN_UPLOADS_IN_PUBLIC=true so uploads are written straight into
+        // public/storage, the folder the web server actually serves.
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
+            'root' => env('MEEZAN_UPLOADS_IN_PUBLIC', false) ? public_path('storage') : storage_path('app/public'),
             'url' => rtrim(env('ASSET_URL') ?: env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
@@ -73,7 +79,8 @@ return [
     |
     */
 
-    'links' => [
+    // No link is needed when uploads are written straight into public/storage.
+    'links' => env('MEEZAN_UPLOADS_IN_PUBLIC', false) ? [] : [
         public_path('storage') => storage_path('app/public'),
     ],
 

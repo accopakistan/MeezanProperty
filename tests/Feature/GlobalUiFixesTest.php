@@ -118,14 +118,26 @@ it('shows the same four search tabs, in order, on every search page', function (
     'city listings' => ['/lahore/plots-for-sale', 'plots'],
     'map search' => ['/map?group=commercial', 'commercial'],
     'projects' => ['/projects', 'sale'],
-    'investment rankings (Index home)' => ['/investment-rankings', 'sale'],
-    'housing societies' => ['/investment-rankings/housing-societies', 'sale'],
-    'apartment buildings' => ['/investment-rankings/apartment-buildings?city=Lahore', 'sale'],
-    'shopping malls' => ['/investment-rankings/shopping-malls', 'commercial'],
-    'commercial plazas' => ['/investment-rankings/commercial-plazas', 'commercial'],
-    'business towers' => ['/investment-rankings/business-towers?city=Karachi', 'commercial'],
     'overall index' => ['/investment-rankings/overall', 'sale'],
     'index methodology' => ['/investment-rankings/methodology', 'sale'],
+]);
+
+// The Investment Rankings dashboards (Index home, city and category pages) use the owner's
+// reference design since 19 Nov 2026: Buy | Rent | Invest | Compare | AI Search, Invest first.
+it('shows the five investment search tabs on the rankings dashboards', function (string $url) {
+    $html = $this->get($url)->assertOk()->getContent();
+    preg_match_all('/data-inv-tab="([a-z]+)"/', $html, $tabs);
+    preg_match('/aria-selected="true" data-inv-tab="([a-z]+)"/', $html, $active);
+
+    expect($tabs[1])->toBe(['buy', 'rent', 'invest', 'compare', 'ai'])->and($active[1] ?? null)->toBe('invest');
+})->with([
+    'Index home' => ['/investment-rankings'],
+    'housing societies' => ['/investment-rankings/housing-societies'],
+    'apartment buildings' => ['/investment-rankings/apartment-buildings?city=Lahore'],
+    'shopping malls' => ['/investment-rankings/shopping-malls'],
+    'commercial plazas' => ['/investment-rankings/commercial-plazas'],
+    'business towers' => ['/investment-rankings/business-towers?city=Karachi'],
+    'city dashboard' => ['/investment-rankings/lahore'],
 ]);
 
 it('shows each tab only its own filters', function () {

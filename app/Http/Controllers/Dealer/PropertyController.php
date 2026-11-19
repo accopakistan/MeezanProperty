@@ -299,7 +299,7 @@ class PropertyController extends Controller
                 Log::info('Listing photo rejected during processing', ['error' => $e->getMessage()]);
 
                 throw ValidationException::withMessages([
-                    'images' => 'Photo '.($index + 1).' ('.$file->getClientOriginalName().') could not be processed. Save it as a JPG or PNG and try again.',
+                    'images' => 'Photo '.($index + 1).' ('.$file->getClientOriginalName().') could not be processed or saved. Try another photo. If the problem continues, contact support.',
                 ]);
             }
             array_push($written, $stored['path'], $stored['thumb_path']);

@@ -11,7 +11,7 @@ const COLOURS = { ranked: '#059669', provisional: '#f59e0b', review: '#0284c7', 
 export const CATEGORY_COLOURS = { 'housing-societies': '#6d28d9', 'commercial-plazas': '#f59e0b', 'shopping-malls': '#dc2626', 'business-towers': '#2563eb', 'apartment-buildings': '#16a34a' };
 
 export class InvestmentMap {
-    constructor(el, config, markers, { onSelect, colourBy = 'status' } = {}) {
+    constructor(el, config, markers, { onSelect, colourBy = 'status', openKey = null } = {}) {
         this.all = markers;
         this.markers = markers;
         this.colourBy = colourBy;
@@ -28,19 +28,23 @@ export class InvestmentMap {
         this.map.once('load', () => {
             if (markers.length > 1) this.map.fitBounds(boundsOfCoordinates(markers.map((m) => [m.lng, m.lat])), { padding: 48, maxZoom: 14, duration: 0 });
             else if (markers.length === 1) this.map.jumpTo({ center: [markers[0].lng, markers[0].lat], zoom: 13 });
+            // Dashboard: the featured (#1) project's card starts open, as in the reference design.
+            if (openKey) this.open(openKey);
         });
     }
 
     geojson() {
         return {
             type: 'FeatureCollection',
-            features: this.markers.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lng, m.lat] }, properties: { key: m.key, status: m.status, category: m.category ?? '', approximate: m.approximate ? 1 : 0 } })),
+            features: this.markers.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lng, m.lat] }, properties: { key: m.key, name: m.name ?? '', status: m.status, category: m.category ?? '', approximate: m.approximate ? 1 : 0 } })),
         };
     }
 
     addLayers(map) {
         if (map.getSource(SOURCE)) return;
-        map.addSource(SOURCE, { type: 'geojson', data: this.geojson(), cluster: true, clusterRadius: 44, clusterMaxZoom: 13 });
+        // Dashboard maps show every pin with its name (reference design); only crowded maps cluster.
+        const labelled = this.colourBy === 'category' && this.all.length <= 80;
+        map.addSource(SOURCE, { type: 'geojson', data: this.geojson(), cluster: !labelled, clusterRadius: 44, clusterMaxZoom: 13 });
         map.addLayer({ id: 'inv-clusters', type: 'circle', source: SOURCE, filter: ['has', 'point_count'],
             paint: { 'circle-color': BRAND.purple, 'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 50, 26], 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' } });
         map.addLayer({ id: 'inv-cluster-count', type: 'symbol', source: SOURCE, filter: ['has', 'point_count'],
@@ -55,6 +59,12 @@ export class InvestmentMap {
                 'circle-stroke-color': ['case', ['==', ['get', 'approximate'], 1], BRAND.purple, '#ffffff'],
                 'circle-stroke-opacity': ['case', ['==', ['get', 'approximate'], 1], 0.55, 1],
             } });
+        // Name labels need the style's font glyphs (the vector style has them; the raster fallback does not).
+        if (labelled && map.getStyle()?.glyphs) {
+            map.addLayer({ id: 'inv-labels', type: 'symbol', source: SOURCE, filter: ['!', ['has', 'point_count']],
+                layout: { 'text-field': ['get', 'name'], 'text-size': 11.5, 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true, 'text-font': ['Noto Sans Bold'] },
+                paint: { 'text-color': '#1e0f40', 'text-halo-color': '#ffffff', 'text-halo-width': 1.6 } });
+        }
 
         map.on('click', 'inv-clusters', async (e) => {
             const feature = e.features[0];
@@ -73,7 +83,7 @@ export class InvestmentMap {
         if (!m) return;
         const demo = m.demo ? '<span class="mb-1 inline-block rounded bg-[#d4af37] px-1.5 text-[10px] font-extrabold text-[#1e0f40]">Illustrative data</span>' : '';
         const html = `<div class="p-3 text-[13px]">${demo}<strong class="block">${esc(m.name)}</strong><span class="block text-[12px] text-muted">${esc(m.location)}</span>
-            <span class="mt-1 block">${m.score !== null ? `MPIS <strong>${esc(m.score)}</strong>` : esc(m.status_label)}${m.price ? ` · ${esc(m.price)}` : ''}${m.yield !== null ? ` · yield ${esc(m.yield)}%` : ''}</span>
+            <span class="mt-1 block">${m.score !== null ? `${this.colourBy === 'category' ? 'Index Score' : 'MPIS'} <strong>${esc(m.score)}</strong>` : esc(m.status_label)}${m.price ? ` · ${esc(m.price)}` : ''}${m.yield !== null ? ` · yield ${esc(m.yield)}%` : ''}</span>
             ${m.approximate ? '<span class="block text-[11px] text-muted">Approximate: area centre</span>' : ''}
             <button type="button" class="link mt-1 text-[12px]" data-map-open>View performance →</button></div>`;
         this.popup.setLngLat([m.lng, m.lat]).setHTML(html).addTo(this.map);

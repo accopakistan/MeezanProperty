@@ -14,6 +14,7 @@ use App\Models\MarketObservation;
 use App\Models\MarketSource;
 use App\Models\Project;
 use App\Support\Cities;
+use App\Support\PriceIndexTrend;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -60,6 +61,61 @@ class IndexBrowser
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($filters['confidence'] ?? null, fn ($q, $level) => $q->where('confidence_level', $level))
             ->when($filters['risk'] ?? null, fn ($q, $risk) => $q->where('risk_class', $risk));
+    }
+
+    /**
+     * Researched projects of a category shown as market data when none is ranked: never a ranking.
+     * Projects with a published price index come first (largest 1-year advertised change first, a plain
+     * market fact), then the rest by how much research is on file. Legally excluded projects are left out.
+     *
+     * @return Collection<int, InvestmentIndexScore>
+     */
+    public function marketBoard(string $category, ?string $city = null, int $limit = 10, array $filters = []): Collection
+    {
+        if (! $this->run()) {
+            return collect();
+        }
+
+        $rows = $this->scored($category, $city, $filters)->where('status', '!=', 'excluded')
+            ->whereHas('project', fn ($p) => $p->where('is_published', true)->where('is_demo', false))
+            ->with('project.area:id,name')->get();
+
+        // Occupancy stated in a source on file (e.g. a REIT manager's report), not yet staff-checked.
+        $occupancy = InvestmentEvidence::whereIn('project_id', $rows->pluck('project_id'))->where('factor', 'occupancy')
+            ->whereIn('verification_status', ['verified', 'unverified'])->with('source:id,name')->orderByDesc('observed_on')->get()->unique('project_id')->keyBy('project_id');
+        $rows->each(fn ($s) => $s->setAttribute('market_occupancy', ($e = $occupancy[$s->project_id] ?? null)
+            ? ['value' => rtrim(rtrim(number_format((float) $e->value_numeric, 1), '0'), '.').'%', 'source' => $e->source?->name, 'checked' => $e->verification_status === 'verified'] : null));
+
+        return $rows->sortBy([
+            fn ($a, $b) => ($this->marketChange($b->project) ?? -INF) <=> ($this->marketChange($a->project) ?? -INF),
+            fn ($a, $b) => $this->marketRichness($b) <=> $this->marketRichness($a),
+            fn ($a, $b) => ($b->research_depth ?? 0) <=> ($a->research_depth ?? 0),
+            fn ($a, $b) => strcmp($a->project->name, $b->project->name),
+        ])->take($limit)->values();
+    }
+
+    /** How much public market data is on file for a market-board row (price, yield, occupancy, other facts). */
+    public function marketRichness(InvestmentIndexScore $s): int
+    {
+        $labels = collect($s->project?->research_facts ?? [])->pluck('label')->map(fn ($l) => (string) $l);
+        $has = fn (string $prefix) => $labels->contains(fn ($l) => str_starts_with($l, $prefix));
+
+        return ($has('Advertised price') ? 4 : 0) + ($has('Rental yield') ? 3 : 0) + ($s->market_occupancy ? 3 : 0)
+            + ($has('Area flat price') ? 2 : 0) + min(3, $labels->count());
+    }
+
+    /** The 1-year advertised price change on file (10 marla, else the first size with one), or null. */
+    public function marketChange(?Project $project): ?float
+    {
+        foreach (['10 marla', '5 marla', '1 kanal', 'all sizes'] as $size) {
+            foreach ($project?->research_facts ?? [] as $f) {
+                if (($f['label'] ?? null) === 'Price change, 1 year ('.PriceIndexTrend::label($size).')') {
+                    return PriceIndexTrend::percent((string) $f['value']);
+                }
+            }
+        }
+
+        return null;
     }
 
     /** @return Collection<int, InvestmentIndexScore> ranked projects of a category, best first (optionally one city) */

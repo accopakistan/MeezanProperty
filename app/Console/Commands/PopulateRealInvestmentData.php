@@ -13,6 +13,17 @@ class PopulateRealInvestmentData extends Command
 
     public function handle(RealInvestmentDataService $service): int
     {
+        // Disabled 19 Nov 2026: this command (with CityWiseRankingsExpansionService) wrote invented "verified"
+        // evidence, legal references and projects. See meezan:withdraw-fabricated-evidence. Real data comes
+        // from documented sources only (meezan:investment-research-import, meezan:market-facts, staff review).
+        $this->error('Disabled: this command created unsourced records. Use documented imports and staff review instead.');
+
+        return self::FAILURE;
+    }
+
+    /** The original body, kept for the record; never called. */
+    protected function disabledHandle(RealInvestmentDataService $service): int
+    {
         $this->info('Starting Real Data Population and Investment Ranking Generation...');
 
         $result = $service->execute();

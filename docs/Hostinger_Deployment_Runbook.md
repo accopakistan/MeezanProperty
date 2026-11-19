@@ -53,6 +53,18 @@ php artisan storage:link
 php artisan meezan:geocode-areas   # approximate area centres from OpenStreetMap; set the 4 missing ones in Admin → Locations
 ```
 
+`public/storage` must resolve to `storage/app/public`, not be a regular directory. If an existing directory blocks `storage:link`, preserve it outside `public/` before creating the link.
+
+**If the link cannot be kept (the live site, 19 Nov 2026):** on the live server `public/storage` is a plain folder, so photos that owners and dealers uploaded were saved to `storage/app/public` and returned 403 on the site. Set `MEEZAN_UPLOADS_IN_PUBLIC=true` in `.env`; uploads are then written straight into `public/storage`. Then copy the photos that were already stranded (dry run first, nothing is overwritten or deleted):
+
+```bash
+php artisan config:clear
+php artisan meezan:sync-public-storage            # lists the missing files
+php artisan meezan:sync-public-storage --commit   # copies them
+php artisan optimize
+php artisan meezan:production-check              # "Uploaded photos are web-reachable" must pass
+```
+
 Create the first admin with `php artisan tinker`: create a user and set `role` to `admin` with `forceFill`. Use a strong password, and never reuse the local demo accounts.
 
 ---
@@ -74,6 +86,7 @@ SESSION_SECURE_COOKIE=true
 CACHE_STORE=database
 QUEUE_CONNECTION=database
 MEEZAN_QUEUE_VIA_SCHEDULER=true       # shared hosting: the cron sends queued emails
+MEEZAN_UPLOADS_IN_PUBLIC=true         # Hostinger: public/storage is a plain folder; uploads go straight into it
 
 MAIL_MAILER=smtp  MAIL_HOST=…  MAIL_PORT=465  MAIL_USERNAME=…  MAIL_PASSWORD=…  MAIL_SCHEME=smtps
 MAIL_FROM_ADDRESS=no-reply@meezanproperty.com

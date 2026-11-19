@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PropertyType;
+use App\Models\Project;
 use App\Services\Investment\RankingBrowser;
 use App\Services\InvestmentIndex\IndexBrowser;
 use App\Services\PropertySearch;
@@ -27,7 +28,12 @@ class SearchController extends Controller
     {
         $segments = array_keys(RankingBrowser::segments());
         $d = $request->validate([
-            'tab' => ['nullable', Rule::in(['sale', 'rent', 'plots', 'commercial'])],
+            // invest / compare: the Investment Rankings hero search (mode=investment only).
+            'tab' => ['nullable', Rule::in(['sale', 'rent', 'plots', 'commercial', 'invest', 'compare'])],
+            'category' => ['nullable', Rule::in(array_keys(IndexBrowser::categories()))],
+            'development' => ['nullable', Rule::in(array_keys(Project::STATUSES))],
+            'risk' => ['nullable', Rule::in(array_keys(config('investment_index.parameters.risk_classes')))],
+            'legal' => ['nullable', Rule::in(array_keys(IndexBrowser::legalFilters()))],
             'mode' => ['nullable', Rule::in(['property', 'investment'])],
             'city' => ['nullable', Rule::in(Cities::names())],
             'location' => ['nullable', 'string', 'max:100'],
@@ -45,6 +51,9 @@ class SearchController extends Controller
             'min_yield' => ['nullable', 'numeric', 'between:0,50'],
         ]);
         $tab = $d['tab'] ?? 'sale';
+        if (in_array($tab, ['invest', 'compare'], true)) {
+            return $this->rankings($tab, $d);
+        }
 
         return ($d['mode'] ?? 'property') === 'investment' ? $this->investment($tab, $d) : $this->property($tab, $d);
     }
@@ -98,6 +107,32 @@ class SearchController extends Controller
         }
 
         return $this->index($category, $city === 'pakistan' ? null : Cities::fromSlug((string) $city));
+    }
+
+    /**
+     * Investment Rankings hero: Invest opens a category leaderboard (city, search and the filters the
+     * leaderboard supports), or the city / Index home without a category; Compare opens that
+     * category's side-by-side comparison.
+     */
+    protected function rankings(string $tab, array $d): RedirectResponse
+    {
+        $category = $d['category'] ?? IndexBrowser::categoryForSegment($d['segment'] ?? null);
+        $city = Cities::fromSlug((string) ($d['investment_city'] ?? '')) ?? (in_array($d['city'] ?? null, Cities::names(), true) ? $d['city'] : null);
+
+        if ($tab === 'compare') {
+            return redirect()->route('rankings.category-compare', $category ?? 'housing-societies');
+        }
+
+        if (! $category) {
+            return $city ? redirect()->route('rankings.city', Cities::slug($city)) : redirect()->route('rankings.index');
+        }
+
+        $filters = array_filter(['q' => $d['q'] ?? null, 'development' => $d['development'] ?? null, 'risk' => $d['risk'] ?? null, 'legal' => $d['legal'] ?? null],
+            fn ($v) => $v !== null && $v !== '');
+
+        return $city
+            ? redirect()->route('rankings.city-category', ['city' => Cities::slug($city), 'category' => $category] + $filters)
+            : redirect()->route('rankings.category', ['category' => $category] + $filters);
     }
 
     /** An Investment Index leaderboard (optionally one city), or the Index home without a category. */

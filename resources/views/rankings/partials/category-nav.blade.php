@@ -40,25 +40,52 @@
         }
 
         if (isset(RankingBrowser::SPECIAL_TABS[$key])) {
-            return route('rankings.city', [$citySlug, 'tab' => $key]);
+            return route('rankings.city', [$citySlug ?: 'pakistan', 'tab' => $key]);
         }
 
-        return route('rankings.city', $citySlug);
+        // Property-type dashboards (plots, houses, office spaces …) and the commercial group page.
+        if ($key === 'commercial') {
+            return route('rankings.group', [$citySlug ?: 'pakistan', 'commercial']);
+        }
+        if ($segment = RankingBrowser::publicSegment($key)) {
+            return route('rankings.segment', [$citySlug ?: 'pakistan', $segment['group'], $key]);
+        }
+        // Property types the Index does not rank yet (plots, houses, shops, offices, mixed use): no page.
+        if (isset(RankingBrowser::segments()[$key])) {
+            return null;
+        }
+
+        return route('rankings.city', $citySlug ?: 'pakistan');
     };
 
-    $entries = [
+    // The tab set follows the page (reference design): commercial pages list the commercial
+    // property types, every other page the residential-first set.
+    $normalizedActive = $categoryKeyMap[$active] ?? $active;
+    $commercialPage = in_array($normalizedActive, ['shopping-malls', 'commercial-plazas', 'business-towers', 'office-spaces', 'commercial-shops', 'commercial-plots', 'mixed-use', 'commercial'], true);
+    $entries = $commercialPage ? [
         'all' => 'All Investments',
-        'housing-societies' => 'Housing Societies',
-        'apartment-buildings' => 'Apartment Buildings',
         'shopping-malls' => 'Shopping Malls',
         'commercial-plazas' => 'Commercial Plazas',
         'business-towers' => 'Business Towers',
+        'office-spaces' => 'Office Spaces',
+        'commercial-shops' => 'Commercial Shops',
+        'commercial-plots' => 'Commercial Plots',
+        'mixed-use' => 'Mixed Use',
+    ] : [
+        'all' => 'All Investments',
+        'housing-societies' => 'Residential Societies',
+        'commercial' => 'Commercial Projects',
+        'plots' => 'Plots',
+        'houses' => 'Houses',
+        'apartment-buildings' => 'Apartments',
+        'shopping-malls' => 'Shopping Malls',
+        'business-towers' => 'Business Towers',
+    ];
+    $entries += [
         'highest-yield' => 'Highest Rental Yield',
         'fastest-growing' => 'Fastest Growing',
         'new-upcoming' => 'New & Upcoming',
     ];
-
-    $normalizedActive = $categoryKeyMap[$active] ?? $active;
 @endphp
 <nav class="container-page mt-5" aria-label="Investment categories">
     <ul class="flex gap-2 overflow-x-auto pb-1 scrollbar-none" @if ($mode === 'city') data-rankings-tabs @endif>
@@ -68,11 +95,19 @@
                 $isSpecialTab = isset(RankingBrowser::SPECIAL_TABS[$key]) && $key !== 'all';
             @endphp
             <li class="shrink-0">
-                <a href="{{ $link($key) }}" @if ($mode === 'city' && $isSpecialTab) data-rankings-link @endif
+                @if (($href = $link($key)) === null)
+                    <span class="flex cursor-default items-center gap-2 rounded-lg bg-white/60 px-3.5 py-2.5 text-[13px] font-semibold text-muted ring-1 ring-line" aria-disabled="true"
+                          title="Not ranked yet: the Meezan Investment Index ranks whole developments; {{ mb_strtolower($label) }} get their own ranking once enough verified evidence is on file.">
+                        <x-icon :name="$icons[$key] ?? 'grid'" class="size-4 text-muted" /> {{ $label }}
+                        <span class="rounded bg-page px-1 text-[10px] font-bold tracking-wide uppercase ring-1 ring-line">Soon</span>
+                    </span>
+                @else
+                <a href="{{ $href }}" @if ($mode === 'city' && $isSpecialTab) data-rankings-link @endif
                    @class(['flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold ring-1 transition', 'bg-brand-600 text-white ring-brand-600 shadow-card' => $on, 'bg-white text-ink ring-line hover:ring-brand-300' => ! $on])
                    @if ($on) aria-current="page" @endif>
                     <x-icon :name="$icons[$key] ?? 'grid'" @class(['size-4', 'text-gold-300' => $on, 'text-brand-600' => ! $on]) /> {{ $label }}
                 </a>
+                @endif
             </li>
         @endforeach
     </ul>

@@ -32,6 +32,7 @@
         :currentCity="$city"
         :currentCategory="$key"
         :currentQuery="$filters['q'] ?? null"
+        :filters="$filters"
         :badge="$category['label'].' · '.($city ? $city.' Market' : 'Pakistan National')"
         :search-group="$commercial ? 'commercial' : ($key === 'apartment-buildings' ? 'rent' : null)"
         layout="dashboard"

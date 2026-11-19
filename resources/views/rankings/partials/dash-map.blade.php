@@ -30,7 +30,7 @@
     </div>
     @if (config('meezan.map.enabled'))
         <div class="relative mx-3 mb-3 h-80 overflow-hidden rounded-lg bg-page lg:h-[22rem]">
-            <div class="size-full" data-investment-map="{{ json_encode($config, JSON_UNESCAPED_SLASHES) }}" data-markers="{{ json_encode($markers, JSON_UNESCAPED_SLASHES) }}" data-colour-by="category"
+            <div class="size-full" data-investment-map="{{ json_encode($config, JSON_UNESCAPED_SLASHES) }}" data-markers="{{ json_encode($markers, JSON_UNESCAPED_SLASHES) }}" data-colour-by="category" @if ($openKey ?? null) data-open="{{ $openKey }}" @endif
                  role="application" aria-label="Map of {{ strtolower($title) }}. Each pin links to the project's profile."></div>
 
             <fieldset class="absolute top-3 left-3 rounded-lg bg-white/95 px-3 py-2.5 text-[12.5px] shadow-card">

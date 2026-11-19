@@ -5,6 +5,7 @@ use App\Models\Property;
 use App\Models\PropertyImage;
 use App\Models\User;
 use App\Services\ImageProcessor;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -84,6 +85,20 @@ it('rolls back the listing and removes written files when a photo cannot be proc
 
     expect(Property::count())->toBe(0)->and(PropertyImage::count())->toBe(0)
         ->and(Storage::disk('public')->allFiles())->toBe([]);
+});
+
+it('fails and cleans up when public storage refuses a photo write', function () {
+    $upload = UploadedFile::fake()->image('photo.jpg', 800, 600);
+    $disk = Mockery::mock(FilesystemAdapter::class);
+    $disk->shouldReceive('put')->once()->andReturnFalse();
+    $disk->shouldReceive('delete')
+        ->once()
+        ->with(Mockery::on(fn ($paths) => count($paths) === 2))
+        ->andReturnTrue();
+    Storage::shouldReceive('disk')->once()->with('public')->andReturn($disk);
+
+    expect(fn () => app(ImageProcessor::class)->storeListingPhoto($upload->getRealPath(), 'properties/1'))
+        ->toThrow(RuntimeException::class, 'Failed to store listing photo files.');
 });
 
 it('rejects photos that are too small or too large to process', function () {

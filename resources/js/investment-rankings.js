@@ -257,6 +257,7 @@ if (mapEl) {
         map = new InvestmentMap(mapEl, JSON.parse(mapEl.dataset.investmentMap), JSON.parse(mapEl.dataset.markers || '[]'), {
             onSelect: (marker) => (document.querySelector('[data-rankings-performance]') ? swapPerformance(marker.url) : (window.location.href = marker.url)),
             colourBy: mapEl.dataset.colourBy || 'status',
+            openKey: mapEl.dataset.open || null,
         });
         // Dashboard map: category checkboxes ("All" toggles every one) and the Map/Satellite switch.
         const filters = document.querySelectorAll('[data-map-category]');

@@ -20,6 +20,7 @@
     'tiles' => [],
     'headline' => null,
     'tagline' => null,
+    'filters' => [],
 ])
 
 @php
@@ -110,7 +111,7 @@
         @if (! empty($breadcrumbs))
             <x-breadcrumbs :items="$breadcrumbs" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
         @endif
-        <div class="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] min-[1700px]:grid-cols-[minmax(0,0.8fr)_minmax(0,1.3fr)_minmax(0,0.45fr)]">
+        <div class="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.5fr)] xl:gap-5">
             <div>
                 <p class="text-xs font-semibold tracking-[0.14em] text-white/80 uppercase">Investment Intelligence</p>
                 <h1 class="mt-1.5 font-sans text-3xl leading-tight font-extrabold text-white sm:text-4xl">@if ($headline){!! $headline !!}@else Smart Real Estate <span class="text-gold-500">Investments</span><br>for a <span class="text-gold-500">Better Tomorrow</span>@endif<span class="sr-only">: {{ $eyebrow }}. {{ $title }}</span></h1>
@@ -120,16 +121,18 @@
             </div>
             <div class="min-w-0">
                 @if ($showSearch)
-                    <x-search-bar :city="$cityName" :group="$searchGroup" :tab="$searchTab" />
+                    {{-- Buy | Rent | Invest | Compare | AI Search (reference design); Invest is the starting tab here. --}}
+                    <x-investment-search :city="$cityName" :category="$currentCategory ?? $category" :filters="$filters" />
                 @endif
             </div>
-            <div class="min-w-0 lg:col-span-2 min-[1700px]:col-span-1">
+            <div class="min-w-0 lg:col-span-2 xl:col-span-1">
                 @if ($tiles)
-                    <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/20 bg-white/15 sm:grid-cols-4 min-[1700px]:grid-cols-2">
+                    {{-- KPI box beside the search (reference design): real counts, never rounded-up claims. --}}
+                    <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/25 bg-white/15 shadow-lift backdrop-blur-sm sm:grid-cols-4 xl:grid-cols-2">
                         @foreach ($tiles as [$icon, $value, $label])
-                            <div class="flex items-center gap-3 bg-brand-900/70 px-4 py-4">
+                            <div class="flex items-center gap-2.5 bg-brand-900/80 px-3.5 py-4 xl:gap-2 xl:px-3">
                                 <x-icon :name="$icon" class="size-6 shrink-0 text-gold-300" />
-                                <div class="min-w-0"><dd class="text-lg leading-tight font-extrabold tabular-nums">{{ $value }}</dd><dt class="truncate text-[11px] text-white/80">{{ $label }}</dt></div>
+                                <div class="min-w-0"><dd class="text-lg leading-tight font-extrabold tabular-nums">{{ $value }}</dd><dt class="text-[11px] leading-tight text-white/80">{{ $label }}</dt></div>
                             </div>
                         @endforeach
                     </dl>
