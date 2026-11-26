@@ -488,5 +488,6 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/dealers/{dealer}/billing-adjustments', [Admin\BillingController::class, 'adjustment'])->name('billing.adjustments');
     Route::get('/analytics', Admin\AnalyticsController::class)->name('analytics');
     Route::get('/settings', Admin\SettingsController::class)->name('settings');
+    Route::patch('/settings/listing-moderation', [Admin\ListingModerationController::class, 'update'])->name('settings.listing-moderation');
     Route::get('/audit-logs', Admin\AuditLogController::class)->name('audit-logs');
 });

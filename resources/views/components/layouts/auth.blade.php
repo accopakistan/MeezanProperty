@@ -30,7 +30,7 @@
                     <p class="eyebrow text-gold-300">Meezan Property</p>
                     <p class="mt-4 text-3xl leading-tight font-extrabold text-white">Property across Pakistan, with balance and trust.</p>
                     <ul class="mt-8 space-y-4 text-[15px] text-white/80">
-                        <li class="flex gap-3"><x-icon name="shield" class="mt-0.5 text-gold-300" /> Every listing is reviewed before it goes live.</li>
+                        <li class="flex gap-3"><x-icon name="shield" class="mt-0.5 text-gold-300" /> Every listing is checked for duplicates and misleading details.</li>
                         <li class="flex gap-3"><x-icon name="badge-check" class="mt-0.5 text-gold-300" /> Dealer verification is shown only after our checks.</li>
                         <li class="flex gap-3"><x-icon name="lock" class="mt-0.5 text-gold-300" /> Your contact details are shared only when you choose.</li>
                     </ul>

@@ -79,7 +79,7 @@ it('gives admins and buyers a notification centre too', function () {
     $this->actingAs($dealer)->post(route('dealer.properties.submit', Property::factory()->forDealer($dealer)->status(PropertyStatus::Draft)->create()));
 
     $this->actingAs($admin)->get(route('admin.dashboard'))->assertSee('Notifications, 1 unread');
-    $this->actingAs($admin)->get(route('notifications.index'))->assertSee('Listing to review');
+    $this->actingAs($admin)->get(route('notifications.index'))->assertSee('New live listing');
     $this->actingAs(User::factory()->create())->get(route('notifications.index'))->assertOk()->assertSee('No notifications yet');
 });
 

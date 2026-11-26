@@ -92,6 +92,7 @@ it('refuses renewal too early, too late, without confirmation or for someone els
 });
 
 it('lets a long-expired listing be resubmitted for review instead', function () {
+    \App\Models\AppSetting::put(\App\Services\ListingModeration::SETTING, \App\Services\ListingModeration::REVIEW_ALL);
     $dealer = User::factory()->dealer()->create();
     $late = Property::factory()->forDealer($dealer)->status(PropertyStatus::Expired)->create(['expires_at' => now()->subDays(45)]);
     $lapsedPublished = Property::factory()->forDealer($dealer)->create(['expires_at' => now()->subDays(45)]);

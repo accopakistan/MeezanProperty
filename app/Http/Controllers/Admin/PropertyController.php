@@ -30,7 +30,7 @@ class PropertyController extends Controller
             'area' => ['nullable', 'integer'],
             'dealer' => ['nullable', 'integer'],
             'q' => ['nullable', 'string', 'max:100'],
-            'flag' => ['nullable', Rule::in(['review', 'no_pin', 'location', 'incomplete'])],
+            'flag' => ['nullable', Rule::in(['review', 'no_pin', 'location', 'incomplete', 'new'])],
         ]);
 
         $status = $filters['status'] ?? (empty($filters) ? PropertyStatus::Pending->value : null);
@@ -47,6 +47,8 @@ class PropertyController extends Controller
                 'no_pin' => $q->whereNull('latitude'),
                 'location' => $q->where('location_status', 'flagged'),
                 'incomplete' => $q->where('completeness_score', '<', ListingCompleteness::READY_AT),
+                // Listings that went live in the last day, most of them without review: a quick skim.
+                'new' => $q->where('status', PropertyStatus::Published)->where('published_at', '>=', now()->subDay()),
             })
             ->orderByRaw("case when status = 'pending' then 0 else 1 end")
             ->orderBy('submitted_at')
@@ -61,6 +63,7 @@ class PropertyController extends Controller
             'filters' => $filters,
             'status' => $status,
             'counts' => $counts,
+            'newLive' => Property::where('status', PropertyStatus::Published)->where('published_at', '>=', now()->subDay())->count(),
             'areas' => Area::ordered()->get(['id', 'name']),
         ]);
     }

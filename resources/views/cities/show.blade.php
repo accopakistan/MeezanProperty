@@ -84,7 +84,7 @@
             </div>
             @if ($latest->isEmpty())
                 <x-empty-state class="mt-5" icon="building" title="No published listings in {{ $city }} yet">
-                    Meezan Property has just opened in {{ $city }}. Dealers and owners can list here now; every listing is reviewed before it appears.
+                    Meezan Property has just opened in {{ $city }}. Dealers and owners can list here now; every listing is checked when it is submitted, and buyers can report any listing.
                     <x-slot:actions>
                         <a href="{{ route('sell') }}" class="btn btn-primary">List a property</a>
                         <a href="{{ route('account.requirements.create') }}" class="btn btn-secondary">Tell us what you need</a>

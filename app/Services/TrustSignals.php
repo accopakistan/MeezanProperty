@@ -36,7 +36,10 @@ class TrustSignals
             $flags['rapid_submissions'] = $recent;
         }
 
-        $lastPublished = $property->priceChanges()->latest('changed_at')->value('old_price');
+        // A live listing being edited is compared with its current price; otherwise with the last published one.
+        $lastPublished = $property->getOriginal('status') === PropertyStatus::Published && $property->isDirty('price')
+            ? $property->getOriginal('price')
+            : $property->priceChanges()->latest('changed_at')->value('old_price');
         if ($lastPublished && $property->price && abs($property->price - $lastPublished) / $lastPublished > self::PRICE_CHANGE) {
             $flags['price_change'] = ['from' => (int) $lastPublished, 'to' => (int) $property->price];
         }

@@ -72,6 +72,6 @@ class SellController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dealer.properties.create')->with('status', 'Your account is ready. Add your property — it will be reviewed before it goes live.');
+        return redirect()->route('dealer.properties.create')->with('status', 'Your account is ready. Add your property — it goes live as soon as it passes our checks.');
     }
 }

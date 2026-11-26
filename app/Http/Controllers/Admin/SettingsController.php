@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\ListingModeration;
 use App\Services\WhatsApp\WhatsAppClient;
 use App\Support\PublicStorage;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +38,8 @@ class SettingsController extends Controller
             'marla' => config('meezan.marla_sqft'),
             'cities' => config('meezan.cities'),
             'lifetime' => config('meezan.listing.lifetime_days'),
+            'moderation' => ListingModeration::mode(),
+            'unverifiedLimit' => ListingModeration::unverifiedLiveLimit(),
             'webhookUrl' => route('webhooks.whatsapp'),
             'diskUrl' => asset('storage'),
         ]);

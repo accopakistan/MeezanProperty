@@ -57,7 +57,7 @@
                     Property across Pakistan <span class="h-px w-24 bg-gold-500"></span>
                 </p>
                 <h1 class="mt-4 text-[44px] leading-[1.02] text-white sm:text-6xl lg:text-[68px]">Find Your<br>Perfect Property</h1>
-                <p class="mt-4 max-w-lg text-[17px] leading-7 text-white/90">Houses, apartments, plots and commercial property in Lahore, Karachi, Islamabad and four more cities — every listing reviewed before it goes live.</p>
+                <p class="mt-4 max-w-lg text-[17px] leading-7 text-white/90">Houses, apartments, plots and commercial property in Lahore, Karachi, Islamabad and four more cities — every listing checked, dealers verified.</p>
 
                 <x-search-bar class="mt-7" />
 
@@ -71,7 +71,7 @@
 
             <aside class="hidden self-start rounded-xl border border-white/15 bg-brand-900/55 p-2 backdrop-blur-md xl:mt-6 xl:block" aria-label="Why Meezan Property">
                 @foreach ([
-                    ['home', 'Reviewed Listings', 'Every listing checked before it goes live'],
+                    ['home', 'Checked Listings', 'Every listing checked for duplicates and misleading details'],
                     ['shield', 'Trusted Dealers', 'Verified badge only after our checks'],
                     ['sparkles', 'AI Property Match', 'Find properties that match your needs'],
                     ['whatsapp', 'WhatsApp Support', 'Chat with our team on WhatsApp'],
@@ -197,7 +197,7 @@
             <div class="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h2 id="cities-title" class="section-title">Explore Properties Across Pakistan</h2>
-                    <p class="mt-1 text-[15px] text-muted">Seven cities, one standard: every listing reviewed before it is published.</p>
+                    <p class="mt-1 text-[15px] text-muted">Seven cities, one standard: every listing checked, and any listing can be reported.</p>
                 </div>
             </div>
             <ul class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">

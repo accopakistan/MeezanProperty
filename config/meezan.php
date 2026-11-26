@@ -86,6 +86,13 @@ return [
         'reminder_days' => 7,
         'renew_window_days' => 14,
         'renew_grace_days' => 30,
+        // Listing moderation default (admins can change it in Settings):
+        // "flagged" publishes a listing at once unless the trust checks flag
+        // it; "all" holds every listing for an admin.
+        'moderation' => env('MEEZAN_LISTING_MODERATION', 'flagged'),
+        // Live listings an unverified dealer or owner may have before new
+        // ones wait for review (0 = no limit).
+        'unverified_live_limit' => (int) env('MEEZAN_UNVERIFIED_LIVE_LIMIT', 5),
     ],
 
     /*

@@ -1,12 +1,12 @@
 @php $isLister = $user?->isDealer(); @endphp
-<x-layouts.app title="Sell or list your property" description="List your house, plot or commercial property on Meezan Property as a private owner or as a registered dealer. Every listing is reviewed before it goes live.">
+<x-layouts.app title="Sell or list your property" description="List your house, plot or commercial property on Meezan Property as a private owner or as a registered dealer. Your listing goes live as soon as it passes our checks.">
     <section class="relative isolate overflow-hidden bg-brand-900">
         <img src="{{ asset('images/ref/hero-home.jpg') }}" alt="" class="absolute inset-y-0 right-0 -z-20 h-full w-full object-cover md:w-[60%]">
         <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-900 via-brand-900/85 to-brand-900/20"></div>
         <div class="container-page py-14">
             <x-breadcrumbs :items="[['Sell', null]]" class="[&_a]:text-white/75 [&_span]:text-white [&_svg]:text-white/50" />
             <h1 class="mt-6 max-w-2xl text-4xl leading-tight text-white sm:text-5xl">Sell or rent out your property</h1>
-            <p class="mt-3 max-w-xl text-lg text-white/85">Reach serious buyers and tenants in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar. Every listing is reviewed by our team before it is published.</p>
+            <p class="mt-3 max-w-xl text-lg text-white/85">Reach serious buyers and tenants in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar. Your listing goes live as soon as it passes our checks.</p>
             @if ($isLister)
                 <a href="{{ route('dealer.properties.create') }}" class="btn btn-gold btn-lg mt-6"><x-icon name="plus" class="size-5" /> Add a listing</a>
             @endif
@@ -61,7 +61,7 @@
                     ['Create your account', 'Owners and dealers have separate sign-ups.'],
                     ['Add property details', 'Price in PKR, size in Marla, Kanal or sq ft, photos and features.'],
                     ['Confirm your authority', 'Declare that you own the property or are authorised to market it.'],
-                    ['We review, then publish', 'Our team checks every listing. Duplicate or misleading listings are rejected.'],
+                    ['Go live, checked', 'Your listing goes live once it passes our checks. Possible duplicates and misleading listings are held for our team.'],
                 ] as $i => [$title, $body])
                     <li class="rounded-lg bg-white p-5 shadow-card">
                         <span class="grid size-8 place-items-center rounded-full bg-brand-600 text-sm font-bold text-white">{{ $i + 1 }}</span>

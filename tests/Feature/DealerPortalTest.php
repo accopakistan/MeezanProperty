@@ -44,7 +44,8 @@ it('creates a draft listing with photos', function () {
     Storage::disk('public')->assertExists($property->images->first()->path);
 });
 
-it('submits a listing for review instead of publishing it', function () {
+it('holds a submitted listing for review when every listing is reviewed', function () {
+    \App\Models\AppSetting::put(\App\Services\ListingModeration::SETTING, \App\Services\ListingModeration::REVIEW_ALL);
     $dealer = User::factory()->dealer()->create();
 
     $this->actingAs($dealer)->post(route('dealer.properties.store'), listingPayload(['action' => 'submit']));
@@ -94,7 +95,7 @@ it('prevents dealers from touching another dealer’s listing', function () {
     expect($property->fresh()->title)->not->toBe(listingPayload()['title']);
 });
 
-it('sends edited published listings back to review', function () {
+it('sends a published listing back to review after a large price change', function () {
     $dealer = User::factory()->dealer()->create();
     $property = Property::factory()->forDealer($dealer)->create();
 

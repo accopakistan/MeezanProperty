@@ -79,7 +79,7 @@
             </div>
             @if ($recentListings->isEmpty())
                 <x-empty-state compact class="m-5 border-0" icon="layers" title="No listings yet">
-                    Add your first property — it will be reviewed before it goes live.
+                    Add your first property — it goes live as soon as it passes our checks.
                     <x-slot:actions><a href="{{ route('dealer.properties.create') }}" class="btn btn-primary btn-sm">Add a listing</a></x-slot:actions>
                 </x-empty-state>
             @else

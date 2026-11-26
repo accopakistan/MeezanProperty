@@ -68,7 +68,7 @@
     <div class="container-page py-10">
         @if ($listings->isEmpty())
             <x-empty-state icon="home" :title="'No '.strtolower($label).' in '.$place.' yet'">
-                New listings are reviewed before they appear. Try nearby areas below, the whole of {{ $city }}, or let the AI Property Finder look for you.
+                No listings here yet. Try nearby areas below, the whole of {{ $city }}, or let the AI Property Finder look for you.
             </x-empty-state>
         @else
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -13,10 +13,10 @@
                     'Verification can be suspended if a dealer breaks our listing rules.',
                 ]],
                 ['shield', 'Listing review', [
-                    'Dealers save a listing as a draft, then submit it for review.',
-                    'We check price, size, location, description and photos.',
-                    'Approved listings are published for 90 days; rejected listings come back with a reason.',
-                    'Edits to a published listing are reviewed again before they go live.',
+                    'Dealers and owners save a listing as a draft, then submit it.',
+                    'Automatic checks look for duplicates, many submissions at once, big price changes and a map pin outside the stated area.',
+                    'A listing that passes goes live for 90 days; a flagged one waits for our team, and a rejected one comes back with a reason.',
+                    'Our team can suspend or remove any live listing, and buyers can report one.',
                 ]],
                 ['sparkles', 'AI matching', [
                     'You describe what you need, in English or Roman Urdu.',

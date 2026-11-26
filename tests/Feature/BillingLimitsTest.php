@@ -69,7 +69,7 @@ it('blocks submitting a listing over the limit with a clear message and keeps th
     // Under the limit again (one archived), the same draft can be submitted.
     Property::where('user_id', $dealer->id)->where('status', 'published')->update(['status' => 'archived']);
     $this->actingAs($dealer)->post(route('dealer.properties.submit', $draft))->assertRedirect(route('dealer.properties.index'));
-    expect($draft->fresh()->status)->toBe(PropertyStatus::Pending);
+    expect($draft->fresh()->status)->toBe(PropertyStatus::Published);
 });
 
 it('lets dealers keep editing live listings when at the limit', function () {

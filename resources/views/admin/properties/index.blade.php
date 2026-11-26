@@ -7,6 +7,7 @@
                 {{ $s->label() }} <span class="text-xs opacity-75">{{ $counts[$s->value] ?? 0 }}</span>
             </a>
         @endforeach
+        <a href="{{ route('admin.properties.index', ['status' => '', 'flag' => 'new']) }}" @class(['ml-auto shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold', 'bg-brand-600 text-white' => ($filters['flag'] ?? null) === 'new', 'text-muted hover:text-ink' => ($filters['flag'] ?? null) !== 'new'])>New live, last 24 h <span class="text-xs opacity-75">{{ $newLive }}</span></a>
     </div>
 
     <form method="GET" class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">

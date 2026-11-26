@@ -90,6 +90,7 @@ it('emails dealers who receive a requirement lead or a reassigned lead', functio
 });
 
 it('tells admins about listings submitted for review, including possible duplicates', function () {
+    \App\Models\AppSetting::put(\App\Services\ListingModeration::SETTING, \App\Services\ListingModeration::REVIEW_ALL);
     Notification::fake();
     $admin = User::factory()->admin()->create();
     $inactiveAdmin = User::factory()->admin()->create(['status' => 'suspended']);

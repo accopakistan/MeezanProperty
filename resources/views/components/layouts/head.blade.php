@@ -9,7 +9,7 @@
 --}}
 @php
     $fullTitle = $title ? $title.' | Meezan Property' : 'Meezan Property — Homes, Plots & Commercial Property in Pakistan';
-    $description = \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', $description ?? 'Search homes, apartments, plots and commercial property for sale and rent in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar. Listings reviewed before publishing, with verified dealers and an AI Property Finder.')), 160);
+    $description = \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', $description ?? 'Search homes, apartments, plots and commercial property for sale and rent in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar. Checked listings, verified dealers and an AI Property Finder.')), 160);
     $robots = $noindex ? 'noindex, nofollow' : ($robots ?? 'index, follow, max-image-preview:large');
     $indexable = str_starts_with($robots, 'index');
     $canonical ??= url()->current();

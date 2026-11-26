@@ -7,10 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PropertyRequest;
 use App\Models\Property;
 use App\Models\User;
+use App\Notifications\ListingPublished;
 use App\Notifications\ListingSubmittedForReview;
 use App\Services\AuditLogger;
 use App\Services\Billing\Entitlements;
 use App\Services\ImageProcessor;
+use App\Services\ListingModeration;
 use App\Services\TrustSignals;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,7 +75,7 @@ class PropertyController extends Controller
             return $this->submitForReview($property);
         }
 
-        return redirect()->route('dealer.properties.edit', $property)->with('status', 'Draft saved. Submit it for review when you are ready.');
+        return redirect()->route('dealer.properties.edit', $property)->with('status', 'Draft saved. Submit it when you are ready.');
     }
 
     public function edit(Request $request, Property $property): View
@@ -103,24 +105,38 @@ class PropertyController extends Controller
             $this->applyPhotoOrder($request, $property);
             $this->storeImages($request, $property);
 
-            // Material edits to a live listing go back through moderation.
-            if ($wasPublished && ($property->isDirty() || $request->hasFile('images') || $request->filled('remove_images'))) {
-                $property->status = PropertyStatus::Pending;
-                $property->submitted_at = now();
+            // Edits to a live listing: with "review all", any change goes back to review. Otherwise the
+            // listing stays live, and only a change of price, purpose, type or location re-runs the
+            // trust checks; it goes back to review only if they flag it.
+            if ($wasPublished) {
+                $changed = $property->isDirty() || $request->hasFile('images') || $request->filled('remove_images');
+                if (ListingModeration::reviewsAll() ? $changed : ListingModeration::isMaterialEdit($property)) {
+                    $property->applyLocationRules();
+                    $flags = app(TrustSignals::class)->atSubmission($property);
+                    if (ListingModeration::reviewsAll() || $property->flagged_at) {
+                        $property->status = PropertyStatus::Pending;
+                        $property->submitted_at = now();
+                    }
+                }
             }
 
             $property->save();
         });
 
         AuditLogger::record('property.updated', $property, ['status' => $property->status->value]);
+        if ($wasPublished && $property->status === PropertyStatus::Pending) {
+            Notification::send(User::activeAdmins(), new ListingSubmittedForReview($property, collect($property->review_flags['duplicates'] ?? [])->pluck('reference')->all()));
+        }
 
         if ($request->input('action') === 'submit' && (in_array($property->status, [PropertyStatus::Draft, PropertyStatus::Rejected, PropertyStatus::ChangesRequested, PropertyStatus::Expired], true) || $property->hasLapsed())) {
             return $this->submitForReview($property);
         }
 
-        $message = $wasPublished && $property->status === PropertyStatus::Pending
-            ? 'Changes saved. The listing is back in review and will reappear once approved.'
-            : 'Listing saved.';
+        $message = match (true) {
+            $wasPublished && $property->status === PropertyStatus::Pending => 'Changes saved. The listing is back in review and will reappear once approved.',
+            $wasPublished => 'Changes saved. The listing is still live.',
+            default => 'Listing saved.',
+        };
 
         return redirect()->route('dealer.properties.edit', $property)->with('status', $message);
     }
@@ -150,7 +166,7 @@ class PropertyController extends Controller
 
         if (! $property->canBeRenewed()) {
             return back()->with('error', $property->needsReviewToRelist()
-                ? $property->reference.' expired more than '.config('meezan.listing.renew_grace_days').' days ago. Check the details and submit it for review.'
+                ? $property->reference.' expired more than '.config('meezan.listing.renew_grace_days').' days ago. Check the details and submit it again.'
                 : $property->reference.' can be renewed in the last '.config('meezan.listing.renew_window_days').' days before it expires.');
         }
 
@@ -238,17 +254,28 @@ class PropertyController extends Controller
         return sprintf('You have reached your listing limit. Upgrade your package to add more listings. (%d of %d used)', $entitlements->usage($dealer)['listings'], $entitlements->plan($dealer)->limit('listings'));
     }
 
+    /**
+     * Submits a listing: it goes live at once when the trust checks pass
+     * (see ListingModeration), otherwise it waits for an admin.
+     */
     protected function submitForReview(Property $property): RedirectResponse
     {
-        $error = DB::transaction(function () use ($property, &$flags) {
+        $moderation = app(ListingModeration::class);
+        $reasons = [];
+        $error = DB::transaction(function () use ($property, $moderation, &$flags, &$reasons) {
             if ($error = $this->listingLimitError($property)) {
                 return $error;
             }
-            $property->status = PropertyStatus::Pending;
             $property->rejection_reason = null;
             $property->submitted_at = now();
             // Duplicate, burst and price-change checks run once here, not on every page view.
             $flags = app(TrustSignals::class)->atSubmission($property);
+            $reasons = $moderation->reviewReasons($property);
+            if ($reasons) {
+                $property->status = PropertyStatus::Pending;
+            } else {
+                $moderation->publish($property);
+            }
             $property->save();
 
             return null;
@@ -257,15 +284,24 @@ class PropertyController extends Controller
             return redirect()->route('dealer.properties.edit', $property)->with('error', $error);
         }
 
+        $published = $property->status === PropertyStatus::Published;
         $duplicates = collect($flags['duplicates'] ?? []);
-        AuditLogger::record('property.submitted', $property, array_filter([
+        AuditLogger::record($published ? 'property.published_on_submit' : 'property.submitted', $property, array_filter([
             'possible_duplicates' => $duplicates->pluck('reference')->all() ?: null,
             'review_flags' => array_keys(array_diff_key($flags, ['duplicates' => 1])) ?: null,
+            'review_reasons' => $reasons ?: null,
             'completeness' => $property->completeness_score,
         ]));
-        Notification::send(User::activeAdmins(), new ListingSubmittedForReview($property, $duplicates->pluck('reference')->all()));
+        Notification::send(User::activeAdmins(), $published
+            ? new ListingPublished($property)
+            : new ListingSubmittedForReview($property, $duplicates->pluck('reference')->all()));
 
-        $redirect = redirect()->route('dealer.properties.index')->with('status', 'Submitted for review. We’ll publish it once it passes our checks.');
+        if ($published) {
+            return redirect()->route('dealer.properties.index')->with('status', $property->reference.' is live. Buyers can see it now.');
+        }
+
+        $redirect = redirect()->route('dealer.properties.index')->with('status', 'Submitted for review. We’ll publish it once it passes our checks.'
+            .($reasons && ! ListingModeration::reviewsAll() && ! $property->flagged_at ? ' '.end($reasons) : ''));
 
         return $duplicates->isNotEmpty()
             ? $redirect->with('error', 'This listing looks similar to '.$duplicates->map(fn ($d) => $d['reference'].' ('.implode(', ', $d['reasons']).')')->implode('; ').'. Our reviewers will check it isn’t a duplicate.')

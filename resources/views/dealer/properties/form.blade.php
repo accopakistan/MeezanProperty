@@ -12,7 +12,7 @@
     $purpose = old('purpose', $property->purpose?->value ?? 'sale');
 @endphp
 <x-layouts.dashboard :title="$editing ? 'Edit listing' : 'Add a listing'" section="dealer" :heading="$editing ? 'Edit listing' : 'Add a listing'"
-                     :subheading="$editing ? $property->reference.' · '.$property->title : 'Fill in the details buyers look for. Listings are reviewed before publishing.'">
+                     :subheading="$editing ? $property->reference.' · '.$property->title : 'Fill in the details buyers look for. Your listing goes live once it passes our checks.'">
     @if ($editing)
         <x-slot:actions>
             <a href="{{ route('properties.show', $property) }}" class="btn btn-secondary" target="_blank"><x-icon name="eye" class="size-4" /> Preview</a>
@@ -179,7 +179,7 @@
                 @if ($editing && $property->hasLapsed())
                     <p class="mt-3 rounded-lg bg-red-50 p-3 text-[13px] text-red-800">
                         Expired on {{ $property->expires_at->format('j M Y') }} and hidden from buyers.
-                        {{ $property->canBeRenewed() ? 'If nothing has changed, renew it from My Listings. To change details, edit and submit for review.' : 'Check the details and submit it for review to relist it.' }}
+                        {{ $property->canBeRenewed() ? 'If nothing has changed, renew it from My Listings. To change details, edit and submit it again.' : 'Check the details and submit it again to relist it.' }}
                     </p>
                 @elseif ($status === PropertyStatus::Published)
                     <p class="mt-3 rounded-lg bg-amber-50 p-3 text-[13px] text-amber-900">Saving changes sends this listing back for review. It will be hidden until approved again.</p>
@@ -190,7 +190,7 @@
 
                 <div class="mt-5 grid gap-2">
                     @if ($canSubmit)
-                        <button type="submit" name="action" value="submit" class="btn btn-primary w-full"><x-icon name="send" class="size-4" /> Submit for review</button>
+                        <button type="submit" name="action" value="submit" class="btn btn-primary w-full"><x-icon name="send" class="size-4" /> Submit listing</button>
                         <button type="submit" name="action" value="draft" class="btn btn-secondary w-full">Save as draft</button>
                     @else
                         <button type="submit" name="action" value="draft" class="btn btn-primary w-full">Save changes</button>

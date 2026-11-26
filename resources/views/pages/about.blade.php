@@ -1,4 +1,4 @@
-<x-layouts.app title="About Meezan Property" description="Meezan Property is a Pakistani real estate platform built on balance and trust: reviewed listings, verified dealers and honest AI matching.">
+<x-layouts.app title="About Meezan Property" description="Meezan Property is a Pakistani real estate platform built on balance and trust: checked listings, verified dealers and honest AI matching.">
     <section class="bg-brand-800">
         <div class="container-page py-14 sm:py-20">
             <x-breadcrumbs :items="[['About', null]]" class="[&_a]:text-white/60 [&_span]:text-white/90 [&_svg]:text-white/40" />
@@ -8,7 +8,7 @@
     </section>
     <div class="container-page grid gap-10 py-14 lg:grid-cols-3">
         @foreach ([
-            ['Reviewed listings', 'Every listing is checked by our team before it is published. Listings that are incomplete or misleading are sent back to the dealer with a reason.'],
+            ['Checked listings', 'Every listing is checked when it is submitted; possible duplicates and misleading listings are held for our team. Listings that break our rules are sent back to the dealer with a reason or removed.'],
             ['Verified dealers', 'Dealers register with their agency details and operating areas. The verified badge appears only after our team checks them.'],
             ['Relevance-first leads', 'Buyer requirements are shared only with consent, and only with verified dealers who operate in the areas the buyer asked for.'],
         ] as [$title, $body])
