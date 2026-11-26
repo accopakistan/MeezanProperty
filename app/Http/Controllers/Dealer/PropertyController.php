@@ -97,8 +97,10 @@ class PropertyController extends Controller
 
             if ($ids = $request->input('remove_images')) {
                 foreach ($property->images()->whereIn('id', $ids)->get() as $image) {
-                    $image->deleteFiles();
                     $image->delete();
+                    // Delete the files only once the save is committed: if a new
+                    // photo then fails, the rollback keeps this photo, with its files.
+                    DB::afterCommit(fn () => $image->deleteFiles());
                 }
             }
 

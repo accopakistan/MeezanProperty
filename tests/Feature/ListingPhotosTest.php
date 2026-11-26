@@ -144,6 +144,37 @@ it('deletes both the photo and its thumbnail when a photo is removed', function 
     Storage::disk('public')->assertMissing($image->thumb_path);
 });
 
+it('keeps a photo marked for removal when a new photo in the same save fails', function () {
+    Storage::fake('public');
+    $dealer = User::factory()->dealer()->create();
+    $this->actingAs($dealer)->post(route('dealer.properties.store'), listingPayload(['action' => 'draft', 'images' => [UploadedFile::fake()->image('a.jpg', 800, 600)]]));
+    $property = Property::sole();
+    $image = $property->images()->sole();
+    $this->mock(ImageProcessor::class)->shouldReceive('storeListingPhoto')->andThrow(new RuntimeException('Image could not be decoded.'));
+
+    $this->actingAs($dealer)->put(route('dealer.properties.update', $property), listingPayload([
+        'action' => 'draft', 'remove_images' => [$image->id], 'images' => [UploadedFile::fake()->image('broken.jpg', 800, 600)],
+    ]))->assertSessionHasErrors('images');
+
+    expect($image->fresh())->not->toBeNull();
+    Storage::disk('public')->assertExists([$image->path, $image->thumb_path]);
+});
+
+it('lets the dealer add photos again after an upload fails', function () {
+    Storage::fake('public');
+    $dealer = User::factory()->dealer()->create();
+    $this->actingAs($dealer)->post(route('dealer.properties.store'), listingPayload(['action' => 'draft']));
+    $property = Property::sole();
+
+    $this->actingAs($dealer)->put(route('dealer.properties.update', $property), listingPayload(['action' => 'draft', 'images' => [UploadedFile::fake()->image('big.jpg', 1200, 900)->size(6000)]]))
+        ->assertSessionHasErrors('images.0');
+    $this->actingAs($dealer)->get(route('dealer.properties.edit', $property))->assertSee('None of the photos you chose were saved');
+
+    $this->actingAs($dealer)->put(route('dealer.properties.update', $property), listingPayload(['action' => 'draft', 'images' => [UploadedFile::fake()->image('ok.jpg', 1200, 900)]]))
+        ->assertSessionHasNoErrors();
+    expect($property->images()->count())->toBe(1);
+});
+
 it('uses thumbnails on cards and falls back to the full photo for older uploads', function () {
     $property = Property::factory()->create(['title' => 'Thumbnail Card House']);
     $property->images()->create(['path' => 'properties/1/full.webp', 'thumb_path' => 'properties/1/full-thumb.webp', 'sort_order' => 1]);

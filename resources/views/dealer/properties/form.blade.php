@@ -155,11 +155,15 @@
                     <span class="text-xs text-muted">You can select several at once</span>
                     <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-image-input="new-image-preview">
                 </label>
+                <p class="text-[13px] text-muted" data-image-status="new-image-preview" aria-live="polite"></p>
                 <div id="new-image-preview" class="grid grid-cols-3 gap-3 sm:grid-cols-5"></div>
                 @error('images')<p class="field-error">{{ $message }}</p>@enderror
                 @foreach ($errors->get('images.*') as $messages)
                     <p class="field-error">{{ $messages[0] }}</p>
                 @endforeach
+                @if ($errors->has('images') || $errors->has('images.*'))
+                    <p class="text-[13px] font-semibold text-red-700">None of the photos you chose were saved. Choose them again, leaving out any listed above.</p>
+                @endif
             </section>
         </div>
 

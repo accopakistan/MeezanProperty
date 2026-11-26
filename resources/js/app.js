@@ -288,18 +288,32 @@ document.querySelectorAll('[data-area-combobox]').forEach((root) => {
     });
 });
 
-/* Image upload previews ----------------------------------------------- */
+/* Image uploads: previews and upload progress. Photos are sent as chosen;
+   the server resizes and re-encodes them. ----------------------------- */
 document.querySelectorAll('[data-image-input]').forEach((input) => {
     const preview = document.getElementById(input.dataset.imageInput);
+    const status = document.querySelector(`[data-image-status="${input.dataset.imageInput}"]`);
+    const label = (n) => `${n} ${n === 1 ? 'photo' : 'photos'}`;
+
     input.addEventListener('change', () => {
         preview.innerHTML = '';
-        [...input.files].forEach((file) => {
+        const files = [...input.files];
+        files.forEach((file) => {
             const img = document.createElement('img');
             img.src = URL.createObjectURL(file);
             img.alt = file.name;
             img.className = 'aspect-[4/3] w-full rounded-lg object-cover ring-1 ring-line';
             preview.append(img);
         });
+        if (status) {
+            const mb = files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
+            status.textContent = files.length ? `${label(files.length)} chosen (${mb.toFixed(1)} MB). They are uploaded when you save.` : '';
+        }
+    });
+
+    // Show that the upload is in progress, so a slow upload is not mistaken for a failure.
+    input.form?.addEventListener('submit', () => {
+        if (input.files.length && status) status.textContent = `Uploading ${label(input.files.length)}… keep this page open.`;
     });
 });
 
