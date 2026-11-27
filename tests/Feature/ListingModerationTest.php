@@ -115,6 +115,32 @@ it('lets only an admin switch listing moderation', function () {
     $this->actingAs($admin)->patch(route('admin.settings.listing-moderation'), ['mode' => 'nonsense'])->assertSessionHasErrors('mode');
 });
 
+it('lists the newest listings first for admins', function () {
+    $admin = User::factory()->admin()->create();
+    Property::factory()->create(['title' => 'Older Listing In Gulberg', 'created_at' => now()->subDays(5)]);
+    Property::factory()->create(['title' => 'Newest Listing In Gulberg', 'created_at' => now()]);
+
+    $this->actingAs($admin)->get(route('admin.properties.index', ['status' => 'published']))
+        ->assertOk()
+        ->assertSeeInOrder(['Newest Listing In Gulberg', 'Older Listing In Gulberg']);
+});
+
+it('keeps the All tab on the next page of the admin list', function () {
+    $admin = User::factory()->admin()->create();
+    Property::factory()->count(21)->create();
+
+    foreach (['', 'all'] as $value) {
+        $this->actingAs($admin)->get(route('admin.properties.index', ['status' => $value]))
+            ->assertOk()
+            ->assertSee('page=2', false)
+            ->assertSee('status=all', false);
+    }
+    $this->actingAs($admin)->get(route('admin.properties.index', ['status' => 'all', 'page' => 2]))
+        ->assertOk()
+        ->assertViewHas('status', null)
+        ->assertViewHas('properties', fn ($p) => $p->count() === 1);
+});
+
 it('lists the last day\'s new live listings for admins to skim', function () {
     $admin = User::factory()->admin()->create();
     Property::factory()->create(['title' => 'Fresh Live House In Gulberg', 'published_at' => now()->subHours(2)]);

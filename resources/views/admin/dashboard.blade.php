@@ -97,7 +97,7 @@
     {{-- Tables --}}
     <div class="mt-5 grid gap-5 xl:grid-cols-3">
         <section class="card overflow-hidden" aria-labelledby="listings-title">
-            <div class="flex items-center justify-between px-5 pt-4 pb-2"><h2 id="listings-title" class="text-lg font-bold text-brand-700">Recent Property Listings</h2><a href="{{ route('admin.properties.index', ['status' => '']) }}" class="text-[13px] font-semibold text-brand-600 underline">View All</a></div>
+            <div class="flex items-center justify-between px-5 pt-4 pb-2"><h2 id="listings-title" class="text-lg font-bold text-brand-700">Recent Property Listings</h2><a href="{{ route('admin.properties.index', ['status' => 'all']) }}" class="text-[13px] font-semibold text-brand-600 underline">View All</a></div>
             <div class="overflow-x-auto">
                 <table class="table table-compact text-[13px]">
                     <thead><tr><th>Property</th><th>Price</th><th>Status</th><th>Date</th></tr></thead>

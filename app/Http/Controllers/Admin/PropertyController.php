@@ -25,7 +25,7 @@ class PropertyController extends Controller
     public function index(Request $request): View
     {
         $filters = $request->validate([
-            'status' => ['nullable', Rule::enum(PropertyStatus::class)],
+            'status' => ['nullable', Rule::in([...array_column(PropertyStatus::cases(), 'value'), 'all'])],
             'group' => ['nullable', Rule::in(['homes', 'plots', 'commercial'])],
             'area' => ['nullable', 'integer'],
             'dealer' => ['nullable', 'integer'],
@@ -33,7 +33,11 @@ class PropertyController extends Controller
             'flag' => ['nullable', Rule::in(['review', 'no_pin', 'location', 'incomplete', 'new'])],
         ]);
 
+        // No filters at all opens the review queue; "all" shows every status.
         $status = $filters['status'] ?? (empty($filters) ? PropertyStatus::Pending->value : null);
+        if ($status === 'all') {
+            $status = null;
+        }
 
         $properties = Property::withTrashed()
             ->with(['dealer:id,name', 'dealer.dealerProfile:id,user_id,agency_name,verification_status', 'area:id,name', 'coverImage'])
@@ -50,11 +54,14 @@ class PropertyController extends Controller
                 // Listings that went live in the last day, most of them without review: a quick skim.
                 'new' => $q->where('status', PropertyStatus::Published)->where('published_at', '>=', now()->subDay()),
             })
-            ->orderByRaw("case when status = 'pending' then 0 else 1 end")
-            ->orderBy('submitted_at')
-            ->latest('updated_at')
+            // Newest listings first.
+            ->latest('created_at')
+            ->latest('id')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            // Keep the chosen tab on every page. An empty "status=" is dropped from
+            // page links, so "All" is sent as "all" or page 2 would fall back to Pending.
+            ->appends('status', $status ?? 'all');
 
         $counts = Property::withTrashed()->select('status', DB::raw('count(*) as total'))->groupBy('status')->pluck('total', 'status');
 

@@ -39,7 +39,7 @@ class DashboardController extends Controller
         $gateways = collect(app(GatewayManager::class)->available())->reject(fn ($g) => $g->isTest());
 
         $stats = [
-            ['Total Properties', Property::count(), 'home', 'bg-brand-500', $recent(Property::class).' added in 30 days', route('admin.properties.index', ['status' => ''])],
+            ['Total Properties', Property::count(), 'home', 'bg-brand-500', $recent(Property::class).' added in 30 days', route('admin.properties.index', ['status' => 'all'])],
             ['Total Users', User::count(), 'users', 'bg-gold-500', $recent(User::class).' joined in 30 days', route('admin.users.index')],
             ['Verified Dealers', DealerProfile::where('verification_status', DealerStatus::Verified)->count(), 'badge-check', 'bg-brand-500', User::where('role', Role::Dealer)->count().' dealer accounts', route('admin.dealers.index', ['status' => 'verified'])],
             ['Total Inquiries', Inquiry::count(), 'message', 'bg-brand-600', $recent(Inquiry::class).' in 30 days', route('admin.leads.index')],

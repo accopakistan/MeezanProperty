@@ -1,17 +1,17 @@
 @php use App\Enums\PropertyStatus; @endphp
 <x-layouts.dashboard title="Listings" section="admin" heading="Listings" subheading="Moderate, publish and manage property listings.">
     <div class="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-line bg-white p-1 scrollbar-none">
-        <a href="{{ route('admin.properties.index', ['status' => '']) }}" @class(['shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold', 'bg-brand-600 text-white' => ! $status, 'text-muted hover:text-ink' => $status])>All <span class="text-xs opacity-75">{{ $counts->sum() }}</span></a>
+        <a href="{{ route('admin.properties.index', ['status' => 'all']) }}" @class(['shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold', 'bg-brand-600 text-white' => ! $status, 'text-muted hover:text-ink' => $status])>All <span class="text-xs opacity-75">{{ $counts->sum() }}</span></a>
         @foreach (PropertyStatus::cases() as $s)
             <a href="{{ route('admin.properties.index', ['status' => $s->value]) }}" @class(['shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold', 'bg-brand-600 text-white' => $status === $s->value, 'text-muted hover:text-ink' => $status !== $s->value])>
                 {{ $s->label() }} <span class="text-xs opacity-75">{{ $counts[$s->value] ?? 0 }}</span>
             </a>
         @endforeach
-        <a href="{{ route('admin.properties.index', ['status' => '', 'flag' => 'new']) }}" @class(['ml-auto shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold', 'bg-brand-600 text-white' => ($filters['flag'] ?? null) === 'new', 'text-muted hover:text-ink' => ($filters['flag'] ?? null) !== 'new'])>New live, last 24 h <span class="text-xs opacity-75">{{ $newLive }}</span></a>
+        <a href="{{ route('admin.properties.index', ['status' => 'all', 'flag' => 'new']) }}" @class(['ml-auto shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold', 'bg-brand-600 text-white' => ($filters['flag'] ?? null) === 'new', 'text-muted hover:text-ink' => ($filters['flag'] ?? null) !== 'new'])>New live, last 24 h <span class="text-xs opacity-75">{{ $newLive }}</span></a>
     </div>
 
     <form method="GET" class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
-        <input type="hidden" name="status" value="{{ $status }}">
+        <input type="hidden" name="status" value="{{ $status ?? 'all' }}">
         <input name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Title or reference (MP-000123)" aria-label="Search listings">
         <select name="group" class="input" aria-label="Category">
             <option value="">All categories</option>
@@ -28,7 +28,7 @@
         <button class="btn btn-primary">Filter</button>
         @if (! empty($filters['dealer']))
             <input type="hidden" name="dealer" value="{{ $filters['dealer'] }}">
-            <p class="text-[13px] text-muted sm:col-span-2 lg:col-span-4">Filtered to one dealer · <a href="{{ route('admin.properties.index', ['status' => $status]) }}" class="link">clear</a></p>
+            <p class="text-[13px] text-muted sm:col-span-2 lg:col-span-4">Filtered to one dealer · <a href="{{ route('admin.properties.index', ['status' => $status ?? 'all']) }}" class="link">clear</a></p>
         @endif
     </form>
 
