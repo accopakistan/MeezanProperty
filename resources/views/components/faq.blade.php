@@ -10,7 +10,7 @@
                     <dd class="mt-1 text-sm leading-relaxed text-muted">
                         {{ $item['answer'] }}
                         @if (! empty($item['source']))
-                            <a href="{{ $item['source'] }}" class="link whitespace-nowrap" rel="nofollow noopener" target="_blank">{{ $item['sourceLabel'] ?? 'Source' }}</a>
+                            <a href="{{ $item['source'] }}" class="link lg:whitespace-nowrap" rel="nofollow noopener" target="_blank">{{ $item['sourceLabel'] ?? 'Source' }}</a>
                         @endif
                     </dd>
                 </div>
