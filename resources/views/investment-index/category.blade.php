@@ -12,7 +12,7 @@
 <x-layouts.app :title="$title.' — Meezan Investment Index'"
                :description="$title.', ranked from verified evidence: legal approval, '.collect($category['factors'])->except('legal_approval')->pluck('label')->take(4)->map(fn ($l) => mb_strtolower($l))->implode(', ').' and more.'"
                :canonical="$city ? route('rankings.city-category', [Cities::slug($city), $key]) : route('rankings.category', $key)"
-               :noindex="$ranked->isEmpty() || $filters !== []">
+               :robots="$ranked->isEmpty() || $filters !== [] ? 'noindex, follow' : null">
 
     {{-- Category Dashboard Hero --}}
     <x-investment-hero
@@ -387,5 +387,6 @@
             <p class="card mt-6 p-5 text-[14px] text-muted"><span class="font-semibold text-ink">Coverage gap:</span> no {{ mb_strtolower($category['label']) }} are on file{{ $city ? ' for '.$city : '' }} yet. This reflects what has been researched so far, not what exists.</p>
         @endif
 
+        <p class="mt-6 text-[13px] text-muted">{{ config('meezan.investment.disclaimer') }} Legal status shows only what official records on file say. "Unknown / Unverified" means no official record has been found here; it does not mean a project is illegal.</p>
     </div>
 </x-layouts.app>

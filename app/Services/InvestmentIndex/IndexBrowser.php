@@ -76,6 +76,20 @@ class IndexBrowser
             return collect();
         }
 
+        // Cached for an hour, keyed on everything the board is built from: any change to the run's
+        // scores, a project or occupancy evidence gives a new key, so a board is never stale.
+        $key = 'index:market-board:'.md5(json_encode([
+            $this->run()->id, $category, $city, $limit, $filters,
+            InvestmentIndexScore::where('run_id', $this->run()->id)->max('updated_at'),
+            Project::max('updated_at'),
+            InvestmentEvidence::where('factor', 'occupancy')->max('updated_at'),
+        ]));
+
+        return Cache::remember($key, 3600, fn () => $this->buildMarketBoard($category, $city, $limit, $filters));
+    }
+
+    protected function buildMarketBoard(string $category, ?string $city, int $limit, array $filters): Collection
+    {
         $rows = $this->scored($category, $city, $filters)->where('status', '!=', 'excluded')
             ->whereHas('project', fn ($p) => $p->where('is_published', true)->where('is_demo', false))
             ->with('project.area:id,name')->get();
@@ -86,12 +100,16 @@ class IndexBrowser
         $rows->each(fn ($s) => $s->setAttribute('market_occupancy', ($e = $occupancy[$s->project_id] ?? null)
             ? ['value' => rtrim(rtrim(number_format((float) $e->value_numeric, 1), '0'), '.').'%', 'source' => $e->source?->name, 'checked' => $e->verification_status === 'verified'] : null));
 
-        return $rows->sortBy([
-            fn ($a, $b) => ($this->marketChange($b->project) ?? -INF) <=> ($this->marketChange($a->project) ?? -INF),
-            fn ($a, $b) => $this->marketRichness($b) <=> $this->marketRichness($a),
-            fn ($a, $b) => ($b->research_depth ?? 0) <=> ($a->research_depth ?? 0),
-            fn ($a, $b) => strcmp($a->project->name, $b->project->name),
-        ])->take($limit)->values();
+        // Work out each row's sort keys once: computing them inside the comparators decoded every
+        // project's research facts on each comparison (seconds on the ~900 housing societies).
+        $change = $rows->mapWithKeys(fn ($s, $i) => [$i => $this->marketChange($s->project) ?? -INF]);
+        $richness = $rows->mapWithKeys(fn ($s, $i) => [$i => $this->marketRichness($s)]);
+
+        return $rows->keys()->sort(fn ($a, $b) => ($change[$b] <=> $change[$a])
+            ?: ($richness[$b] <=> $richness[$a])
+            ?: (($rows[$b]->research_depth ?? 0) <=> ($rows[$a]->research_depth ?? 0))
+            ?: strcmp($rows[$a]->project->name, $rows[$b]->project->name))
+            ->map(fn ($i) => $rows[$i])->take($limit)->values();
     }
 
     /** How much public market data is on file for a market-board row (price, yield, occupancy, other facts). */

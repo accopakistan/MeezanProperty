@@ -139,11 +139,12 @@ it('never shows a score for a project that is not ranked, and refuses demo, unpu
 });
 
 it('lists ranked pages in the sitemap and leaves out the rest', function () {
-    $xml = $this->get(route('sitemap.show', 'pages'))->assertOk()->getContent();
+    $xml = $this->get(route('sitemap.show', 'research'))->assertOk()->getContent();
 
+    // Business towers has no ranked project, so its leaderboard is noindex and stays out.
     expect($xml)->toContain(route('rankings.index'))->toContain(route('rankings.methodology'))->toContain(route('rankings.category', 'housing-societies'))
         ->toContain(route('rankings.category', 'shopping-malls'))->toContain(route('rankings.overall'))->toContain(route('rankings.project', $this->a))
-        ->toContain(route('rankings.category', 'business-towers'))->not->toContain(route('rankings.project', $this->excluded))
+        ->not->toContain(route('rankings.category', 'business-towers'))->not->toContain(route('rankings.project', $this->excluded))
         ->not->toContain(route('rankings.project', $this->thin))->toContain(route('rankings.city-category', ['lahore', 'housing-societies']))
         ->not->toContain(route('rankings.city-category', ['lahore', 'business-towers']))->not->toContain('investment-rankings/lahore/commercial');
 });

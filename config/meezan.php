@@ -615,6 +615,13 @@ return [
 
     'seo' => [
         'min_listings' => (int) env('MEEZAN_SEO_MIN_LISTINGS', 3),
+        // Official profiles of Meezan Property only (Google Business Profile, Facebook, LinkedIn …),
+        // comma-separated. Listed as sameAs in the Organization structured data.
+        'same_as' => array_values(array_filter(array_map('trim', explode(',', (string) env('MEEZAN_SAME_AS', ''))))),
+        // Ownership tokens from Google Search Console and Bing Webmaster Tools (HTML tag method).
+        // Not secret; printed as <meta> tags only when set.
+        'google_site_verification' => env('MEEZAN_GOOGLE_SITE_VERIFICATION'),
+        'bing_site_verification' => env('MEEZAN_BING_SITE_VERIFICATION'),
         'categories' => [
             'property-for-sale' => ['label' => 'Property for Sale', 'purpose' => 'sale', 'group' => null, 'types' => null],
             'property-for-rent' => ['label' => 'Property for Rent', 'purpose' => 'rent', 'group' => null, 'types' => null],

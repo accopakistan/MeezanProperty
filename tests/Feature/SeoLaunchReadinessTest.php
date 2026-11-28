@@ -211,9 +211,10 @@ it('keeps the map page out of the index', function () {
 it('lists indexable category pages in the sitemap and leaves out thin ones', function () {
     houses(3);
 
-    $this->get('/sitemap.xml')->assertOk()
+    $this->get('/sitemap.xml')->assertOk()->assertHeader('X-Robots-Tag', 'noindex')->assertSee(route('sitemap.show', 'locations'));
+    $this->get('/sitemaps/pages.xml')->assertOk()->assertSee(route('cities.show', 'karachi'));
+    $this->get('/sitemaps/locations.xml')->assertOk()
         ->assertHeader('X-Robots-Tag', 'noindex')
-        ->assertSee(route('cities.show', 'karachi'))
         ->assertSee(route('cities.category', ['lahore', 'houses-for-sale']))
         ->assertSee(route('areas.category', [area('Gulberg')->slug, 'houses-for-sale']))
         ->assertDontSee(route('cities.category', ['lahore', 'plots-for-sale']))
@@ -222,8 +223,14 @@ it('lists indexable category pages in the sitemap and leaves out thin ones', fun
         ->assertDontSee('/account');
 });
 
-it('serves the split sitemap files and an index once listings outgrow one file', function () {
+it('serves a sitemap index of split files', function () {
     houses(3);
+
+    $index = $this->get('/sitemap.xml')->assertOk()->assertSee('<sitemapindex', false)->getContent();
+    foreach (['pages', 'research', 'locations', 'agents', 'projects-1', 'properties-1'] as $file) {
+        expect($index)->toContain(route('sitemap.show', $file));
+    }
+    expect($index)->not->toContain('<urlset');
 
     // Pricing joins the sitemap once a final package is offered.
     $this->get('/sitemaps/pages.xml')->assertOk()->assertDontSee(route('pricing'));

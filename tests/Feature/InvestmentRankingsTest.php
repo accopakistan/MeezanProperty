@@ -404,7 +404,7 @@ it('indexes only dashboards with verified scored entries and lists only those in
         ->toContain('"@type":"ItemList"')->toContain('"@type":"BreadcrumbList"')->not->toContain('noindex');
     $this->get(route('rankings.segment', ['lahore', 'commercial', 'business-towers']))->assertSee('noindex, follow', false);
 
-    $sitemap = $this->get(route('sitemap.show', 'pages'))->assertOk()->getContent();
+    $sitemap = $this->get(route('sitemap.show', 'research'))->assertOk()->getContent();
     expect($sitemap)->toContain(route('rankings.segment', ['lahore', 'commercial', 'shopping-malls']))->toContain(route('rankings.city', 'lahore'))
         ->toContain(route('rankings.index'))->not->toContain(route('rankings.segment', ['lahore', 'commercial', 'business-towers']))
         ->not->toContain('commercial-shops');

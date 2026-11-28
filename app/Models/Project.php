@@ -79,6 +79,25 @@ class Project extends Model
         return $query->where('is_published', true);
     }
 
+    /**
+     * Profiles worth offering to search engines: published, real, and carrying at least one
+     * researched fact, an approval status or a developer. Name-only profiles stay public
+     * but are "noindex, follow" and out of the sitemap.
+     */
+    public function scopeIndexable(Builder $query): Builder
+    {
+        return $query->published()->where('is_demo', false)->where(fn ($q) => $q
+            ->where(fn ($f) => $f->whereNotNull('research_facts')->whereNotIn('research_facts', ['', '[]', 'null']))
+            ->orWhere(fn ($a) => $a->whereNotNull('approval_status')->where('approval_status', '!=', ''))
+            ->orWhere(fn ($d) => $d->whereNotNull('developer')->where('developer', '!=', '')));
+    }
+
+    public function isIndexable(): bool
+    {
+        return $this->is_published && ! $this->is_demo
+            && (filled($this->research_facts) || filled($this->approval_status) || filled($this->developer));
+    }
+
     public function categoryLabel(): ?string
     {
         return $this->category ? (config('meezan.investment.project_categories.'.$this->category.'.label') ?? $this->category) : null;

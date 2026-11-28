@@ -29,7 +29,7 @@ class DealerDirectoryController extends Controller
         ]);
         $area = isset($filters['area']) ? Area::where('slug', $filters['area'])->first() : null;
 
-        $dealers = $this->listed()
+        $dealers = static::listed()
             ->with('areas:id,name,slug', 'cities:id,name')
             ->withCount(['properties as listings_count' => fn ($q) => $q->published()])
             ->when($filters['q'] ?? null, fn ($q, $term) => $q->where('agency_name', 'like', '%'.str_replace(['%', '_'], ['\%', '\_'], $term).'%'))
@@ -47,7 +47,7 @@ class DealerDirectoryController extends Controller
 
     public function show(DealerProfile $dealer): View
     {
-        abort_unless($this->listed()->whereKey($dealer->id)->exists(), 404);
+        abort_unless(static::listed()->whereKey($dealer->id)->exists(), 404);
 
         $dealer->load('areas:id,name,slug', 'user:id,created_at');
 
@@ -61,7 +61,8 @@ class DealerDirectoryController extends Controller
         ]);
     }
 
-    protected function listed(): Builder
+    /** Dealer profiles shown publicly (the sitemap lists the same set). */
+    public static function listed(): Builder
     {
         return DealerProfile::query()
             ->where('business_type', '!=', 'owner')

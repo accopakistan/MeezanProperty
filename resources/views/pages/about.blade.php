@@ -1,4 +1,7 @@
 <x-layouts.app title="About Meezan Property" description="Meezan Property is a Pakistani real estate platform built on balance and trust: checked listings, verified dealers and honest AI matching.">
+    <x-slot:head>
+        <script type="application/ld+json">{!! \App\Support\Seo::json(\App\Support\Seo::organization()) !!}</script>
+    </x-slot:head>
     <section class="bg-brand-800">
         <div class="container-page py-14 sm:py-20">
             <x-breadcrumbs :items="[['About', null]]" class="[&_a]:text-white/60 [&_span]:text-white/90 [&_svg]:text-white/40" />
@@ -34,7 +37,10 @@
                 <ul class="mt-4 space-y-2 text-[15px] text-muted">
                     <li><a href="{{ route('properties.index') }}" class="link">Property search</a> for homes, plots, apartments and commercial property, with <a href="{{ route('properties.map') }}" class="link">map search</a> and <a href="{{ route('compare') }}" class="link">comparison</a>.</li>
                     <li>The <a href="{{ route('ai-finder') }}" class="link">AI Property Finder</a>: describe what you need in plain words.</li>
+                    <li><a href="{{ route('areas.index') }}" class="link">Area guides</a> for neighbourhoods and housing societies, with the authority approval status and its source where we have recorded it.</li>
+                    <li>The <a href="{{ route('projects.index') }}" class="link">Project Directory</a>: developments across Pakistan, each with the public sources it is based on.</li>
                     <li>The <a href="{{ route('rankings.index') }}" class="link">Meezan Investment Index</a>: research on housing societies, plazas, apartment buildings, malls and business towers.</li>
+                    <li>How projects are assessed: the <a href="{{ route('rankings.methodology') }}" class="link">Index methodology</a>. A project is ranked only when verified evidence supports it.</li>
                     <li><a href="{{ route('dealer.register') }}" class="link">Dealer and agency accounts</a> with listing tools and lead management.</li>
                 </ul>
             </div>

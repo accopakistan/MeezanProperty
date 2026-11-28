@@ -51,7 +51,7 @@ it('keeps sample listings off every public page, even when one is left published
     $this->get(route('properties.show', $sample))->assertNotFound();
     $this->get(route('properties.show', $real))->assertOk()->assertSee('Real Showcase House');
     Cache::flush();
-    $this->get(route('sitemap'))->assertOk()->assertDontSee($sample->slug)->assertSee($real->slug);
+    $this->get(route('sitemap.show', 'properties-1'))->assertOk()->assertDontSee($sample->slug)->assertSee($real->slug);
 });
 
 it('hides a sample dealer from the directory and never shows it as verified', function () {
@@ -152,14 +152,17 @@ it('uses research wording on the Investment Index while nothing is ranked', func
     $this->get(route('investment.methodology'))->assertOk()->assertSee('Market insight score (MPIS) methodology')->assertSee(route('rankings.methodology'), false);
 });
 
-it('lists the five Index category pages in the sitemap and drops an empty pricing page', function () {
+it('keeps unranked Index category pages out of the sitemap as noindex, follow, and drops an empty pricing page', function () {
     Cache::flush();
-    $xml = $this->get(route('sitemap'))->assertOk()->getContent();
+    $research = $this->get(route('sitemap.show', 'research'))->assertOk()->getContent();
 
+    expect($research)->toContain(route('rankings.index'))->toContain(route('rankings.methodology'));
     foreach (array_keys(config('investment_index.categories')) as $category) {
-        expect($xml)->toContain(route('rankings.category', $category));
+        expect($research)->not->toContain(route('rankings.category', $category));
+        // Not indexed while nothing is ranked, but crawlers may still follow its project links.
+        $this->get(route('rankings.category', $category))->assertOk()->assertSee('<meta name="robots" content="noindex, follow">', false);
     }
-    expect($xml)->not->toContain(route('pricing'));
+    $this->get(route('sitemap.show', 'pages'))->assertOk()->assertDontSee(route('pricing'));
 });
 
 it('allows dealer registration in robots.txt', function () {

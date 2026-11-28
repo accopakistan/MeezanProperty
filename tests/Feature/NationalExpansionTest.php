@@ -152,7 +152,7 @@ it('lists the seven cities on the homepage without invented numbers', function (
 });
 
 it('adds city pages to the sitemap', function () {
-    $this->get('/sitemap.xml')->assertOk()
+    $this->get('/sitemaps/pages.xml')->assertOk()
         ->assertSee(route('cities.show', 'lahore'))
         ->assertSee(route('cities.show', 'quetta'));
 });

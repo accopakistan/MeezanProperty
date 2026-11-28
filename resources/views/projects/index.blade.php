@@ -1,4 +1,11 @@
-<x-layouts.app title="Project Directory — Real Estate Developments in Pakistan" description="Official factual directory of housing societies, commercial plazas, apartment buildings, shopping malls, and business towers across Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar with verified authority approval status.">
+@php
+    // Each directory page is its own canonical page; filtered views are "noindex, follow" so they do
+    // not compete with the directory but their project links are still followed.
+    $projectFilters = array_filter(request()->only(['status', 'category', 'city', 'legal', 'q']), fn ($v) => filled($v));
+    $projectPage = $projects->currentPage();
+@endphp
+<x-layouts.app title="Project Directory — Real Estate Developments in Pakistan" description="Directory of housing societies, commercial plazas, apartment buildings, shopping malls and business towers in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar, with sources and authority status where recorded."
+               :canonical="route('projects.index', $projectPage > 1 ? ['page' => $projectPage] : [])" :robots="$projectFilters ? 'noindex, follow' : null">
     <section class="relative isolate overflow-hidden bg-brand-900">
         <img src="{{ asset('images/ref/type-projects.jpg') }}" alt="" class="absolute inset-y-0 right-0 -z-20 h-full w-full object-cover opacity-80 md:w-[55%]">
         <div class="absolute inset-0 -z-10 bg-gradient-to-r from-brand-900 via-brand-900/85 to-brand-900/20"></div>

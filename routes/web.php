@@ -136,7 +136,8 @@ Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy'
 Route::get('/disclaimer', [PageController::class, 'disclaimer'])->name('pages.disclaimer');
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
-Route::get('/sitemaps/{name}.xml', [SitemapController::class, 'show'])->where('name', 'pages|locations|properties-[1-9][0-9]{0,3}')->name('sitemap.show');
+Route::get('/llms.txt', \App\Http\Controllers\LlmsTxtController::class)->name('llms');
+Route::get('/sitemaps/{name}.xml', [SitemapController::class, 'show'])->where('name', 'pages|research|locations|agents|properties-[1-9][0-9]{0,3}|projects-[1-9][0-9]{0,3}')->name('sitemap.show');
 
 Route::get('/locations/suggest', [LocationController::class, 'suggest'])->middleware('throttle:120,1')->name('locations.suggest');
 Route::get('/locations/options', [LocationController::class, 'options'])->middleware('throttle:120,1')->name('locations.options');

@@ -1,4 +1,4 @@
-<x-layouts.app :title="$project->name.' — '.$project->city.' Project Directory Profile'" :description="\Illuminate\Support\Str::limit($project->description, 155)" :robots="$project->is_demo ? 'noindex, nofollow' : null">
+<x-layouts.app :title="$project->name.' — '.$project->city.' Project Directory Profile'" :description="\Illuminate\Support\Str::limit($project->description, 155)" :robots="$project->is_demo ? 'noindex, nofollow' : ($project->isIndexable() ? null : 'noindex, follow')">
     <div class="container-page py-8">
         @if ($project->is_demo)
             <div class="mb-5 flex items-start gap-3 rounded-xl border-2 border-dashed border-gold-500 bg-gold-50 px-4 py-3 text-sm" role="note" aria-label="Illustrative project notice">

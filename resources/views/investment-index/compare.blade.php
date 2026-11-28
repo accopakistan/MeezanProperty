@@ -22,7 +22,7 @@
 
 <x-layouts.app :title="'Compare '.$category['label'].' — Meezan Investment Index'"
                description="Side-by-side empirical comparison of verified evidence for developments within the {{ mb_strtolower($category['label']) }} sector."
-               :noindex="true">
+               robots="noindex, follow">
 
     @php
         $hero = \App\Services\InvestmentIndex\IndexHeroImage::resolve(null, $key);

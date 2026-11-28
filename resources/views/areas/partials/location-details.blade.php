@@ -16,7 +16,7 @@
                     {{ $area->approvalLabel() }}
                     @if ($area->approval_reference)<span class="block text-[13px] font-normal text-muted">{{ $area->approval_reference }}</span>@endif
                     @if ($area->verification_source_url)
-                        <a href="{{ $area->verification_source_url }}" class="link text-[13px] font-normal" rel="nofollow noopener" target="_blank">Source</a>
+                        <a href="{{ $area->verification_source_url }}" class="link text-[13px] font-normal" rel="nofollow noopener" target="_blank">{{ \App\Support\Faq::sourceKind($area->verification_source_url) === 'secondary' ? \App\Support\Faq::secondaryLabel($area->approval_reference, $area->verification_source_url, $area->authority) : 'Source' }}</a>
                     @endif
                     @if ($area->verified_on)<span class="text-[13px] font-normal text-muted">· checked {{ $area->verified_on->format('j M Y') }}</span>@endif
                 </dd>

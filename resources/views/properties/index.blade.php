@@ -14,7 +14,7 @@
     $robots = ($extraFilters || $total === 0) ? 'noindex, follow' : null;
 @endphp
 {{-- Layout: public/Refrence/Meezan Property Search Results.png --}}
-<x-layouts.app :title="$headline" :description="'Browse '.number_format($total).' '.strtolower($headline).'. Reviewed listings with prices, sizes and dealer details on Meezan Property.'"
+<x-layouts.app :title="$headline" :description="'Browse '.number_format($total).' '.\Illuminate\Support\Str::lcfirst($headline).'. Reviewed listings with prices, sizes and dealer details on Meezan Property.'"
                :canonical="route('properties.index', $canonicalParams + array_filter(['page' => $properties->currentPage() > 1 ? $properties->currentPage() : null]))"
                :robots="$robots">
     <section class="bg-gradient-to-r from-brand-700 via-brand-600 to-brand-700 py-3">

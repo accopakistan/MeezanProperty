@@ -87,5 +87,7 @@
                 <ul class="mt-4 grid gap-3 sm:grid-cols-3">@foreach ($projects as $project)<li><a href="{{ route('projects.show', $project) }}" class="card block p-4 font-semibold hover:text-brand-700">{{ $project->name }} <span class="block text-xs font-normal text-muted">{{ $project->statusLabel() }}</span></a></li>@endforeach</ul>
             </section>
         @endif
+
+        <x-faq class="mt-10" id="area-faq" :title="'Questions about '.$area->name" :items="\App\Support\Faq::forArea($area, $insights)" />
     </div>
 </x-layouts.app>

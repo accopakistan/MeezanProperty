@@ -151,6 +151,8 @@
             </section>
         @endif
 
+        <x-faq class="mt-12" id="city-faq" :title="'Questions about property in '.$city" :items="\App\Support\Faq::forCity($city, $summary ?? [], $listedCounts)" />
+
         <section class="mt-12 rounded-xl bg-brand-50 p-6" aria-labelledby="other-title">
             <h2 id="other-title" class="text-lg font-bold">Property in other cities</h2>
             <ul class="mt-3 flex flex-wrap gap-2">

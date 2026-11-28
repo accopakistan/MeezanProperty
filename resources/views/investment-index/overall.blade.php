@@ -1,6 +1,6 @@
 <x-layouts.app title="Overall Meezan Investment Index — Investment Rankings"
                description="The Overall Meezan Investment Index compares housing societies, commercial plazas, apartment buildings, shopping malls and business towers on one scale: each project's standing within its own category, weighted by data confidence."
-               :canonical="route('rankings.overall')" :noindex="$overall->isEmpty()">
+               :canonical="route('rankings.overall')" :robots="$overall->isEmpty() ? 'noindex, follow' : null">
     @include('investment-index.partials.hero', [
         'title' => 'Overall Meezan Investment Index',
         'intro' => 'Unlike assets are not compared by raw prices or yields. Each project\'s normalized score is its standing within its own category (a mid-rank percentile, 0–100); the Index is that score scaled by its Data Confidence Score, from ×0.5 at no confidence to ×1.0 at full confidence.',

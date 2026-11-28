@@ -8,7 +8,13 @@
       current URL without query string).
 --}}
 @php
-    $fullTitle = $title ? $title.' | Meezan Property' : 'Meezan Property — Homes, Plots & Commercial Property in Pakistan';
+    // The brand suffix is left off when the title already names Meezan Property, or when it would
+    // push the title past what search results show (about 60 characters).
+    $fullTitle = match (true) {
+        ! $title => 'Meezan Property — Homes, Plots & Commercial Property in Pakistan',
+        str_contains($title, 'Meezan Property') || mb_strlen($title) > 50 => $title,
+        default => $title.' | Meezan Property',
+    };
     $description = \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', $description ?? 'Search homes, apartments, plots and commercial property for sale and rent in Lahore, Karachi, Islamabad, Multan, Faisalabad, Quetta and Peshawar. Checked listings, verified dealers and an AI Property Finder.')), 160);
     $robots = $noindex ? 'noindex, nofollow' : ($robots ?? 'index, follow, max-image-preview:large');
     $indexable = str_starts_with($robots, 'index');
@@ -38,6 +44,12 @@
     <meta name="twitter:description" content="{{ $description }}">
     <meta name="twitter:image" content="{{ $image }}">
 @endunless
+@if (config('meezan.seo.google_site_verification'))
+    <meta name="google-site-verification" content="{{ config('meezan.seo.google_site_verification') }}">
+@endif
+@if (config('meezan.seo.bing_site_verification'))
+    <meta name="msvalidate.01" content="{{ config('meezan.seo.bing_site_verification') }}">
+@endif
 <meta name="theme-color" content="#321064">
 <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="48x48">
 <link rel="icon" href="{{ asset('images/logo/meezan-icon-32.png') }}" type="image/png" sizes="32x32">

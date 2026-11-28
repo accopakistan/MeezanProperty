@@ -2,7 +2,14 @@
     $verified = $dealer->isVerified();
     $wa = $verified && $dealer->whatsapp_number ? preg_replace('/\D+/', '', $dealer->whatsapp_number) : null;
 @endphp
-<x-layouts.app :title="$dealer->agency_name.' — property dealer in '.$dealer->city" :description="$dealer->agency_name.' on Meezan Property: '.($counts['sale'] + $counts['rent']).' live listings in '.$dealer->areas->pluck('name')->take(3)->implode(', ').'.'">
+@php
+    $live = $counts['sale'] + $counts['rent'];
+    $areaNames = $dealer->areas->pluck('name')->take(3)->implode(', ');
+    $seoDescription = $dealer->agency_name.' is '.($verified ? 'a verified property dealer' : 'a property dealer').' in '.$dealer->city
+        .' with '.$live.' live '.\Illuminate\Support\Str::plural('listing', $live).' on Meezan Property'.($areaNames ? ', covering '.$areaNames : '').'.';
+@endphp
+<x-layouts.app :title="$dealer->agency_name.' — property dealer in '.$dealer->city" :description="$seoDescription"
+               :canonical="route('dealers.show', $dealer).($listings->currentPage() > 1 ? '?page='.$listings->currentPage() : '')">
     <div class="container-page py-8">
         <x-breadcrumbs :items="[['Agents', route('dealers.index')], [$dealer->agency_name, null]]" />
         <div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">

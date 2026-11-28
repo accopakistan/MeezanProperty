@@ -49,6 +49,24 @@
     // Search title and description from the listing's own fields (Seo); demo listings are kept out of search.
     $seoCategory = \App\Support\Seo::categoryFor($property);
     $coordinates = $property->showsExactLocation() ? $property->publicCoordinates() : null;
+    // What is being offered, from the listing's own fields (homes only; plots and commercial units have no rooms).
+    $schemaType = match ($property->type) {
+        \App\Enums\PropertyType::House, \App\Enums\PropertyType::Farmhouse => 'SingleFamilyResidence',
+        \App\Enums\PropertyType::Apartment, \App\Enums\PropertyType::Penthouse => 'Apartment',
+        \App\Enums\PropertyType::UpperPortion, \App\Enums\PropertyType::LowerPortion => 'Accommodation',
+        default => null,
+    };
+    $schemaAbout = $schemaType ? array_filter([
+        '@type' => $schemaType,
+        'numberOfBedrooms' => $property->bedrooms,
+        'numberOfBathroomsTotal' => $property->bathrooms,
+        'floorSize' => $property->covered_area_sqft ? ['@type' => 'QuantitativeValue', 'value' => $property->covered_area_sqft, 'unitCode' => 'FTK'] : null,
+    ], fn ($v) => $v !== null) : null;
+    // The seller only when it is a public dealer profile; private owners are never named in structured data.
+    $schemaDealer = $property->dealer?->dealerProfile;
+    $schemaSeller = $schemaDealer && $schemaDealer->business_type !== 'owner' && ! $schemaDealer->is_demo
+        && \App\Http\Controllers\DealerDirectoryController::listed()->whereKey($schemaDealer->id)->exists()
+        ? ['@type' => 'RealEstateAgent', 'name' => $schemaDealer->agency_name, 'url' => route('dealers.show', $schemaDealer)] : null;
 @endphp
 <x-layouts.app :title="\App\Support\Seo::propertyTitle($property).' — '.$property->priceLabel()" :description="\App\Support\Seo::propertyDescription($property)"
                :canonical="$url" :image="$property->coverUrl()" :image-alt="$property->title" :noindex="$isPreview" :robots="$property->is_demo ? 'noindex, follow' : null">
@@ -64,12 +82,14 @@
                     'datePosted' => $property->published_at?->toDateString(),
                     'dateModified' => $property->updated_at?->toDateString(),
                     'image' => $images->map->url()->all() ?: null,
-                    'offers' => [
+                    'about' => $schemaAbout,
+                    'offers' => array_filter([
                         '@type' => 'Offer',
                         'price' => $property->price,
                         'priceCurrency' => 'PKR',
                         'businessFunction' => $property->purpose === Purpose::Rent ? 'http://purl.org/goodrelations/v1#LeaseOut' : 'http://purl.org/goodrelations/v1#Sell',
-                    ],
+                        'seller' => $schemaSeller,
+                    ]),
                     // Only what is public: the area and city; map coordinates only when the dealer shows the exact location.
                     'contentLocation' => array_filter([
                         '@type' => 'Place',

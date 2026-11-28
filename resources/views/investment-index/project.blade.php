@@ -12,7 +12,7 @@
 <x-layouts.app :title="$project->name.' — Investment Intelligence Profile'"
                :description="$project->name.' ('.($categoryConfig['singular'] ?? 'development').', '.$project->city.'): legal verification, investment score, data confidence, risk and sources in the Meezan Investment Index.'"
                :canonical="route('rankings.project', $project)"
-               :noindex="! $s || $s->status !== 'ranked'">
+               :robots="! $s || $s->status !== 'ranked' ? 'noindex, follow' : null">
 
     {{-- Executive Project Header Hero with Photographic Background --}}
     @php
@@ -354,6 +354,12 @@
                         </div>
                     @else
                         <div class="space-y-6">
+                            {{-- Asking prices are on file but no verified transactions or valuations: there is no price history. --}}
+                            @if (($priceSeries['Verified transaction prices'] ?? collect())->isEmpty() && ($priceSeries['Valuations'] ?? collect())->isEmpty())
+                                <div class="rounded-lg bg-surface p-4 text-xs text-muted">
+                                    <strong class="text-ink">Historical performance data unavailable.</strong> Only asking prices are on file for this project; they are not used as price history.
+                                </div>
+                            @endif
                             @foreach ($priceSeries as $label => $rows)
                                 @if ($rows->isNotEmpty())
                                     <div>

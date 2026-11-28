@@ -69,7 +69,7 @@ it('lists published non-demo listings in the sitemap', function () {
     $demo->forceFill(['is_demo' => true])->save();
     $draft = Property::factory()->status(PropertyStatus::Draft)->create();
 
-    $this->get('/sitemap.xml')
+    $this->get('/sitemaps/properties-1.xml')
         ->assertOk()
         ->assertHeader('Content-Type', 'application/xml')
         ->assertSee(route('properties.show', $real))
