@@ -237,8 +237,8 @@
             @endforeach
         </nav>
 
-        <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <div class="grid gap-5 rounded-b-[var(--radius-card)] border border-t-0 border-line bg-white p-5 lg:grid-cols-3">
+        <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div class="grid grid-cols-1 gap-5 rounded-b-[var(--radius-card)] border border-t-0 border-line bg-white p-5 lg:grid-cols-3">
                 <section id="overview" class="scroll-mt-28" aria-labelledby="description-title">
                     <h2 id="description-title" class="font-serif text-xl font-bold">Property Description</h2>
                     <div class="prose-listing mt-3 text-sm text-muted [&_p]:leading-6 [&_p]:text-muted">
