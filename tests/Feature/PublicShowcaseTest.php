@@ -145,7 +145,7 @@ it('keeps draft packages off public pages and out of checkout', function () {
 
 it('uses research wording on the Investment Index while nothing is ranked', function () {
     $this->get(route('rankings.index'))->assertOk()->assertSee('Meezan Investment Index — Research, Verification &amp; Investment Intelligence', false)
-        ->assertSee('Under research')->assertDontSee('Top Housing Societies')->assertDontSee('View city rankings');
+        ->assertSee('Under Research')->assertDontSee('Top Housing Societies')->assertDontSee('View city rankings');
     $this->get(route('rankings.category', 'housing-societies'))->assertOk()->assertSee('Housing Societies in Pakistan')->assertDontSee('Top Housing Societies in Pakistan');
     $this->get(route('investment.index'))->assertOk()->assertSee('Investment Insights in Pakistan')->assertDontSee('Best Overall Investment');
     $this->get(route('rankings.city', 'lahore'))->assertOk()->assertDontSee('Transparent Rankings')->assertSee('Transparent Research');

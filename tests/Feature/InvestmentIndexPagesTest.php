@@ -92,14 +92,14 @@ it('shows the five leaderboards and the Overall Index on the rankings home', fun
         // "Verified … Rankings" where fewer than ten are ranked ("Top 10" needs ten); unranked categories keep their plain names.
         ->assertSee('Verified Housing Society Rankings')->assertSee('Verified Shopping Mall Rankings')->assertDontSee('Top Housing Societies')->assertSee('Commercial Plazas')->assertSee('Apartment Buildings')->assertSee('Business Towers')
         ->assertDontSee('Top Commercial Plazas')->assertDontSee('Top Business Towers')
-        ->assertSee('Overall Meezan Investment Index')->assertSeeInOrder(['Pages Garden Town', 'Pages Model Town', 'Pages Canal View'])
-        ->assertSee('Pages Fortress Mall')->assertSee('Insufficient Verified Data')->assertSee('No paid or sponsored ranking')
+        ->assertSee('Overall Investment Index')->assertSeeInOrder(['Pages Garden Town', 'Pages Model Town', 'Pages Canal View'])
+        ->assertSee('Pages Fortress Mall')->assertSee('Insufficient Verified Data')->assertSee('No Paid Rankings')
         ->assertDontSee('Pages Illegal Scheme')->assertSee('data-search-tabs', false);
 });
 
 it('ranks a category Pakistan-wide, lists the others by status without a score, and filters by city', function () {
     $html = $this->get(route('rankings.category', 'housing-societies'))->assertOk()
-        ->assertSeeInOrder(['Pages Garden Town', 'Pages Model Town', 'Pages Canal View', 'Assessed, not ranked', 'Pages Illegal Scheme'])
+        ->assertSeeInOrder(['Pages Garden Town', 'Pages Model Town', 'Pages Canal View', 'Assessed, Awaiting Verified Evidence', 'Pages Illegal Scheme'])
         ->assertSee('Excluded from recommendations')->assertSee('Legal approval')->assertSee('25%')->assertDontSee('noindex', false)->getContent();
     expect(substr_count($html, 'href="'.route('rankings.project', $this->excluded).'"'))->toBe(1);
 
@@ -117,7 +117,7 @@ it('shows every required fact on a project profile, with sources and ranking cha
     $this->get(route('rankings.project', $this->a))->assertOk()
         ->assertSee('Pages Garden Town')->assertSee('Housing Societies')->assertSee('Lahore')->assertSee('Pages Test Developers')
         ->assertSee('Legal verification')->assertSee('Approved')->assertSee('Operational status')->assertSee('Operational')
-        ->assertSee('Development progress')->assertSee('95%')->assertSee('Investment score')->assertSee('Data confidence')->assertSee('Risk')
+        ->assertSee('Development progress')->assertSee('95%')->assertSee('Investment Score')->assertSee('Data Confidence')->assertSee('Risk')
         ->assertSee('Verified rental yield')->assertSee('Historical performance')->assertSee('Ranking position')->assertSee('#1')
         ->assertSee('Last verification')->assertSee('Original data sources')->assertSee('Lahore Development Authority')
         ->assertSee('https://lda.gop.pk/approved-schemes#'.$this->a->id, false)->assertSee('Ranking changes')->assertSee('First assessment')

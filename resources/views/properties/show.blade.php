@@ -161,7 +161,7 @@
             </div>
 
             <div class="min-w-0">
-                <div class="flex items-start justify-between gap-3">
+                <div class="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
                     <h1 class="text-2xl leading-tight sm:text-[26px]">{{ $property->title }}</h1>
                     <div class="flex shrink-0 gap-2">
                         @unless ($isPreview)
@@ -420,11 +420,11 @@
         <nav class="mt-10 rounded-xl border border-line bg-white p-5" aria-label="Explore this location">
             <h2 class="text-base font-bold">Explore {{ $property->area?->name ?? $property->city }}</h2>
             <ul class="mt-3 flex flex-wrap gap-2 text-sm">
-                @if ($property->area)<li><a href="{{ route('areas.show', $property->area->slug) }}" class="btn btn-secondary btn-sm">{{ $property->area->name }} area guide</a></li>@endif
-                @if ($categoryUrl)<li><a href="{{ $categoryUrl }}" class="btn btn-secondary btn-sm">{{ $categoryLabel }}{{ $property->area ? ' in '.$property->area->name : ' in '.$property->city }}</a></li>@endif
+                @if ($property->area)<li><a href="{{ route('areas.show', $property->area->slug) }}" class="btn btn-secondary btn-sm max-w-full whitespace-normal">{{ $property->area->name }} area guide</a></li>@endif
+                @if ($categoryUrl)<li><a href="{{ $categoryUrl }}" class="btn btn-secondary btn-sm max-w-full whitespace-normal">{{ $categoryLabel }}{{ $property->area ? ' in '.$property->area->name : ' in '.$property->city }}</a></li>@endif
                 @if ($launchCity)
-                    <li><a href="{{ route('cities.category', [\App\Support\Cities::slug($property->city), $seoCategory]) }}" class="btn btn-secondary btn-sm">{{ $categoryLabel }} in {{ $property->city }}</a></li>
-                    <li><a href="{{ route('cities.show', \App\Support\Cities::slug($property->city)) }}" class="btn btn-secondary btn-sm">Property in {{ $property->city }}</a></li>
+                    <li><a href="{{ route('cities.category', [\App\Support\Cities::slug($property->city), $seoCategory]) }}" class="btn btn-secondary btn-sm max-w-full whitespace-normal">{{ $categoryLabel }} in {{ $property->city }}</a></li>
+                    <li><a href="{{ route('cities.show', \App\Support\Cities::slug($property->city)) }}" class="btn btn-secondary btn-sm max-w-full whitespace-normal">Property in {{ $property->city }}</a></li>
                 @endif
             </ul>
         </nav>

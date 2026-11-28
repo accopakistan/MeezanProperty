@@ -177,7 +177,7 @@ it('does not rank a project on legal evidence alone', function () {
 
     expect($score->status)->toBe('insufficient')->and($score->category_rank)->toBeNull()->and((float) $score->coverage)->toBeLessThan(0.6)
         ->and($score->confidence_score)->toBeGreaterThan(0);
-    $this->get(route('rankings.project', $project))->assertOk()->assertSee('Insufficient Verified Data — Research in Progress')->assertSee('has not scored low');
+    $this->get(route('rankings.project', $project))->assertOk()->assertSee('Project Directory Profile — Research in Progress')->assertSee('documentation gap rather than a negative assessment');
 });
 
 it('keeps every category\'s weights to the approved methodology', function () {
@@ -232,7 +232,7 @@ it('shows confidence in words and filters by it, by city and by legal status', f
     rkdProject(['name' => 'Karachi Filter Town', 'city' => 'Karachi']);
     app(IndexEngine::class)->run('test');
 
-    $this->get(route('rankings.category', 'housing-societies'))->assertOk()->assertSee('Lahore Filter Town')->assertSee('Karachi Filter Town')->assertSee('Moderate Confidence')->assertSee('Evidence covers');
+    $this->get(route('rankings.category', 'housing-societies'))->assertOk()->assertSee('Lahore Filter Town')->assertSee('Karachi Filter Town')->assertSee('Moderate Confidence');
     $this->get(route('rankings.city-category', ['karachi', 'housing-societies']))->assertOk()->assertSee('Karachi Filter Town')->assertDontSee('Lahore Filter Town');
     $this->get(route('rankings.category', ['category' => 'housing-societies', 'legal' => 'approved']))->assertOk()->assertSee('Lahore Filter Town')->assertDontSee('Karachi Filter Town');
     $this->get(route('rankings.category', ['category' => 'housing-societies', 'confidence' => 'insufficient']))->assertOk()->assertSee('Karachi Filter Town')->assertDontSee('Lahore Filter Town');

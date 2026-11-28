@@ -59,6 +59,7 @@
         <env name="OPENAI_API_KEY" value=""/>
         <env name="OPENAI_MODEL" value="gpt-4o-mini"/>
         <env name="ANTHROPIC_API_KEY" value=""/>
+        <env name="GEMINI_API_KEY" value=""/>
         <env name="OPENAI_BASE_URL" value="https://api.openai.com/v1"/>
         <env name="ANTHROPIC_BASE_URL" value="https://api.anthropic.com"/>
         <!-- Agent tasks triggered by model events stay off in tests unless a test turns them on (AgentWorkforceTest). -->

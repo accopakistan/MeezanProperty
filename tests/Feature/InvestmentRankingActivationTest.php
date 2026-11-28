@@ -91,7 +91,7 @@ it('opens all five leaderboards and every city filter, listing researched projec
     actRun();
 
     foreach (IndexBrowser::categories() as $key => $category) {
-        $this->get(route('rankings.category', $key))->assertOk()->assertSee('Listed')->assertSee('Assessed, not ranked');
+        $this->get(route('rankings.category', $key))->assertOk()->assertSee('Listed')->assertSee('Assessed, Awaiting Verified Evidence');
         foreach (Cities::names() as $city) {
             $this->get(route('rankings.city-category', [Cities::slug($city), $key]))->assertOk();
         }
@@ -99,7 +99,7 @@ it('opens all five leaderboards and every city filter, listing researched projec
     foreach (Cities::names() as $city) {
         $this->get(route('rankings.city', Cities::slug($city)))->assertOk()->assertSee('Projects researched');
     }
-    $this->get(route('rankings.index'))->assertOk()->assertSee('Most documented so far, not a ranking')->assertSee('Listed residential_society');
+    $this->get(route('rankings.index'))->assertOk()->assertSee('Not a ranking')->assertSee('Listed residential_society');
     expect($projects->pluck('category')->unique())->toHaveCount(count(IndexEngine::categoryMap()));
 });
 
@@ -191,7 +191,7 @@ it('keeps provisional positions off public pages until the owner turns them on',
 
     AppSetting::put('investment_index.provisional_public', true);
 
-    $this->get(route('rankings.category', 'housing-societies'))->assertOk()->assertSee('Provisional research ranking')->assertSee('Not fully verified, and not an investment recommendation')->assertSee('P1');
+    $this->get(route('rankings.category', 'housing-societies'))->assertOk()->assertSee('Provisional Research Ranking')->assertSee('Not fully verified, and not an investment recommendation')->assertSee('P1');
     $this->get(route('rankings.project', $project))->assertOk()->assertSee('Provisional research position P1')->assertSee('not yet checked');
     $this->get(route('rankings.methodology'))->assertOk()->assertSee('Provisional research position');
 });

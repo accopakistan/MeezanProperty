@@ -76,7 +76,7 @@
         </div>
 
         {{-- Main Two-Column Content Grid --}}
-        <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             {{-- Left Column: Factual Specifications & Research Facts --}}
             <div class="space-y-6">
                 {{-- Available Factual Information --}}
@@ -237,7 +237,7 @@
 
                 {{-- Separate Investment-Ranking Eligibility Status --}}
                 <section class="card p-5 border-2 {{ $rankingEligibility['is_eligible'] ? 'border-emerald-300 bg-emerald-50/40' : 'border-line bg-surface' }}">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 class="text-sm font-bold uppercase tracking-wider text-muted">Investment Index Eligibility</h2>
                         <span class="tag {{ $rankingEligibility['is_eligible'] ? 'bg-emerald-600 text-white' : 'bg-gray-700 text-white' }} text-xs font-semibold">
                             {{ $rankingEligibility['is_eligible'] ? 'Eligible for Ranking' : 'Directory Profile (Unranked)' }}
